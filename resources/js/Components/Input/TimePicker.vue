@@ -1,7 +1,7 @@
 <template>
      <div>
          <label
-             class="text-[12px] text-dark font-krub-medium mb-1 block pre-text-content"
+             class="text-[12px] text-dark font-krub-medium mb-1 block"
              v-if="label"
          >
              {{ label }}
@@ -9,9 +9,9 @@
          </label>
  
          <div
-             class="relative mb-2"
+             class="relative mb-2 time-picker"
              x-data="{input: $el.getAttribute('data-value')}"
-             :data-value="$attrs.value || ''"
+             :data-value="value || ''"
              v-bind:class="{ 'has-error': error }"
          >
              <input
@@ -19,12 +19,8 @@
                  x-model="input"
                  v-bind="$attrs"
                  v-bind:class="name"
-                 placeholder="yyyy-mm-dd"
-                 class="border rounded-lg placeholder:text-[#615e5e] px-4 text-[12px] min-h-[42px] shadow-none outline-none py-2 w-full mb-2"
+                 class="border rounded-lg placeholder:text-[#615e5e] px-4 text-[12px] min-h-[42px] outline-none py-2 w-full mb-2"
              />
-             <i
-                 class="isax icon-calendar-2 absolute right-2 top-3 pointer-events-none"
-             ></i>
              <small
                  v-if="error"
                  class="mt-[-7px] error-text mb-4 block text-[11px]"
@@ -36,46 +32,50 @@
  <script setup lang="ts">
  import flatpickr from "flatpickr";
  import "flatpickr/dist/flatpickr.min.css";
- import { ref } from "vue";
- import { watch, onMounted } from "vue";
+ import { ref, onMounted,watch } from "vue";
  const props = defineProps<{
      name: string;
      default?: string;
      label?: string;
      error?: string;
-     min?: string | Date;
-     max?: string;
+     value?: any;
  }>();
  const emit = defineEmits(["update:modelValue"]);
  
  const datePicker  : any= ref(null);
  onMounted(() => {
      datePicker.value = flatpickr(`.${props.name}`, {
-         dateFormat: "Y-m-d",
+         minuteIncrement : 1,
+         enableTime: true,
+         noCalendar: true,
+         dateFormat: "H:i",
          time_24hr: true,
-         minDate: props.min,
-         maxDate: props.max,
-         defaultDate: props.default,
+         defaultDate: props.value || props.default,
          onChange: (selectedDates, dateStr) => {
              emit("update:modelValue", dateStr);
          },
      });
-     if(props.default){
+     if (!props.value) {
          emit("update:modelValue", props.default);
      }
  });
- 
  watch(
-     () => props.min,
+     () => props.default,
      (min, value) => {
-         datePicker.value.set('minDate', props.min);
+         if(props.default){
+             datePicker.value.set('defaultDate', props.default);
+         }
      }
  );
-
+ 
  watch(
-     () => props.max,
+     () => props.value,
      (min, value) => {
-         datePicker.value.set('maxDate', props.max);
+         if(props.value){
+             datePicker.value.setDate(props.value,"H:i");
+         }else{
+             datePicker.value.setDate('',"H:i");
+         }
      }
  );
  </script>

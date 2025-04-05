@@ -39,8 +39,8 @@ const menus = ref([
     },
     {
         name: "Setup Status Auto Dial",
-        route: "",
-        active: "report.*",
+        route: route('auto-dial.index'),
+        active: "auto-dial.*",
         icon: shallowRef(IconMenuAutoDial),
         enable: true,
         show: true,
