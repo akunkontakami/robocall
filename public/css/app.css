@@ -1,0 +1,69 @@
+@layer base {
+     @font-face {
+          font-family: 'Krub-Bold';
+          src: url(../fonts/Krub/Krub-Bold.ttf);
+     }
+
+     @font-face {
+          font-family: 'Krub-Light';
+          src: url(../fonts/Krub/Krub-Light.ttf);
+     }
+
+     @font-face {
+          font-family: 'Krub-Medium';
+          src: url(../fonts/Krub/Krub-Medium.ttf);
+     }
+
+     @font-face {
+          font-family: 'Krub-Regular';
+          src: url(../fonts/Krub/Krub-Regular.ttf);
+     }
+
+     @font-face {
+          font-family: 'Krub-SemiBold';
+          src: url(../fonts/Krub/Krub-SemiBold.ttf);
+     }
+
+     input[type="number"]::-webkit-inner-spin-button,
+     input[type="number"]::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+     }
+}
+
+.bg-auth{
+     /* background-image: url('../img/bg-auth.webp'); */
+     background-image: url('../img/auth-background.png');
+     background-position: center;
+     background-size: cover;
+     background-repeat: no-repeat;
+}
+input[type="checkbox"] {
+     height: 0px;
+     width: 17px;
+     position: relative;
+     border: none !important;
+     box-shadow: none !important;
+}
+
+input[type="checkbox"]::after {
+     content: ' ';
+     border-radius: 5px;
+     width: 17px;
+     height: 17px;
+     position: absolute;
+     border: 1.7px solid #e5e7eb;
+     background: #fff;
+}
+input[type="checkbox"]:checked::after {
+     background: #3943B7;
+     border-color: #3943B7;
+     background-position: center;
+     background-size: cover;
+     background-image: url('../img/checkbox.svg');
+}
+
+input[type="checkbox"]:checked:disabled::after {
+     background-image: url('../img/checkbox-disabled.svg');
+     border-color: #CDCFD0;
+}

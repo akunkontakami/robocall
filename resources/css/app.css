@@ -1,0 +1,284 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+::-webkit-scrollbar {
+    -webkit-appearance: none;
+    width: 7px;
+    height: 7px;
+}
+
+::-webkit-scrollbar-thumb {
+    border-radius: 7px;
+    background-color: #606060;
+    -webkit-box-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
+}
+#app {
+    height: 100%;
+}
+.shadow-none {
+    box-shadow: none !important;
+}
+.outline-none {
+    outline: none !important;
+}
+input,
+textarea,
+select {
+    border-color: #e5e7eb !important;
+}
+
+
+.main-sidebar,
+.app-wrapper {
+     transition: 0.5s;
+}
+
+body.sidebar-collapse .main-sidebar {
+     /* margin-left: -190px; */
+     width: 70px;
+}
+
+.main-sidebar nav .nav-item.has-submenu.show .nav-parent::after {
+     content: "\ebe7";
+}
+
+body.sidebar-collapse .app-wrapper {
+     padding-left: 70px;
+}
+
+body.sidebar-collapse .main-sidebar nav .nav-item.has-submenu .nav-parent::after {
+     content: '';
+}
+
+body.sidebar-collapse .main-sidebar nav .nav-item.has-submenu .nav-parent {
+     display: flex;
+     justify-content: center;
+     align-items: center;
+}
+
+body.sidebar-collapse .main-sidebar nav .nav-item {
+     position: relative;
+     width: 100%;
+}
+
+body.sidebar-collapse .main-sidebar nav .nav-item a {
+     display: flex;
+     justify-content: center;
+     padding: 5px;
+     height: 35px;
+}
+
+body.sidebar-collapse .main-sidebar nav.main-nav {
+     overflow: inherit;
+}
+
+body.sidebar-collapse .main-sidebar nav .nav-item .menu-name {
+     display: none;
+     height: 35px;
+}
+
+body.sidebar-collapse .submenu.collapse.show {
+     visibility: hidden;
+     height: 0;
+     margin-top: 0px;
+}
+
+body.sidebar-collapse .main-sidebar nav .nav-item:hover .menu-name {
+     display: block;
+     position: absolute;
+     left: 33px;
+     top: 0px;
+     background: #3943B7;
+     padding: 10px;
+     white-space: nowrap;
+     border-left: 0;
+     border-radius: 10px;
+     width: 175px;
+     padding-left: 35px;
+     border-right: 1px solid #e5e7eb;
+     color: white;
+}
+
+body.sidebar-collapse .main-sidebar nav .nav-item .submenu li a {
+     font-size: 11px;
+     padding: 6px 7px;
+}
+
+body.sidebar-collapse .main-sidebar nav .nav-item:hover .submenu {
+     height: fit-content;
+     position: absolute;
+     background: #fff;
+     left: 34px;
+     visibility: visible;
+     width: 175px;
+     top: 33px;
+     border-bottom-right-radius: 10px;
+     padding-left: 34px;
+     padding-bottom: 13px;
+     padding-right: 10px;
+     padding-top: 6px;
+     border-right: 1px solid #e5e7eb
+}
+
+body.sidebar-collapse .main-sidebar nav .menu-list {
+     display: flex;
+     flex-direction: column;
+     justify-content: center;
+     align-items: center;
+}
+
+.main-sidebar nav .nav-item.has-submenu .nav-parent {
+     position: relative;
+}
+
+.main-sidebar nav .nav-item.has-submenu .nav-parent::after {
+     font-family: "iconsax-outline" !important;
+     content: "\e924";
+     right: 0;
+     position: absolute;
+     font-size: 10px;
+}
+
+.submenu.collapse {
+     visibility: hidden;
+     height: 0;
+     margin-top: 0px;
+}
+
+.submenu.collapse.show {
+     visibility: unset;
+     height: unset;
+     margin-top: 10px;
+}
+
+.main-sidebar nav .nav-item.has-submenu .submenu {
+     padding-left: 7px;
+     padding-right: 0;
+}
+
+.main-sidebar nav .nav-item.has-submenu .submenu li {
+     border-left: 1px solid #CFCFCF;
+     font-size: 12px;
+}
+
+.main-sidebar nav .nav-item.has-submenu .submenu li a {
+     padding: 8px 9px;
+     display: block;
+     margin-left: 10px;
+}
+
+.main-sidebar nav .nav-item.has-submenu .submenu li a:hover {
+     color: #3943B7;
+}
+body.sidebar-collapse .nav-item.active .nav-link{
+     background-color: #3943B7;
+     border-radius: 5px;
+     padding: 10px;
+}
+body.sidebar-collapse .nav-item:hover .nav-parent{
+     background-color: #3943B7;
+     border-radius: 5px;
+     /* padding: 10px; */
+     height: 35px;
+}
+body.sidebar-collapse .nav-item:hover .nav-parent svg{
+     fill: white !important;
+}
+body.sidebar-collapse .nav-item:hover .nav-parent i{
+     color: white !important;
+}
+body.sidebar-collapse .nav-item.active .nav-link.active{
+     background-color: #3943B7 !important;
+     color: white !important;
+}
+body.sidebar-collapse .nav-item.active .nav-link svg{
+     fill: #fff !important;
+}
+.nav-item.active .nav-parent {
+     color: #3943B7;
+}
+
+.nav-item .nav-parent:hover {
+     color: #3943B7;
+}
+
+.nav-item .nav-parent:hover svg {
+     fill: #3943B7 !important;
+}
+
+.nav-item .nav-parent:hover i {
+     color: #3943B7 !important;
+}
+
+.nav-item.active .nav-parent svg {
+     fill: #3943B7 !important;
+}
+
+.nav-item.active .nav-parent i {
+     color: #3943B7 !important;
+}
+
+.nav-item .nav-parent svg {
+     fill: #787575;
+     width: 17px !important;
+}
+.bottom-navigation .nav-item .nav-parent svg{
+     width: 20px !important;
+     height: 20px !important;
+}
+
+.nav-item.active .submenu .active {
+     background-color: #3943B7;
+     color: #fff !important;
+     border-radius: 6px;
+}
+
+.nav-item .nav-parent[disabled="true"] {
+     color: #ddd;
+     cursor: not-allowed !important;
+}
+
+.nav-item .nav-parent[disabled="true"] i {
+     color: #ddd !important;
+}
+
+.nav-item .nav-parent[disabled="true"] svg {
+     fill: #ddd !important;
+}
+
+.main-sidebar nav .nav-item.has-submenu .submenu li a[disabled="true"] {
+     color: #ddd !important;
+     cursor: not-allowed !important;
+}
+
+.table-action thead tr th:last-child{
+     text-align: end;
+}
+.has-error input,.has-error select ,.has-error textarea{
+     border-color: red !important;
+}
+.has-error .error-text{
+     color: red !important;
+     white-space: pre-wrap;
+     white-space: -moz-pre-wrap;
+     white-space: -pre-wrap;
+     white-space: -o-pre-wrap;
+     word-wrap: break-word;
+}
+.paginate-notification{
+     background-color: transparent !important;
+     padding-left: 0px !important;
+     padding-right: 0px !important;
+}
+
+.pre-text-content{
+     white-space: pre-wrap;
+     white-space: -moz-pre-wrap;
+     white-space: -pre-wrap;
+     white-space: -o-pre-wrap;
+     word-wrap: break-word;
+}
+textarea.border-red{
+     border-color: #FF0000 !important;
+}
