@@ -4,9 +4,10 @@
         <div class="overflow-auto border rounded-xl table-main main-datatable">
             <table class="border-collapse table-auto w-full text-sm">
                 <thead>
-                    <tr class="bg-[#F4F6FA]">
+                    <tr class="bg-[#F4F6FA]" v-if="!hideTh">
                         <Th v-for="col in columns">{{ col }}</Th>
                     </tr>
+                    <slot name="thead" />
                 </thead>
                 <slot name="tbody" />
                 <tbody class="bg-white">
@@ -69,6 +70,7 @@ defineProps<{
     columns: Array<any>;
     checked?: any;
     paginate?: any;
+    hideTh?: boolean
 }>();
 
 const checkAll = (event: any) => {

@@ -34,13 +34,13 @@
             x-ref="multipleSelectDropdown"
         >
             <span
-                class="border px-2 items-center flex rounded-md bg-[#ddd] text-[10px] h-[20px]"
+                class="border px-2 items-center flex rounded bg-[#F4F6FA] text-[10px] h-[20px] text-[#0E0F0F] font-krub-medium"
                 x-on:click="itemsDropdownOpen=false"
                 v-for="item in (selected as any)"
             >
                 {{ item.value }}
                 <i
-                    class="isax icon-close-circle ms-3 cursor-pointer"
+                    class="isax icon-close-circle ms-3 cursor-pointer text-xs"
                     @click="removeItem(item.id)"
                 ></i>
             </span>

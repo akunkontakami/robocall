@@ -24,6 +24,8 @@ export default {
                 offline : '#FE4C4C',
                 success : '#029E2D',
                 blue : '#3AA0FF',
+                "dark-blue": '#424EA1',
+                green: '#00982B'
             },
             fontFamily: {
                 "krub-bold": "Krub-Bold",
