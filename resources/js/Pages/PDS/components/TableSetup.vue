@@ -161,12 +161,25 @@ const showStart = (row: any) => {
 
 
 const actionDelete = () => {
-    paginate.fetchData()
-    showPopupDelete.value = false
+    if (!form.processing) {
+        form.post(route('pds.setup.delete'), {
+            onError: () => {
+                showPopupDelete.value = false
 
-    setTimeout(() => {
-        showPopupDelete.value = true
-    }, 100);
+                setTimeout(() => {
+                    showPopupDelete.value = true
+                }, 100);
+            },
+            onSuccess: () => {
+                paginate.fetchData()
+                showPopupDelete.value = false
+
+                setTimeout(() => {
+                    showPopupDelete.value = true
+                }, 100);
+            }
+        })
+    }
 }
 
 const showDelete = (row: any) => {

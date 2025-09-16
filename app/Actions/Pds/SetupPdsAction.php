@@ -185,4 +185,60 @@ class SetupPdsAction
         });
     }
 
+
+    public function delete(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:pds,id'
+        ]);
+
+        $user = user();
+
+        return DB::transaction(function () use ($request, $user) {
+            $pds = Pds::where("id", $request->id)->first();
+
+            $dialer = Dialer::post("/campaign-dialer/releaseCustomerPDS", [
+                'tenant_id' => $pds->tenant_id,
+                'campaign_id' => $pds->pds_name
+            ]);
+
+            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                $errorMessage = $dialer['errors'];
+
+                throw new BadRequestException($errorMessage);
+                return;
+            }
+
+            $dialer = Dialer::post("/campaign-dialer/release-agent", [
+                'tenant_id' => $pds->tenant_id,
+                'campaign_id' => $pds->pds_name
+            ]);
+
+            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                $errorMessage = $dialer['errors'];
+
+                throw new BadRequestException($errorMessage);
+                return;
+            }
+
+            $dialer = Dialer::post("/campaign-dialer/unsetup-pds", [
+                'tenant_id' => $pds->tenant_id,
+                'campaign_id' => $pds->pds_name
+            ]);
+
+            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                $errorMessage = $dialer['errors'];
+
+                throw new BadRequestException($errorMessage);
+                return;
+            }
+
+            $pds->delete();
+
+            return [
+                'pds' => $pds,
+                'dialer_response' => $dialer,
+            ];
+        });
+    }
 }

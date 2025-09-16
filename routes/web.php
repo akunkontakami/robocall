@@ -22,7 +22,8 @@ Route::middleware(['app-auth'])
         Route::get('/pds/setup', [SetupPdsController::class, 'index'])->name('pds.setup');
         Route::post('/pds/setup/store', [SetupPdsController::class, 'store'])->name('pds.setup.store');
         Route::post('/pds/setup/start', [SetupPdsController::class, 'start'])->name('pds.setup.start');
-        Route::post('/pds/setup/stop', [SetupPdsController::class, 'stop'])->name('pds.setup.stop');
+        Route::post('/pds/setup/start', [SetupPdsController::class, 'start'])->name('pds.setup.start');
+        Route::post('/pds/setup/delete', [SetupPdsController::class, 'delete'])->name('pds.setup.delete');
         Route::get('/pds/setup/datatable', [SetupPdsController::class, 'datatable'])->name('pds.setup.datatable');
 
         Route::inertia('/pds/monitoring', 'Pds/Monitoring')->name('pds.monitoring');

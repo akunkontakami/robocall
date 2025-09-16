@@ -66,4 +66,15 @@ class SetupPdsController extends Controller
             return back()->with(['error' => $e->getMessage()]);
         }
     }
+
+    public function delete(Request $request, SetupPdsAction $action)
+    {
+        try {
+            $action->delete($request);
+
+            return to_route('pds.setup')->with('success', 'Successfully delete PDS');
+        } catch (BadRequestException $e) {
+            return back()->with(['error' => $e->getMessage()]);
+        }
+    }
 }
