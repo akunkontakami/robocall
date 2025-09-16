@@ -1,140 +1,99 @@
 <template>
     <AppLayout title="PDS Detail" header="PDS Detail" :headerBackUrl="route('pds.setup')">
         <template v-slot:tab>
-            <TabMenu tab="detail" />
+            <TabMenu tab="detail" :id="id" />
         </template>
         <form action="">
-            <div class="bg-white max-w-3xl p-4 mx-auto min-h-[90vh]">
-                <Input
-                    type="text"
-                    placeholder="Enter PDS Code"
-                    label="PDS Code"
-                    id="code"
-                    name="code"
-                    required
-                    maxlength="250"
-                    v-model="form.code"
-                    :hide-length="true"
-                    :error="form.errors.code"
-                />
-                <Input
-                    type="text"
-                    placeholder="Enter PDS Name"
-                    label="PDS Name"
-                    id="name"
-                    name="name"
-                    required
-                    maxlength="250"
-                    :hide-length="true"
-                    v-model="form.name"
-                    :error="form.errors.name"
-                />
-                <MultipleSelect
-                    label="SPV"
-                    id="spv"
-                    v-model="form.spv"
-                    :items="callPreferences"
-                    :error="form.errors.spv"
-                    placeholder="Select SPV"
-                />
-                <MultipleSelect
-                    label="Call Preference"
-                    id="call_preferences"
-                    v-model="form.call_preferences"
-                    :items="callPreferences"
-                    :error="form.errors.call_preferences"
-                    placeholder="Select Call Preference"
-                />
-                <label
-                    for="call_limit"
-                    class="text-[12px] text-dark font-krub-medium mb-1 block pre-text-content"
-                    v-bind:class="{
-                        'text-red': form.errors.call_limit,
-                    }"
-                >
-                    Call Limit
-                    <p class="mb-1 font-krub-light text-[#3F4254]"><span class="text-red">*</span> Maximum Call Limit [value jumlah license yg dibeli]</p>
-                </label>
-                <Input
-                    type="number"
-                    placeholder="Enter Call Limit"
-                    id="call_limit"
-                    name="call_limit"
-                    required
-                    maxlength="30"
-                    v-model="form.call_limit"
-                    :hide-length="true"
-                    :error="form.errors.call_limit"
-                />
-                <Input
-                    type="number"
-                    placeholder="Enter Concurrent Call"
-                    label="Concurrent Call"
-                    id="concurrent_call"
-                    name="concurrent_call"
-                    required
-                    maxlength="30"
-                    v-model="form.concurrent_call"
-                    :hide-length="true"
-                    :error="form.errors.concurrent_call"
-                />
-                <Input
-                    type="number"
-                    placeholder="Enter Call Wait (in second)"
-                    label="Call Wait (in second)"
-                    id="call_wait"
-                    name="call_wait"
-                    required
-                    maxlength="30"
-                    v-model="form.call_wait"
-                    :hide-length="true"
-                    :error="form.errors.call_wait"
-                />
-                <Input
-                    type="number"
-                    placeholder="Enter Call Retry After (in second)"
-                    label="Call Retry After (in second)"
-                    id="call_retry"
-                    name="call_retry"
-                    required
-                    maxlength="30"
-                    v-model="form.call_retry"
-                    :hide-length="true"
-                    :error="form.errors.call_retry"
-                />
-                <Input
-                    type="number"
-                    placeholder="Enter Call Retry Max"
-                    label="Call Retry Max"
-                    id="max_call_retry"
-                    name="max_call_retry"
-                    required
-                    maxlength="30"
-                    v-model="form.max_call_retry"
-                    :hide-length="true"
-                    :error="form.errors.max_call_retry"
-                />
-                <Input
-                    type="number"
-                    placeholder="Enter Max Abandon Rate"
-                    label="Max Abandon Rate"
-                    id="max_abandon_rate"
-                    name="max_abandon_rate"
-                    required
-                    maxlength="30"
-                    v-model="form.max_abandon_rate"
-                    :hide-length="true"
-                    help="example : 0.1, 0.2 etc"
-                    :error="form.errors.max_abandon_rate"
-                    step="0.1"
-                />
+            <div class="min-h-[83vh]">
+                <div class="bg-white max-w-3xl p-4 mx-auto">
+                    <Input
+                        type="text"
+                        placeholder="Enter Tenant Id"
+                        label="Tenant Id"
+                        required
+                        :value="$page.props.auth.user.tenant_id"
+                        :disabled="true"
+                        class="!bg-[#F3F3F3]"
+                    />
+                    <Input
+                        type="text"
+                        placeholder="Enter PDS Name"
+                        label="PDS Name"
+                        id="name"
+                        name="name"
+                        required
+                        maxlength="250"
+                        :hide-length="true"
+                        v-model="form.name"
+                        :value="form.name"
+                        :error="form.errors.name"
+                        :disabled="true"
+                        class="!bg-[#F3F3F3]"
+                    />
+                    <SelectSearch
+                        placeholder="Enter Trunk"
+                        label="Trunk"
+                        id="trunk"
+                        name="trunk"
+                        required
+                        v-model="form.trunk"
+                        :value="form.trunk"
+                        :error="form.errors.trunk"
+                        :items="routes"
+                        :disabled="true"
+                    />
+                    <SelectSearch
+                        placeholder="Enter IVR"
+                        label="IVR"
+                        id="ivr"
+                        name="ivr"
+                        required
+                        v-model="form.ivr"
+                        :value="form.ivr"
+                        :error="form.errors.ivr"
+                        :items="ivr"
+                        :disabled="true"
+                    />
+                    <SelectSearch
+                        label="Marketing Campaign"
+                        id="marketing_campaign"
+                        v-model="form.marketing_campaign"
+                        :value="form.marketing_campaign"
+                        :items="campaigns"
+                        :error="form.errors.marketing_campaign"
+                        placeholder="Select Marketing Campaign"
+                        :disabled="data.spv_id"
+                    />
+                    <SelectSearch
+                        label="SPV"
+                        id="spv"
+                        v-model="form.spv"
+                        :value="form.spv"
+                        v-bind:items="spvUsers"
+                        :error="form.errors.spv"
+                        placeholder="Select SPV"
+                        :disabled="data.spv_id"
+                    />
+                </div>
             </div>
             <div class="py-6 mt-2 border-t bg-white -ms-4 -me-4 -mb-3">
                 <div class="max-w-3xl flex justify-end gap-3 mx-auto">
                     <ButtonOutlineGrey type="button" x-on:click="formPopup=false" class="w-[120px]">
                         Cancel
                     </ButtonOutlineGrey>
-                    <ButtonYellow type="submit" class="w-[120px]"> Submit </ButtonYellow>
+                    <ButtonYellow
+                        type="submit" class="w-[120px]"
+                        :disabled="
+                            form.processing ||
+                            (
+                                !data.spv_id && (
+                                    !form.marketing_campaign ||
+                                    !form.spv
+                                )
+                            ) || data.spv_id
+                        "
+                        :loading="form.processing"
+                    > Submit </ButtonYellow>
                 </div>
             </div>
         </form>
@@ -147,34 +106,63 @@ import Input from "@/Components/Input/Index.vue";
 import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
 import ButtonOutlineGrey from "@/Components/Button/ButtonOutlineGrey.vue";
 import { useForm } from "@inertiajs/vue3";
-import MultipleSelect from "@/Components/Input/Select/MultipleSelect.vue";
+import SelectSearch from "@/Components/Input/Select/SelectSearch.vue";
 import TabMenu from "./components/TabMenu.vue";
+import { onBeforeMount, onMounted, ref, watch } from "vue";
+
+const props = defineProps(["campaigns", "ivr", "routes", "data", "id"])
 
 const form = useForm({
-    code: "",
-    name: "",
-    concurrent_call: 0,
-    call_limit: 0,
-    call_wait: 0,
-    call_retry: 0,
-    max_call_retry: 0,
-    max_abandon_rate: 0,
-    call_preferences: [],
-    spv: []
+    name: props.data.pds_name,
+    trunk: props.data.route,
+    ivr: props.data.ivr,
+    marketing_campaign: props.data.marketing_campaign_id,
+    spv: props.data.spv_id
 });
 
-const callPreferences = [
-    {
-        id: 'Mobile Phone',
-        value: 'Mobile Phone',
-    },
-    {
-        id: 'Phone Number 1',
-        value: 'Phone Number 1',
-    },
-    {
-        id: 'Phone Number 2',
-        value: 'Phone Number 2',
-    },
-]
+const spvUsers = ref([])
+
+
+const submit = () => {
+    if (!form.processing) {
+        form.post(route("pds.setup.store"), {
+            onSuccess: () => {
+                window.location.reload()
+            }
+        });
+    }
+};
+
+watch(
+    () => form.marketing_campaign,
+    (newCampaignId) => {
+        const campaign = props.campaigns.find((c: any) => c.value === newCampaignId);
+
+        if (campaign) {
+            spvUsers.value = campaign.spv.map((s: any) => ({
+                value: s.user_id,
+                label: s.company_user?.name,
+            }));
+        } else {
+            spvUsers.value = [];
+            form.spv = "";
+        }
+    }
+);
+
+onBeforeMount(() => {
+    if (props.data.marketing_campaign_id) {
+        const campaign = props.campaigns.find((c: any) => c.value === props.data.marketing_campaign_id);
+
+        if (campaign) {
+            spvUsers.value = campaign.spv.map((s: any) => ({
+                value: s.user_id,
+                label: s.company_user?.name,
+            }));
+        } else {
+            spvUsers.value = [];
+            form.spv = "";
+        }
+    }
+})
 </script>

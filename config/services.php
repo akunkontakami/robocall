@@ -42,4 +42,8 @@ return [
         'token' => env('SOCKET_BROADCAST_TOKEN'),
     ],
 
+    'dialer' => [
+        'email' => 'aks@example.com',
+        'password' => 'password'
+    ]
 ];

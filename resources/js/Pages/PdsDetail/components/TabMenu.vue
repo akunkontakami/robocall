@@ -17,25 +17,25 @@
 
 <script lang="ts" setup>
 import { Link } from "@inertiajs/vue3";
-defineProps(["tab"]);
+const props = defineProps(["tab", "id"]);
 
 const menus = [
     {
         key: "detail",
         name: "PDS Detail",
-        url: route('pds.detail', 1),
+        url: route('pds.detail', props.id),
         show: true,
     },
     {
         key: "campaign",
         name: "Choose Campaign",
-        url: route('pds.detail.campaign', 1),
+        url: route('pds.detail.campaign', props.id),
         show: true,
     },
     {
         key: "spv-agent",
         name: "Detail Spv/Agent",
-        url: route('pds.detail.spv-agent', 1),
+        url: route('pds.detail.spv-agent', props.id),
         show: true,
     }
 ];

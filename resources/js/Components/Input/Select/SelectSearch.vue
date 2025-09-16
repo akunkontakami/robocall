@@ -15,12 +15,13 @@
             class="flex items-center justify-between border bg-white rounded-lg text-[12px] px-4 py-3 cursor-pointer"
             v-bind:class="{
                 'border-red': error,
+                '!bg-[#F3F3F3] !cursor-default': disabled
             }"
             x-on:click="selectOpen=!selectOpen"
             x-ref="selectContainer"
         >
             <span class="pre-text-content max-w-[95%]"> {{ selected || placeholder }}</span>
-            <i class="isax icon-arrow-down-1"></i>
+            <i class="isax icon-arrow-down-1" v-if="!disabled"></i>
         </div>
         <div
             class="bg-white border rounded-lg absolute w-full max-h-60 p-2 flex flex-col z-10 mb-2 mt-1"
@@ -30,6 +31,7 @@
             x-show="selectOpen"
             x-on:click.away="selectOpen = false"
             x-anchor.bottom="$refs.selectContainer"
+            v-if="!disabled"
         >
             <div>
                 <input
@@ -77,6 +79,7 @@ const props = defineProps([
     "placeholder",
     "items",
     "value",
+    "disabled"
 ]);
 
 const search = ref("");
@@ -90,13 +93,13 @@ const choose = (item: any) => {
 };
 
 const setSelected = () => {
-     const selectedValue = props.value
-     if(selectedValue){
-          const item = itemsList.value.find((row:any)=>row.value==selectedValue)
-          selected.value = item?.label
-     }else{
-        selected.value = ""
-     }
+    const selectedValue = props.value
+    if(selectedValue){
+        const item = itemsList.value.find((row:any)=>row.value==selectedValue)
+        selected.value = item?.label
+    }else{
+    selected.value = ""
+    }
 };
 
 watch(

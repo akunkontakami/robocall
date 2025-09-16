@@ -282,3 +282,23 @@ body.sidebar-collapse .nav-item.active .nav-link svg{
 textarea.border-red{
      border-color: #FF0000 !important;
 }
+
+.timeline-line-v::before {
+     content: '';
+     position: absolute;
+     left: 0;
+     top: 0;
+     height: 100%;
+     width: 1px;
+     background-color: #181C32;
+}
+
+.timeline:last-of-type .timeline-line-v::before {
+     content: '';
+     position: absolute;
+     left: 0;
+     top: 0;
+     height: 70%;
+     width: 1px;
+     background-color: #181C32;
+}

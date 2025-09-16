@@ -1,7 +1,7 @@
 <template>
     <AppLayout title="PDS Detail" header="PDS Detail" :headerBackUrl="route('pds.setup')">
         <template v-slot:tab>
-            <TabMenu tab="spv-agent" />
+            <TabMenu tab="spv-agent" :id="id" />
         </template>
 
 
@@ -34,7 +34,7 @@
                         :style="{ paddingLeft: `${item.name.length * 14}px` }"
                         v-for="agent in item.agents"
                     >
-                        {{ agent.name }}
+                        {{ agent.company_user?.name }}
                     </div>
                 </div>
             </div>
@@ -48,19 +48,12 @@ import TabMenu from "./components/TabMenu.vue";
 import { ref } from "vue";
 import IconArrowUp from "@/Components/Icon/Etc/IconArrowUp.vue";
 
-const data = ref([
+const props = defineProps(["id", "data"])
+
+const data = ref<any>([
     {
-        name: 'Spv 1',
-        agents: []
-    },
-    {
-        name: 'Spv 2',
-        agents: [
-            {name: 'Lydia Vetrovs'},
-            {name: 'Lindsey Aminoff'},
-            {name: 'Gustavo Siphron'},
-            {name: 'Paityn Saris'},
-        ]
+        name: props.data.spv?.company_user?.name,
+        agents: props.data.agents
     }
 ])
 </script>
