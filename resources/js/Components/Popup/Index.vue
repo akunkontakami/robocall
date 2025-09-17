@@ -25,7 +25,7 @@
             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             class="relative w-full max-h-[95%] pt-4 bg-white sm:rounded-lg"
-            v-bind:class="class"
+            v-bind:class="className"
         >
             <div
                 class="flex items-center justify-between pb-2 font-krub-semibold text-[16px] px-6"
@@ -44,8 +44,11 @@
     </div>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import ClosePopup from "@/Components/Icon/Etc/IconClosePopup.vue";
+const { title, 'class': className } = defineProps<{
+    title?: string;
+    'class'?: string | string[] | Record<string, boolean>;
+}>();
 
-defineProps(["title", "class"]);
 </script>

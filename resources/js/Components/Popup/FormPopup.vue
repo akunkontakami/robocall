@@ -25,7 +25,7 @@
             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             class="relative w-full max-h-[95%] pt-4 bg-white sm:rounded-lg md:max-w-lg"
-            v-bind:class="class"
+            v-bind:class="className"
         >
             <div
                 class="flex items-center justify-between pb-2 font-krub-semibold text-[16px] px-6 border-b"
@@ -42,7 +42,7 @@
             <div
                 class="max-h-[90vh] sm:rounded-lg px-6 py-3 pb-6"
                 x-bind:class="{'overflow-auto':!formPopup}"
-                v-bind:class="class"
+                v-bind:class="className"
             >
                 <slot />
             </div>
@@ -50,7 +50,12 @@
     </div>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import ClosePopup from "../Icon/Etc/IconClosePopup.vue";
-defineProps(["title", "reset", "class"]);
+const { title, reset, 'class': className } = defineProps<{
+    title?: string;
+    reset?: any;
+    'class'?: string | string[] | Record<string, boolean>;
+}>();
+
 </script>
