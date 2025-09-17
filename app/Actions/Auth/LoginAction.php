@@ -54,7 +54,7 @@ class LoginAction
                 'id' => $companyId,
                 'name' => $companyName
             ],
-            'tenant_id' => $companyAccount->company->tenant_id
+            'tenant_id' => $companyId
         ];
 
         session()->put(config('services.session-user-prefix'), (object) $sessionObject);
