@@ -23,7 +23,7 @@
                     </div>
 
                     <h1 class="text-dark text-[25px] font-krub-bold mb-5">
-                        Login PDS - Kontakami
+                        Login Dialer - Kontakami
                     </h1>
                     <Select
                         v-model="form.role"
