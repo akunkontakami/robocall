@@ -44,10 +44,8 @@
     </div>
 </template>
 
-<script lang="ts" setup>
+<script setup>
 import ClosePopup from "@/Components/Icon/Etc/IconClosePopup.vue";
-defineProps<{
-    title?: string;
-    class?: string;
-}>();
+
+defineProps(["title", "class"]);
 </script>
