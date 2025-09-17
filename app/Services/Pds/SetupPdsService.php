@@ -27,7 +27,7 @@ class SetupPdsService
 
     public function find($companyId, $id, $all = [0, 1])
     {
-        return Pds::with(["campaign", "spv", "spv.companyUser", "agents", "agents.companyUser"])
+        return Pds::with(["campaign", "spv", "spv.companyUser", "agents", "agents.companyUser", "customers"])
         ->where("company_id", $companyId)
         ->whereIn("is_running", $all)
         ->where("id", $id)

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->uuid('company_id');
             $table->uuid("pds_id");
-            $table->uuid("customer_id");
+            $table->uuid("customer_id")->nullable();
             $table->string("phone")->nullable();
             $table->timestamps();
 

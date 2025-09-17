@@ -3,7 +3,7 @@
         <template v-slot:tab>
             <TabMenu tab="campaign" :id="id" />
         </template>
-        <form action="">
+        <form @submit.prevent="submit">
             <div class="bg-white max-w-3xl p-4 mx-auto">
                 <Input
                     type="text"
@@ -28,9 +28,14 @@
                     :items="statuses"
                     :error="form.errors.status"
                     placeholder="Select Status"
+                    v-if="!data.customers.length"
                 />
 
-                <ButtonYellow type="submit" class="w-[120px]"> Submit </ButtonYellow>
+                <ButtonYellow
+                    type="submit" class="w-[120px] mt-10" v-if="!data.customers.length"
+                    :disabled="form.processing || !form.status.length"
+                    :loading="form.processing"
+                > Submit </ButtonYellow>
             </div>
         </form>
     </AppLayout>
@@ -45,11 +50,21 @@ import { useForm } from "@inertiajs/vue3";
 import MultipleSelect from "@/Components/Input/Select/MultipleSelect.vue";
 import TabMenu from "./components/TabMenu.vue";
 
-defineProps(["id", "data", "statuses"])
+const props = defineProps(["id", "data", "statuses"])
 
 const form = useForm({
     campaign: '',
     status: [],
-});
+})
+
+const submit = () => {
+    if (!form.processing) {
+        form.post(route("pds.detail.assign", props.id), {
+            onSuccess: () => {
+                window.location.reload()
+            }
+        });
+    }
+}
 
 </script>

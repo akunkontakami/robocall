@@ -5,9 +5,11 @@ namespace App\Actions\Pds;
 use App\Helpers\Dialer;
 use App\Models\Pds\Pds;
 use Illuminate\Support\Str;
+use App\Models\Pds\PdsAgent;
 use Illuminate\Http\Request;
 use App\Models\Pds\PdsCustomer;
 use Illuminate\Support\Facades\DB;
+use App\Services\Data\TicketService;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
@@ -25,7 +27,8 @@ class SetupPdsAction
     {
         $request->validate([
             'name' => 'required|unique:pds,pds_name',
-            'trunk' => 'required|unique:pds,route',
+            // 'trunk' => 'required|unique:pds,route',
+            'trunk' => 'required',
             'ivr' => 'required|unique:pds,ivr'
         ]);
 
@@ -97,7 +100,14 @@ class SetupPdsAction
             throw ValidationException::withMessages([
                 'call_factor' => 'Please upload customer data before starting'
             ]);
+        }
 
+        $agents = PdsAgent::where("pds_id", $request->id)->count();
+
+        if ($agents == 0) {
+            throw ValidationException::withMessages([
+                'call_factor' => 'Please assign agent before starting'
+            ]);
         }
 
         $user = user();
@@ -239,6 +249,82 @@ class SetupPdsAction
                 'pds' => $pds,
                 'dialer_response' => $dialer,
             ];
+        });
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'marketing_campaign' => 'required',
+            'spv' => 'required'
+        ]);
+
+        $user = user();
+
+        return DB::transaction(function () use ($request, $user, $id) {
+            $pds = Pds::where("id", $id)->first();
+            $pds->update([
+                'marketing_campaign_id' => $request->marketing_campaign,
+                'spv_id' => $request->spv,
+            ]);
+        });
+    }
+
+    public function assign(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required'
+        ]);
+
+        $user = user();
+
+        return DB::transaction(function () use ($request, $user, $id) {
+            $pds = Pds::where("id", $id)->first();
+            $customers = (new TicketService())->getCustByTicket($user->company_id, $pds->marketing_campaign_id, $pds->spv_id, $request->status);
+
+            foreach ($customers as $key => $value) {
+                PdsCustomer::create([
+                    'company_id' => $user->company_id,
+                    'pds_id' => $pds->id,
+                    'customer_id' => $value['customer_id'],
+                    'phone' => $value['phone']
+                ]);
+            }
+
+            $dialer = Dialer::post("/campaign-dialer/uploadJsonPDS", [
+                'tenant_id' => $pds->tenant_id,
+                'campaign_id' => $pds->pds_name,
+                "data" => $customers
+            ]);
+
+            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                $errorMessage = $dialer['errors'];
+
+                throw new BadRequestException($errorMessage);
+                return;
+            }
+        });
+    }
+
+    public function release(Request $request, $id)
+    {
+        $user = user();
+
+        return DB::transaction(function () use ($request, $user, $id) {
+            $pds = Pds::where("id", $id)->first();
+            PdsCustomer::where("pds_id", $pds->id)->where("company_id", $user->company_id)->delete();
+
+            $dialer = Dialer::post("/campaign-dialer/releaseCustomerPDS", [
+                'tenant_id' => $pds->tenant_id,
+                'campaign_id' => $pds->pds_name
+            ]);
+
+            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                $errorMessage = $dialer['errors'];
+
+                throw new BadRequestException($errorMessage);
+                return;
+            }
         });
     }
 }

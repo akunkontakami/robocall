@@ -43,7 +43,8 @@ return [
     ],
 
     'dialer' => [
-        'email' => 'aks@example.com',
-        'password' => 'password'
+        'email' => env("DIALER_EMAIL"),
+        'password' => env("DIALER_PASSWORD"),
+        'api' => env("DIALER_API_URL")
     ]
 ];

@@ -12,4 +12,9 @@ class Ticket extends Model
     protected $table = 'tickets';
     protected $guarded = [];
 
+    public function dataBucket()
+    {
+        return $this->hasOne(OutboundDataUploadBucket::class, 'outbound_data_upload_id', 'outbound_data_upload_id');
+    }
+
 }

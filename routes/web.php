@@ -24,12 +24,16 @@ Route::middleware(['app-auth'])
         Route::post('/pds/setup/start', [SetupPdsController::class, 'start'])->name('pds.setup.start');
         Route::post('/pds/setup/start', [SetupPdsController::class, 'start'])->name('pds.setup.start');
         Route::post('/pds/setup/delete', [SetupPdsController::class, 'delete'])->name('pds.setup.delete');
+        Route::post('/pds/setup/stop', [SetupPdsController::class, 'stop'])->name('pds.setup.stop');
+        Route::post('/pds/setup/release', [SetupPdsController::class, 'release'])->name('pds.setup.release');
         Route::get('/pds/setup/datatable', [SetupPdsController::class, 'datatable'])->name('pds.setup.datatable');
 
         Route::inertia('/pds/monitoring', 'Pds/Monitoring')->name('pds.monitoring');
         Route::inertia('/pds/report', 'Pds/Report')->name('pds.report');
         Route::get('/pds/detail/{id}', [PdsDetailController::class, 'index'])->name('pds.detail');
+        Route::post('/pds/detail/{id}/update', [PdsDetailController::class, 'update'])->name('pds.detail.update');
         Route::get('/pds/detail/{id}/campaign', [PdsDetailController::class, 'campaign'])->name('pds.detail.campaign');
+        Route::post('/pds/detail/{id}/assign', [PdsDetailController::class, 'assign'])->name('pds.detail.assign');
         Route::get('/pds/detail/{id}/spv-agent', [PdsDetailController::class, 'spvAgent'])->name('pds.detail.spv-agent');
 
         // robocall

@@ -3,7 +3,7 @@
         <template v-slot:tab>
             <TabMenu tab="detail" :id="id" />
         </template>
-        <form action="">
+        <form @submit.prevent="submit">
             <div class="min-h-[83vh]">
                 <div class="bg-white max-w-3xl p-4 mx-auto">
                     <Input
@@ -125,13 +125,13 @@ const spvUsers = ref([])
 
 const submit = () => {
     if (!form.processing) {
-        form.post(route("pds.setup.store"), {
+        form.post(route("pds.detail.update", props.id), {
             onSuccess: () => {
                 window.location.reload()
             }
         });
     }
-};
+}
 
 watch(
     () => form.marketing_campaign,

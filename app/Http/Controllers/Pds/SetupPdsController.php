@@ -77,4 +77,15 @@ class SetupPdsController extends Controller
             return back()->with(['error' => $e->getMessage()]);
         }
     }
+
+    public function release(Request $request, SetupPdsAction $action)
+    {
+        try {
+            $action->release($request, $request->id);
+
+            return to_route('pds.setup')->with('success', 'Successfully release customers');
+        } catch (BadRequestException $e) {
+            return back()->with(['error' => $e->getMessage()]);
+        }
+    }
 }

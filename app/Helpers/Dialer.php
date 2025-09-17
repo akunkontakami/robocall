@@ -5,11 +5,9 @@ namespace App\Helpers;
 use Illuminate\Support\Facades\Http;
 
 class Dialer {
-    protected static $url = 'https://dev-pbx.kontakami.com/ctb/api';
-
     public static function token()
     {
-        $url = self::$url . '/login';
+        $url = config("services.dialer.api") . '/login';
         $response = Http::post($url, [
             'email' => config('services.dialer.email'),
             'password' => config('services.dialer.password'),
@@ -24,7 +22,7 @@ class Dialer {
     {
         $token = self::token();
 
-        $url = self::$url . $path;
+        $url = config("services.dialer.api") . $path;
         $res = Http::withToken($token)->get($url);
 
         return $res->json();
@@ -34,7 +32,7 @@ class Dialer {
     {
         $token = self::token();
 
-        $url = self::$url . $path;
+        $url = config("services.dialer.api") . $path;
         $res = Http::withToken($token)->post($url, $payload);
 
         return $res->json();

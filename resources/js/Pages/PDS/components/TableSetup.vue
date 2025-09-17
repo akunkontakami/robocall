@@ -47,6 +47,10 @@
                             <i class="text-base isax icon-trash"></i>
                             <span class="text-xs">Delete</span>
                         </li>
+                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showRelease(row)" v-if="row.total_data > 0">
+                            <i class="text-base isax icon-trash"></i>
+                            <span class="text-xs">Release Customers</span>
+                        </li>
                         <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showStart(row)">
                             <i class="text-base isax-b icon-play-circle text-green"></i>
                             <span class="text-xs">Start PDS</span>
@@ -63,6 +67,14 @@
             </Td>
         </tr>
     </Table>
+
+    <div x-data="{confirmation:false}" v-if="showPopupRelease">
+        <a hidden id="show-release" x-on:click="confirmation=true"></a>
+        <ConfirmationSubmit
+            confirmation="Are you sure you want to release customers this PDS?"
+            @action="actionRelease"
+        />
+    </div>
 
     <div x-data="{confirmation:false}" v-if="showPopupDelete">
         <a hidden id="show-delete" x-on:click="confirmation=true"></a>
@@ -113,14 +125,14 @@ import ConfirmationSubmit from "@/Components/Popup/ConfirmationSubmit.vue";
 import Popup from "@/Components/Popup/Index.vue";
 import Table from "@/Components/Table/Table.vue";
 import Td from "@/Components/Table/Td.vue";
-import { clickId } from "@/Plugins/Function/global-function";
+import { clickId, showAlert } from "@/Plugins/Function/global-function";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { router, useForm } from "@inertiajs/vue3";
 import { ref, onBeforeUnmount, onMounted } from "vue";
 
 const emits = defineEmits(['showStartPds'])
 
-const showPopupStart = ref(true)
+const showPopupRelease = ref(true)
 const showPopupDelete = ref(true)
 const showPopupStop = ref(true)
 
@@ -146,17 +158,14 @@ const paginate = usePaginate({
     route: route('pds.setup.datatable'),
 });
 
-const actionStart = () => {
-    paginate.fetchData()
-    showPopupStart.value = false
-
-    setTimeout(() => {
-        showPopupStart.value = true
-    }, 100);
-}
-
 const showStart = (row: any) => {
-    emits('showStartPds', row)
+    if (row.total_data == 0) {
+        showAlert("Please upload customer data before starting")
+    } else if (row.total_agent == 0) {
+        showAlert("Please assign agent before starting")
+    } else {
+        emits('showStartPds', row)
+    }
 }
 
 
@@ -182,10 +191,38 @@ const actionDelete = () => {
     }
 }
 
+const actionRelease = () => {
+    if (!form.processing) {
+        form.post(route('pds.setup.release'), {
+            onError: () => {
+                showPopupRelease.value = false
+
+                setTimeout(() => {
+                    showPopupRelease.value = true
+                }, 100);
+            },
+            onSuccess: () => {
+                paginate.fetchData()
+                showPopupRelease.value = false
+
+                setTimeout(() => {
+                    showPopupRelease.value = true
+                }, 100);
+            }
+        })
+    }
+}
+
 const showDelete = (row: any) => {
     form.id = row.id
 
     clickId("show-delete")
+}
+
+const showRelease = (row: any) => {
+    form.id = row.id
+
+    clickId("show-release")
 }
 
 const actionStop = () => {
