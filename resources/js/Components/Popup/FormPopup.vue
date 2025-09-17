@@ -50,7 +50,7 @@
     </div>
 </template>
 
-<script lang="ts" setup>
+<script setup>
 import ClosePopup from "../Icon/Etc/IconClosePopup.vue";
 defineProps(["title", "reset", "class"]);
 </script>

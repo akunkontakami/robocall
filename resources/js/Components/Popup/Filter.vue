@@ -56,10 +56,9 @@
          </div>
      </div>
  </template>
- 
- <script lang="ts" setup>
+
+ <script setup>
  import ClosePopup from "../Icon/Etc/IconClosePopup.vue";
  import { Link } from "@inertiajs/vue3";
  defineProps(['title','reset','class']);
  </script>
- 
