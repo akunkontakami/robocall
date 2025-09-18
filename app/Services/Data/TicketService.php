@@ -3,6 +3,7 @@
 namespace App\Services\Data;
 
 use App\Models\Data\Ticket;
+use App\Models\Pds\PdsAgent;
 use Illuminate\Support\Facades\DB;
 
 class TicketService
@@ -15,9 +16,12 @@ class TicketService
         //
     }
 
-    public function getStatus($companyId, $campaignId = '', $spvId = '')
+    public function getStatus($companyId, $campaignId = '', $pdsId = '')
     {
-        if (!$spvId || !$campaignId) return [];
+        if (!$pdsId || !$campaignId) return [];
+
+        $agents = PdsAgent::query()->where("pds_id", $pdsId)->pluck("user_id")->toArray();
+
         return Ticket::select('status', DB::raw('COUNT(*) as total'))
         ->withWhereHas("dataBucket")
         ->where("company_id", $companyId)
@@ -25,7 +29,9 @@ class TicketService
         ->whereNotNull("outbound_data_upload_id")
         ->where("type", "outbound")
         ->where("marketing_campaign_id", $campaignId)
-        ->where("spv_id", $spvId)
+        ->where(function ($q) use ($agents) {
+            $q->whereIn("current_agent_id", $agents)->orWhereNull("current_agent_id");
+        })
         ->groupBy("status")
         ->get()->each(function ($row) {
             $row->id = $row->status;
@@ -34,9 +40,12 @@ class TicketService
         });
     }
 
-    public function getCustByTicket($companyId, $campaignId = '', $spvId = '', $status = [])
+    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [])
     {
-        if (!$spvId || !$campaignId) return [];
+        if (!$pdsId || !$campaignId) return [];
+
+        $agents = PdsAgent::query()->where("pds_id", $pdsId)->pluck("user_id")->toArray();
+
         return Ticket::withWhereHas("dataBucket")
             ->where("company_id", $companyId)
             ->whereNotNull("customer_id")
@@ -44,7 +53,9 @@ class TicketService
             ->where("type", "outbound")
             ->whereIn("status", $status)
             ->where("marketing_campaign_id", $campaignId)
-            ->where("spv_id", $spvId)
+            ->where(function ($q) use ($agents) {
+                $q->whereIn("current_agent_id", $agents)->orWhereNull("current_agent_id");
+            })
             ->get()
             ->map(function ($ticket) {
                 $json = json_decode(optional($ticket->dataBucket)->data, true);
