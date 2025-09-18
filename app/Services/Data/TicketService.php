@@ -19,7 +19,7 @@ class TicketService
     {
         if (!$spvId || !$campaignId) return [];
         return Ticket::select('status', DB::raw('COUNT(*) as total'))
-        ->withWhereHaswhere("dataBucket")
+        ->withWhereHas("dataBucket")
         ->where("company_id", $companyId)
         ->whereNotNull("customer_id")
         ->whereNotNull("outbound_data_upload_id")
@@ -37,7 +37,7 @@ class TicketService
     public function getCustByTicket($companyId, $campaignId = '', $spvId = '', $status = [])
     {
         if (!$spvId || !$campaignId) return [];
-        return Ticket::withWhereHaswhere("dataBucket")
+        return Ticket::withWhereHas("dataBucket")
             ->where("company_id", $companyId)
             ->whereNotNull("customer_id")
             ->whereNotNull("outbound_data_upload_id")
