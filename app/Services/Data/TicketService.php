@@ -25,7 +25,7 @@ class TicketService
         return Ticket::select('status', DB::raw('COUNT(*) as total'))
         ->withWhereHas("dataBucket")
         ->where("company_id", $companyId)
-        ->whereNotNull("customer_id")
+        // ->whereNotNull("customer_id")
         ->whereNotNull("outbound_data_upload_id")
         ->where("type", "outbound")
         ->where("marketing_campaign_id", $campaignId)
@@ -48,7 +48,7 @@ class TicketService
 
         return Ticket::withWhereHas("dataBucket")
             ->where("company_id", $companyId)
-            ->whereNotNull("customer_id")
+            // ->whereNotNull("customer_id")
             ->whereNotNull("outbound_data_upload_id")
             ->where("type", "outbound")
             ->whereIn("status", $status)
@@ -60,7 +60,7 @@ class TicketService
             ->map(function ($ticket) {
                 $json = json_decode(optional($ticket->dataBucket)->data, true);
                 return [
-                    "customer_id" => $ticket->customer_id,
+                    "customer_id" => $ticket->id,
                     "phone" => $json["mobile_phone"] ?? null,
                 ];
             })

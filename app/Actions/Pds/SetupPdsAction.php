@@ -286,7 +286,7 @@ class SetupPdsAction
                 PdsCustomer::create([
                     'company_id' => $user->company_id,
                     'pds_id' => $pds->id,
-                    'customer_id' => $value['customer_id'],
+                    'ticket_id' => $value['customer_id'],
                     'phone' => $value['phone']
                 ]);
             }
