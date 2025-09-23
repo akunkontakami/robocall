@@ -55,7 +55,7 @@ class SetupPdsAction
                 'vdn' => $request->ivr,
             ]);
 
-            Log::info("PAYLOAD START PDS", [
+            Log::info("PAYLOAD SETUP PDS", [
                 'tenant_id' => $user->tenant_id,
                 'campaign_id' => $request->name,
                 'route_id' => $request->trunk,
@@ -136,6 +136,17 @@ class SetupPdsAction
 
 
             $dialer = Dialer::post("/pds-start", [
+                'tenant_id' => $pds->tenant_id,
+                'campaign_id' => $pds->pds_name,
+                "CallFactor" => $request->call_factor,
+                "CallWait" => $request->call_wait,
+                "CallAbandonRate" => $request->call_abandon_rate,
+                "CallLimit" => $request->call_limit,
+                "CallRetryAfter" => $request->call_retry_after,
+                "CallRetryMax" => $request->call_retry_max,
+            ]);
+
+            Log::info("PAYLOAD START PDS", [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
                 "CallFactor" => $request->call_factor,
