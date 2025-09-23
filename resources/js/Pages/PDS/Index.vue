@@ -127,19 +127,19 @@ const performances = ref([
             {
                 label: 'Answer',
                 color: '#0CE3B0',
-                count: 1250,
+                count: "1.250",
                 percentage: (1250 / 12850) * 100
             },
             {
                 label: 'No Answer',
                 color: '#EB9813',
-                count: 8400,
+                count: "8.400",
                 percentage: (8400 / 12850) * 100
             },
             {
                 label: 'Abandon',
                 color: '#F24E65',
-                count: 3200,
+                count: "3.200",
                 percentage: (3200 / 12850) * 100
             }
         ]
