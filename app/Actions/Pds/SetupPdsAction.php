@@ -2,6 +2,7 @@
 
 namespace App\Actions\Pds;
 
+use Carbon\Carbon;
 use App\Helpers\Dialer;
 use App\Models\Pds\Pds;
 use Illuminate\Support\Str;
@@ -9,6 +10,7 @@ use App\Models\Pds\PdsAgent;
 use Illuminate\Http\Request;
 use App\Models\Pds\PdsCustomer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Services\Data\TicketService;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
@@ -292,6 +294,12 @@ class SetupPdsAction
             }
 
             $dialer = Dialer::post("/campaign-dialer/uploadJsonPDS", [
+                'tenant_id' => $pds->tenant_id,
+                'campaign_id' => $pds->pds_name,
+                "data" => $customers
+            ]);
+
+            Log::info("PAYLOAD PDS " . Carbon::now()->format("Y-m-d H:i:s"), [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
                 "data" => $customers
