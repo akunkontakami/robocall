@@ -14,7 +14,7 @@ class Ticket extends Model
 
     public function dataBucket()
     {
-        return $this->hasOne(OutboundDataUploadBucket::class, 'outbound_data_upload_id', 'outbound_data_upload_id');
+        return $this->hasOne(OutboundDataUploadBucket::class, 'id', 'outbound_data_upload_bucket_id');
     }
 
 }
