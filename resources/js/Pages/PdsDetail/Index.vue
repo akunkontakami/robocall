@@ -1,5 +1,5 @@
 <template>
-    <AppLayout title="PDS Detail" header="PDS Detail" :headerBackUrl="route('pds.setup')">
+    <AppLayout title="PDS Detail" :header="data.pds_name" :headerBackUrl="route('pds.setup')">
         <template v-slot:tab>
             <TabMenu tab="detail" :id="id" />
         </template>
@@ -65,7 +65,7 @@
                         :disabled="data.spv_id"
                     />
                     <SelectSearch
-                        label="SPV"
+                        label="Supervisor"
                         id="spv"
                         v-model="form.spv"
                         :value="form.spv"

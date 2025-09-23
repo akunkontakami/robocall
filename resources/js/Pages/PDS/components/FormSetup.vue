@@ -52,12 +52,12 @@
                     placeholder="Select Marketing Campaign"
                 />
                 <SelectSearch
-                    label="SPV"
+                    label="Supervisor"
                     id="spv"
                     v-model="form.spv"
                     v-bind:items="spvUsers"
                     :error="form.errors.spv"
-                    placeholder="Select SPV"
+                    placeholder="Select Supervisor"
                 />
             </div>
             <div class="flex justify-end gap-3 pt-3 mt-2 border-t sticky bottom-0 bg-white">

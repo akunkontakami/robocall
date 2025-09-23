@@ -28,13 +28,13 @@ const menus = [
     },
     {
         key: "campaign",
-        name: "Choose Campaign",
+        name: "Assign Campaign",
         url: route('pds.detail.campaign', props.id),
         show: true,
     },
     {
         key: "spv-agent",
-        name: "Detail Spv/Agent",
+        name: "SPV/Agent",
         url: route('pds.detail.spv-agent', props.id),
         show: true,
     }

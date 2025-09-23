@@ -15,8 +15,8 @@
                 />
                 <Input
                     type="text"
-                    placeholder="SPV"
-                    label="SPV"
+                    placeholder="Supervisor"
+                    label="Supervisor"
                     :value="data.spv?.company_user?.name"
                     :disabled="true"
                     class="!bg-[#F3F3F3]"

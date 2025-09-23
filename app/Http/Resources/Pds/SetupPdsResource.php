@@ -17,7 +17,7 @@ class SetupPdsResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'date' => Carbon::parse($this->date)->format("Y m d"),
+            'date' => Carbon::parse($this->date)->format("Y-m-d"),
             'tenant' => $this->tenant_id,
             'name' => $this->pds_name,
             'spv' => $this->spv,
