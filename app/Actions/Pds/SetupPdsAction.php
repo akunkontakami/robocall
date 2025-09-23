@@ -55,6 +55,13 @@ class SetupPdsAction
                 'vdn' => $request->ivr,
             ]);
 
+            Log::info("PAYLOAD START PDS", [
+                'tenant_id' => $user->tenant_id,
+                'campaign_id' => $request->name,
+                'route_id' => $request->trunk,
+                'vdn' => $request->ivr,
+            ]);
+
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
                 $errorMessage = $dialer['errors'];
 
