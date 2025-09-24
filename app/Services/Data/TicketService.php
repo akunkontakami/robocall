@@ -59,9 +59,15 @@ class TicketService
             ->get()
             ->map(function ($ticket) {
                 $json = json_decode(optional($ticket->dataBucket)->data, true);
+                $phone = $json["mobile_phone"] ?? null;
+
+                if ($phone && str_starts_with($phone, "62")) {
+                    $phone = "0" . substr($phone, 2);
+                }
+
                 return [
                     "customer_id" => $ticket->id,
-                    "phone" => $json["mobile_phone"] ?? null,
+                    "phone" => $phone,
                 ];
             })
             ->filter(fn ($row) => !empty($row["phone"]))
