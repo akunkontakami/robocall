@@ -58,42 +58,44 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import TabMenu from "./components/TabMenu.vue";
 import CardDashboard from "./components/CardDashboard.vue";
 import CardDuration from "./components/CardDuration.vue";
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import ButtonOutlineGreen from "@/Components/Button/ButtonOutlineGreen.vue";
 import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
 import Select from "@/Components/Input/Select.vue";
 import CardPerformance from "./components/CardPerformance.vue";
+import axios from "axios";
+import { numberFormat } from "@/Plugins/Function/global-function";
 
 const items = ref([
     {
         id: 1,
         label: "Agent Ready",
         color: "#4280EF",
-        count: 100,
+        count: 0,
     },
     {
         id: 2,
         label: "Data Size",
         color: "#EB9813",
-        count: "20.000",
+        count: 0,
     },
     {
         id: 3,
         label: "Total Call",
         color: "#677AD6",
-        count: "12.850",
+        count: 0,
     },
     {
         id: 4,
         label: "Redial",
         color: "#0CE3B0",
-        count: 800,
+        count: 0,
     },
     {
         id: 5,
         label: "Duration",
         color: "#F24E65",
-        count: "04.30.00",
+        count: "00.00.00",
     },
 ]);
 
@@ -102,19 +104,19 @@ const durations = ref([
         id: 1,
         label: "Today",
         title: 'Average Handling Time (AHT)',
-        count: "01:10:06",
+        count: "00:00:00",
     },
     {
         id: 1,
         label: "Today",
         title: 'Duration Call',
-        count: "01:10:06",
+        count: "00:00:00",
     },
     {
         id: 1,
         label: "Today",
         title: 'Idle Time',
-        count: "01:10:06",
+        count: "00:00:00",
     },
 ]);
 
@@ -127,20 +129,20 @@ const performances = ref([
             {
                 label: 'Answer',
                 color: '#0CE3B0',
-                count: "1.250",
-                percentage: (1250 / 12850) * 100
+                count: '0',
+                percentage: 0
             },
             {
                 label: 'No Answer',
                 color: '#EB9813',
-                count: "8.400",
-                percentage: (8400 / 12850) * 100
+                count: '0',
+                percentage: 0
             },
             {
                 label: 'Abandon',
                 color: '#F24E65',
-                count: "3.200",
-                percentage: (3200 / 12850) * 100
+                count: '0',
+                percentage: 0
             }
         ]
     },
@@ -152,22 +154,51 @@ const performances = ref([
             {
                 label: 'Answer Rate',
                 color: '#0CE3B0',
-                count: '3.3%',
-                percentage: 3.3
+                count: '0',
+                percentage: 0
             },
             {
                 label: 'No Answer Rate',
                 color: '#EB9813',
-                count: '12.7%',
-                percentage: 12.7
+                count: '0',
+                percentage: 0
             },
             {
                 label: 'Abandon Rate',
                 color: '#F24E65',
-                count: '15.2%',
-                percentage: 15.2
+                count: '0',
+                percentage: 0
             }
         ]
     }
 ])
+
+onMounted(() => {
+    axios.get(route('pds.dashboard.data'))
+    .then((res: any) => {
+        const sessions = res.data.sessions
+
+        items.value[1].count = numberFormat(sessions.DataSize)
+        items.value[2].count = numberFormat(sessions.DataDialed)
+        items.value[3].count = numberFormat(sessions.DialCount)
+
+        performances.value[0].data[0].count = numberFormat(sessions.DialAgentAnswered)
+        performances.value[0].data[0].percentage = (sessions.DialAgentAnswered / sessions.DialCount) * 100
+
+        performances.value[0].data[1].count = numberFormat(sessions.DialFailed)
+        performances.value[0].data[1].percentage = (sessions.DialFailed / sessions.DialCount) * 100
+
+        performances.value[0].data[2].count = numberFormat(sessions.DialAbandoned)
+        performances.value[0].data[2].percentage = (sessions.DialAbandoned / sessions.DialCount) * 100
+
+        performances.value[1].data[0].count = Number(((sessions.DialAgentAnswered / sessions.DialCount) * 100)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
+        performances.value[1].data[0].percentage = (sessions.DialAgentAnswered / sessions.DialCount) * 100
+
+        performances.value[1].data[1].count = Number(((sessions.DialFailed / sessions.DialCount) * 100)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
+        performances.value[1].data[1].percentage = (sessions.DialFailed / sessions.DialCount) * 100
+
+        performances.value[1].data[2].count = Number(((sessions.DialAbandoned / sessions.DialCount) * 100)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
+        performances.value[1].data[2].percentage = (sessions.DialAbandoned / sessions.DialCount) * 100
+    })
+})
 </script>

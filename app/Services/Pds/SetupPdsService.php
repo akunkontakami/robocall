@@ -91,4 +91,56 @@ class SetupPdsService
 
         return $allData->values();
     }
+
+    public function getDashboardData()
+    {
+        $sessions = $this->sessionLogs();
+
+
+        return (object) [
+            'sessions' => $sessions
+        ];
+    }
+
+    public function sessionLogs()
+    {
+        $urlPath = "/report/sessionlog";
+        $page = 1;
+        $perPage = 10;
+        $tenantId = user()->tenant_id;
+
+        $summary = [
+            'DataSize'        => 0,
+            'DataDialed'      => 0,
+            'DialCount'       => 0,
+            'DialFailed'      => 0,
+            'DialContacted'   => 0,
+            'DialAgentAnswered' => 0,
+            'DialAbandoned'   => 0,
+        ];
+
+        do {
+            $result = Dialer::get($urlPath . "?page={$page}&per_page={$perPage}&tenant_id={$tenantId}");
+
+            $data = collect($result['data']);
+
+            foreach ($data as $item) {
+                $summary['DataSize']        += $item['DataSize'];
+                $summary['DataDialed']      += $item['DataDialed'];
+                $summary['DialCount']       += $item['DialCount'];
+                $summary['DialFailed']      += $item['DialFailed'];
+                $summary['DialContacted']   += $item['DialContacted'];
+                $summary['DialAgentAnswered'] += $item['DialAgentAnswered'];
+                $summary['DialAbandoned']   += $item['DialAbandoned'];
+            }
+
+            $total = $result['total'] ?? $data->count();
+            $perPage = $result['per_page'] ?? $perPage;
+            $currentPage = $result['current_page'] ?? $page;
+
+            $page++;
+        } while ($currentPage * $perPage < $total);
+
+        return (object) $summary;
+    }
 }

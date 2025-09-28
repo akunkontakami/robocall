@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthenticateSessionController;
 use App\Http\Controllers\Dummy\DummyController;
+use App\Http\Controllers\Pds\DashboardPdsController;
 use App\Http\Controllers\Pds\PdsDetailController;
 use App\Http\Controllers\Pds\SetupPdsController;
 use Illuminate\Support\Facades\Route;
@@ -18,7 +19,8 @@ Route::controller(AuthenticateSessionController::class)
 Route::middleware(['app-auth'])
     ->group(function () {
         Route::inertia('/auto-dial', 'AutoDial/Index')->name('auto-dial.index');
-        Route::inertia('/pds/dashboard', 'Pds/Index')->name('pds.dashboard');
+        Route::get('/pds/dashboard', [DashboardPdsController::class, 'index'])->name('pds.dashboard');
+        Route::get('/pds/dashboard/data', [DashboardPdsController::class, 'data'])->name('pds.dashboard.data');
         Route::get('/pds/setup', [SetupPdsController::class, 'index'])->name('pds.setup');
         Route::post('/pds/setup/store', [SetupPdsController::class, 'store'])->name('pds.setup.store');
         Route::post('/pds/setup/start', [SetupPdsController::class, 'start'])->name('pds.setup.start');
