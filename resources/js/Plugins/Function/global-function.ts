@@ -254,3 +254,12 @@ export const validateGreaterDateRange = (start: string, end: string) => {
     }
     return true;
 }
+
+export const numberFormat = (val: any): string => {
+    if (val == null) return "";
+    let str = typeof val === "number" ? val.toString() : String(val);
+
+    return str
+        .replace(/\D/g, "")
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
