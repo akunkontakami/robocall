@@ -11,7 +11,9 @@ class DashboardPdsController extends Controller
 {
     public function index()
     {
-        return Inertia::render('Pds/Index');
+        return Inertia::render('Pds/Index', [
+            'pds_list' => (new SetupPdsService())->getAll(user()->company_id)
+        ]);
     }
 
     public function data()
