@@ -4,21 +4,32 @@
             <TabMenu tab="dashboard" />
         </template>
         <div class="flex items-center gap-6 mb-1">
+            <div class="fixed top-0 left-0 bottom-0 right-0 bg-black/30 z-[1] flex items-center justify-center" v-if="loading">
+                <div class="relative flex flex-col items-center justify-center">
+                    <span class="absolute inline-flex h-10 w-10 animate-ping rounded-full bg-white opacity-75"></span>
+                    <span class="relative inline-flex size-5 rounded-full bg-white/10"></span>
+                </div>
+            </div>
             <p class="font-krub-bold text-[#0D0D0D] text-base mb-3">PDS Dashboard</p>
 
             <ButtonOutlineGreen class="ms-auto mb-3">
                 Export Data
             </ButtonOutlineGreen>
             <p class="mb-3 text-[13px] text-[#181C32]">Pds Name:</p>
-            <Select class="min-w-[180px]">
+            <Select class="min-w-[180px]" v-model="filter.pds" :value="filter.pds">
                 <option value="" disabled selected>Select PDS Name</option>
+
+                <option v-for="item in pds_list" :value="item.pds_name">{{ item.pds_name }}</option>
             </Select>
 
             <p class="mb-3 text-[13px] text-[#181C32]">Periode:</p>
-            <Select class="min-w-[120px]">
-                <option value="" disabled selected>Today</option>
+            <Select class="min-w-[120px]" v-model="filter.period" :value="filter.period">
+                <option value="" >All</option>
+                <option value="Today" >Today</option>
+                <option value="Month" >Month</option>
+                <option value="3 Month" >3 Month</option>
             </Select>
-            <ButtonYellow class="!bg-dark-blue mb-3">
+            <ButtonYellow class="!bg-dark-blue mb-3" @click="submitFilter">
                 Submit
             </ButtonYellow>
         </div>
@@ -64,7 +75,9 @@ import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
 import Select from "@/Components/Input/Select.vue";
 import CardPerformance from "./components/CardPerformance.vue";
 import axios from "axios";
-import { numberFormat } from "@/Plugins/Function/global-function";
+import { getQueryParam, numberFormat, removeAllUrlParameter, routeAppendParam } from "@/Plugins/Function/global-function";
+
+defineProps(["pds_list"])
 
 const items = ref([
     {
@@ -173,32 +186,62 @@ const performances = ref([
     }
 ])
 
-onMounted(() => {
-    axios.get(route('pds.dashboard.data'))
+const filter = ref({
+    pds: getQueryParam('pds') || '',
+    period: getQueryParam('period') || ''
+})
+
+const loading = ref(false)
+
+const submitFilter = () => {
+    loading.value = true
+    if (filter.value.period || filter.value.pds) {
+        removeAllUrlParameter()
+        routeAppendParam(filter.value, false)
+    }
+
+    axios.get(route('pds.dashboard.data'), {
+        params: filter.value
+    })
     .then((res: any) => {
         const sessions = res.data.sessions
 
         items.value[1].count = numberFormat(sessions.DataSize)
         items.value[2].count = numberFormat(sessions.DataDialed)
         items.value[3].count = numberFormat(sessions.DialCount)
+        items.value[4].count = sessions.TotalDurationFormatted
 
         performances.value[0].data[0].count = numberFormat(sessions.DialAgentAnswered)
-        performances.value[0].data[0].percentage = (sessions.DialAgentAnswered / sessions.DialCount) * 100
+        performances.value[0].data[0].percentage = safePercentage(sessions.DialAgentAnswered, sessions.DialCount)
 
         performances.value[0].data[1].count = numberFormat(sessions.DialFailed)
-        performances.value[0].data[1].percentage = (sessions.DialFailed / sessions.DialCount) * 100
+        performances.value[0].data[1].percentage = safePercentage(sessions.DialFailed, sessions.DialCount)
 
         performances.value[0].data[2].count = numberFormat(sessions.DialAbandoned)
-        performances.value[0].data[2].percentage = (sessions.DialAbandoned / sessions.DialCount) * 100
+        performances.value[0].data[2].percentage = safePercentage(sessions.DialAbandoned, sessions.DialCount)
 
-        performances.value[1].data[0].count = Number(((sessions.DialAgentAnswered / sessions.DialCount) * 100)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
-        performances.value[1].data[0].percentage = (sessions.DialAgentAnswered / sessions.DialCount) * 100
+        performances.value[1].data[0].count = Number(safePercentage(sessions.DialAgentAnswered, sessions.DialCount)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
+        performances.value[1].data[0].percentage = safePercentage(sessions.DialAgentAnswered, sessions.DialCount)
 
-        performances.value[1].data[1].count = Number(((sessions.DialFailed / sessions.DialCount) * 100)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
-        performances.value[1].data[1].percentage = (sessions.DialFailed / sessions.DialCount) * 100
+        performances.value[1].data[1].count = Number(safePercentage(sessions.DialFailed, sessions.DialCount)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
+        performances.value[1].data[1].percentage = safePercentage(sessions.DialFailed, sessions.DialCount)
 
-        performances.value[1].data[2].count = Number(((sessions.DialAbandoned / sessions.DialCount) * 100)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
-        performances.value[1].data[2].percentage = (sessions.DialAbandoned / sessions.DialCount) * 100
+        performances.value[1].data[2].count = Number(safePercentage(sessions.DialAbandoned, sessions.DialCount)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
+        performances.value[1].data[2].percentage = safePercentage(sessions.DialAbandoned, sessions.DialCount)
     })
+    .finally(() => {
+        loading.value = false
+    })
+}
+
+onMounted(() => {
+    submitFilter()
 })
+
+function safePercentage(value: any, total: any) {
+    if (!total || total === 0) return 0;
+    return (value / total) * 100;
+}
+
+
 </script>
