@@ -21,6 +21,8 @@ Route::middleware(['app-auth'])
         Route::inertia('/auto-dial', 'AutoDial/Index')->name('auto-dial.index');
         Route::get('/pds/dashboard', [DashboardPdsController::class, 'index'])->name('pds.dashboard');
         Route::get('/pds/dashboard/data', [DashboardPdsController::class, 'data'])->name('pds.dashboard.data');
+        Route::get('/pds/dashboard/monitoring', [DashboardPdsController::class, 'monitoring'])->name('pds.dashboard.monitoring');
+
         Route::get('/pds/setup', [SetupPdsController::class, 'index'])->name('pds.setup');
         Route::post('/pds/setup/store', [SetupPdsController::class, 'store'])->name('pds.setup.store');
         Route::post('/pds/setup/start', [SetupPdsController::class, 'start'])->name('pds.setup.start');

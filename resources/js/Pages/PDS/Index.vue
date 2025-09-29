@@ -26,8 +26,8 @@
             <Select class="min-w-[120px]" v-model="filter.period" :value="filter.period">
                 <option value="" >All</option>
                 <option value="Today" >Today</option>
+                <option value="Week" >Week</option>
                 <option value="Month" >Month</option>
-                <option value="3 Month" >3 Month</option>
             </Select>
             <ButtonYellow class="!bg-dark-blue mb-3" @click="submitFilter">
                 Submit
@@ -115,19 +115,19 @@ const items = ref([
 const durations = ref([
     {
         id: 1,
-        label: "Today",
+        label: getQueryParam('period') || "All",
         title: 'Average Handling Time (AHT)',
         count: "00:00:00",
     },
     {
         id: 1,
-        label: "Today",
+        label: getQueryParam('period') || "All",
         title: 'Duration Call',
         count: "00:00:00",
     },
     {
         id: 1,
-        label: "Today",
+        label: getQueryParam('period') || "All",
         title: 'Idle Time',
         count: "00:00:00",
     },
@@ -136,7 +136,7 @@ const durations = ref([
 const performances = ref([
     {
         id: 1,
-        label: 'Today',
+        label: getQueryParam('period') || 'All',
         title: 'Performance Calls',
         data: [
             {
@@ -161,7 +161,7 @@ const performances = ref([
     },
     {
         id: 2,
-        label: 'Today',
+        label: getQueryParam('period') || 'All',
         title: 'Percentage Calls',
         data: [
             {
@@ -228,14 +228,27 @@ const submitFilter = () => {
 
         performances.value[1].data[2].count = Number(safePercentage(sessions.DialAbandoned, sessions.DialCount)).toLocaleString('en-US', { maximumFractionDigits: 2 }) + " %"
         performances.value[1].data[2].percentage = safePercentage(sessions.DialAbandoned, sessions.DialCount)
+
+        durations.value[0].count = sessions.AverageHandling
+        durations.value[1].count = sessions.DurationCall
     })
     .finally(() => {
         loading.value = false
     })
 }
 
+const monitoring = () => {
+    axios.get(route('pds.dashboard.monitoring'))
+    .then((res: any) => {
+        items.value[0].count = numberFormat(res.data.total)
+    })
+    .finally(() => {
+    })
+}
+
 onMounted(() => {
     submitFilter()
+    monitoring()
 })
 
 function safePercentage(value: any, total: any) {

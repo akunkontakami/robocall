@@ -4,7 +4,9 @@ namespace App\Services\Pds;
 
 use Carbon\Carbon;
 use App\Helpers\Dialer;
+use App\Models\Account\CompanyUser;
 use App\Models\Pds\Pds;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class SetupPdsService
@@ -134,9 +136,9 @@ class SetupPdsService
                 $endDate   = Carbon::now()->endOfMonth()->toDateString();
                 break;
 
-            case '3Month':
-                $startDate = Carbon::now()->subMonths(3)->startOfDay()->toDateString();
-                $endDate   = Carbon::now()->endOfDay()->toDateString();
+            case 'Week':
+                $startDate = Carbon::now()->startOfWeek()->toDateString();
+                $endDate   = Carbon::now()->endOfWeek()->toDateString();
                 break;
         }
 
@@ -181,7 +183,9 @@ class SetupPdsService
 
                 $start = \Carbon\Carbon::parse($item['SessionStart']);
                 $end   = \Carbon\Carbon::parse($item['SessionEnd']);
-                $summary['TotalDuration'] += $end->diffInSeconds($start);
+                $duration = $start->diffInSeconds($end, false);
+                $summary['TotalDuration'] += max(0, $duration);
+
             }
 
             $total = $result['total'] ?? $data->count();
@@ -192,7 +196,51 @@ class SetupPdsService
         } while ($currentPage * $perPage < $total);
 
         $summary['TotalDurationFormatted'] = gmdate("H.i.s", $summary['TotalDuration']);
+        $summary['AverageHandling'] = $summary['DataDialed'] > 0
+                                    ? gmdate("H:i:s", $summary['TotalDuration'] / $summary['DataDialed'])
+                                    : "00:00:00";
+
+        $summary['DurationCall'] = $summary['DialContacted'] > 0
+                                    ? gmdate("H:i:s", $summary['TotalDuration'] / $summary['DialContacted'])
+                                    : "00:00:00";
 
         return (object) $summary;
+    }
+
+    public function getDashboardMonitoring()
+    {
+        $urlPath = "/agent-monitoring?status=1";
+        $page = 1;
+        $perPage = 100;
+
+        $companyId = user()->company_id;
+        $agents = [];
+        $countAgent = 0;
+
+        do {
+
+            $result = Dialer::get($urlPath);
+
+            $data = collect($result['data']);
+
+            foreach ($data as $item) {
+                $agents[] = $item['agent'];
+
+            }
+
+            $total = $result['total'] ?? $data->count();
+            $perPage = $result['per_page'] ?? $perPage;
+            $currentPage = $result['current_page'] ?? $page;
+
+            $page++;
+        } while ($currentPage * $perPage < $total);
+
+        $extensions = DB::table("cms_extension")->whereIn("agent_login", $agents)->pluck("agent_id")->toArray();
+
+        $countAgent = CompanyUser::where("company_id", $companyId)->whereIn("user_id", $extensions)->count();
+
+        return (object) [
+            'total' => $countAgent
+        ];
     }
 }

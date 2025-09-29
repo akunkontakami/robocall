@@ -22,4 +22,11 @@ class DashboardPdsController extends Controller
 
         return response()->json($data);
     }
+
+    public function monitoring()
+    {
+        $data = (new SetupPdsService())->getDashboardMonitoring();
+
+        return response()->json($data);
+    }
 }
