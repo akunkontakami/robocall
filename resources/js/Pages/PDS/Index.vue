@@ -200,6 +200,13 @@ const submitFilter = () => {
         routeAppendParam(filter.value, false)
     }
 
+    durations.value[0].label = filter.value.period
+    durations.value[1].label = filter.value.period
+    durations.value[2].label = filter.value.period
+
+    performances.value[0].label = filter.value.period
+    performances.value[1].label = filter.value.period
+
     axios.get(route('pds.dashboard.data'), {
         params: filter.value
     })
@@ -231,6 +238,7 @@ const submitFilter = () => {
 
         durations.value[0].count = sessions.AverageHandling
         durations.value[1].count = sessions.DurationCall
+        durations.value[2].count = res.data.idle.time
     })
     .finally(() => {
         loading.value = false

@@ -109,7 +109,8 @@ class SetupPdsService
 
 
         return (object) [
-            'sessions' => $sessions
+            'sessions' => $sessions,
+            'idle' => $this->idleAgent()
         ];
     }
 
@@ -205,6 +206,93 @@ class SetupPdsService
                                     : "00:00:00";
 
         return (object) $summary;
+    }
+
+    public function idleAgent()
+    {
+        $urlPath = "/agent-idle";
+        $page = 1;
+        $perPage = 10;
+        $period = request()->period;
+
+        $startDate = null;
+        $endDate   = null;
+
+        switch ($period) {
+            case 'Today':
+                $startDate = Carbon::today()->startOfDay()->toDateString();
+                $endDate   = Carbon::today()->endOfDay()->toDateString();
+                break;
+
+            case 'Month':
+                $startDate = Carbon::now()->startOfMonth()->toDateString();
+                $endDate   = Carbon::now()->endOfMonth()->toDateString();
+                break;
+
+            case 'Week':
+                $startDate = Carbon::now()->startOfWeek()->toDateString();
+                $endDate   = Carbon::now()->endOfWeek()->toDateString();
+                break;
+        }
+
+        $companyId = user()->company_id;
+        $agents = [];
+        $totalIdleSeconds = 0;
+
+        do {
+
+            $query = [
+                'page'       => $page,
+                'per_page'   => $perPage
+            ];
+
+            if ($startDate && $endDate) {
+                $query['start_date'] = $startDate;
+                $query['end_date']   = $endDate;
+            }
+
+            $result = Dialer::get($urlPath . "?" . http_build_query($query));
+
+            $data = collect($result['data']);
+
+            foreach ($data as $item) {
+                $extensions = DB::table("cms_extension")->where("agent_login", $item['agent'])->pluck("agent_id")->toArray();
+
+                $isAgent = CompanyUser::where("company_id", $companyId)->whereIn("user_id", $extensions)->first();
+                if ($isAgent) {
+                    $agents[] = [
+                        'agent'           => $item['agent'],
+                        'agent_group'     => $item['agent_group'],
+                        'status'          => $item['status'],
+                        'ext_number'      => $item['ext_number'],
+                        'total_idle_time' => $item['total_idle_time'],
+                    ];
+
+                    $totalIdleSeconds += $this->timeToSeconds($item['total_idle_time']);
+                }
+            }
+
+            $total = $result['total'] ?? $data->count();
+            $perPage = $result['per_page'] ?? $perPage;
+            $currentPage = $result['current_page'] ?? $page;
+
+            $page++;
+        } while ($currentPage * $perPage < $total);
+
+        $hours = floor($totalIdleSeconds / 3600);
+        $minutes = floor(($totalIdleSeconds % 3600) / 60);
+        $seconds = $totalIdleSeconds % 60;
+        $totalIdleTime = sprintf("%02d:%02d:%02d", $hours, $minutes, $seconds);
+
+        return (object) [
+            'time'  => $totalIdleTime
+        ];
+    }
+
+    private function timeToSeconds($time)
+    {
+        [$h, $m, $s] = explode(':', $time);
+        return ($h * 3600) + ($m * 60) + $s;
     }
 
     public function getDashboardMonitoring()
