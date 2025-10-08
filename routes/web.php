@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthenticateSessionController;
 use App\Http\Controllers\Dummy\DummyController;
 use App\Http\Controllers\Pds\DashboardPdsController;
+use App\Http\Controllers\Pds\MonitoringPdsController;
 use App\Http\Controllers\Pds\PdsDetailController;
 use App\Http\Controllers\Pds\SetupPdsController;
 use Illuminate\Support\Facades\Route;
@@ -32,8 +33,10 @@ Route::middleware(['app-auth'])
         Route::post('/pds/setup/release', [SetupPdsController::class, 'release'])->name('pds.setup.release');
         Route::get('/pds/setup/datatable', [SetupPdsController::class, 'datatable'])->name('pds.setup.datatable');
 
-        Route::inertia('/pds/monitoring', 'Pds/Monitoring')->name('pds.monitoring');
-        Route::inertia('/pds/report', 'Pds/Report')->name('pds.report');
+        Route::get('/pds/monitoring', [MonitoringPdsController::class, 'monitoring'])->name('pds.monitoring');
+        Route::get('/pds/monitoring/data', [MonitoringPdsController::class, 'monitoringData'])->name('pds.monitoring.data');
+        Route::get('/pds/report', [MonitoringPdsController::class, 'report'])->name('pds.report');
+
         Route::get('/pds/detail/{id}', [PdsDetailController::class, 'index'])->name('pds.detail');
         Route::post('/pds/detail/{id}/update', [PdsDetailController::class, 'update'])->name('pds.detail.update');
         Route::get('/pds/detail/{id}/campaign', [PdsDetailController::class, 'campaign'])->name('pds.detail.campaign');
