@@ -30,7 +30,8 @@ class TicketService
         ->where("type", "outbound")
         ->where("marketing_campaign_id", $campaignId)
         ->where(function ($q) use ($agents) {
-            $q->whereIn("current_agent_id", $agents)->orWhereNull("current_agent_id");
+            // $q->whereIn("current_agent_id", $agents)->orWhereNull("current_agent_id");
+            $q->whereNull("current_agent_id");
         })
         ->groupBy("status")
         ->get()->each(function ($row) {
