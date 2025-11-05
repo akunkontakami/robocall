@@ -6,7 +6,10 @@
                 <ButtonOutlineGrey class="ms-auto mb-3" icon="isax icon-setting-4" x-on:click="filter=true">
                     Filter
                 </ButtonOutlineGrey>
-                <ButtonOutlineGreen class="ms-auto mb-3">
+                <ButtonOutlineGreen
+                    class="ms-auto mb-3"
+                    @click="exportData"
+                >
                     Export Data
                 </ButtonOutlineGreen>
 
@@ -18,41 +21,41 @@
                 v-for="(row, i) in paginate.data.value"
             >
                 <Td>
-                    PDS-{{ i }}
+                    {{ row.name }}
                 </Td>
                 <Td>
-                    2
+                    {{ row.total_agent }}
                 </Td>
                 <Td>
-                    10-10-2025
+                    {{ row.start_date }}
                     <br>
-                    10.10
+                    {{ row.start_time }}
                 </Td>
                 <Td>
-                    10-10-2025
+                    {{ row.end_date }}
                     <br>
-                    10.10
+                    {{ row.end_time }}
                 </Td>
                 <Td>
-                    1200
+                    {{ row.data_size }}
                 </Td>
                 <Td>
-                    500
+                    {{ row.data_utilize }}
                 </Td>
                 <Td>
-                    1020
+                    {{ row.calls }}
                 </Td>
                 <Td>
-                    150
+                    {{ row.contacted }}
                 </Td>
                 <Td>
-                    150
+                    {{ row.uncontacted }}
                 </Td>
                 <Td>
-                    170
+                    {{ row.abandoned }}
                 </Td>
                 <Td>
-                    13%
+                    {{ row.abandoned_rate }}
                 </Td>
             </tr>
         </Table>
@@ -80,7 +83,7 @@ const columns = ref([
     "Call Contacted",
     "Call UnContacted",
     "Call Abandon",
-    "Abandon Rate"
+    "Abandon Rate",
 ]);
 
 const filter = ref({
@@ -89,7 +92,7 @@ const filter = ref({
 });
 
 const paginate = usePaginate({
-    route: route('dummy'),
+    route: route('pds.monitoring.history-datatable'),
 });
 
 const filterData = () => {
@@ -112,6 +115,9 @@ const filterData = () => {
         routeAppendParam(filterParam, false);
         closeFilter();
     }
+}
 
-};
+const exportData = () => {
+    window.open(route('pds.monitoring.history-export'))
+}
 </script>

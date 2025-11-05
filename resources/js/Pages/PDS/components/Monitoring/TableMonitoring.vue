@@ -3,50 +3,51 @@
         <tr
             v-for="(row, i) in paginate.data.value"
             :class="{
-                'bg-[#FDBFB7]': i == 3
+                'bg-[#FDBFB7]': row.abandoned_rate_num >= row.max_abandoned
             }"
         >
             <Td>
-                PDS-{{ i }}
+                {{ row.name }}
             </Td>
             <Td>
-                Running
+                <span v-if="!row.is_running">Stop</span>
+                <span v-if="row.is_running">Running</span>
             </Td>
             <Td>
-                SPV-{{ i }}
+                {{ row.spv }}
             </Td>
             <Td>
-                10
+                {{ row.total_agent }}
             </Td>
             <Td>
-                8
+                {{ row.data_size }}
             </Td>
             <Td>
-                30
+                {{ row.retry }}
             </Td>
             <Td>
-                20
+                {{ row.data_dialed }}
             </Td>
             <Td>
-                111
+                {{ row.calls }}
             </Td>
             <Td>
-                11
+                {{ row.call_in_progress }}
             </Td>
             <Td>
-                13
+                {{ row.contacted }}
             </Td>
             <Td>
-                210
+                {{ row.failed }}
             </Td>
             <Td>
-                20
+                {{ row.answered }}
             </Td>
             <Td>
-                2
+                {{ row.abandoned }}
             </Td>
             <Td>
-                10%
+                {{ row.abandoned_rate }}
             </Td>
         </tr>
     </Table>
@@ -75,6 +76,6 @@ const columns = ref([
 ]);
 
 const paginate = usePaginate({
-    route: route('dummy'),
+    route: route('pds.monitoring.datatable'),
 });
 </script>
