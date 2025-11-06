@@ -21,11 +21,16 @@ class SetupPdsService
 
     public function get($companyId, $search, $filter, $limit)
     {
-        return Pds::with(["campaign", "agents", "customers", "agents.companyUser", "spv", "spv.companyUser"])
+        $data = Pds::with(["campaign", "agents", "customers", "agents.companyUser", "spv", "spv.companyUser"])
         ->where("company_id", $companyId)
         ->when($search, fn ($q) => $q->where("pds_name", "LIKE", "%$search%"))
-        ->orderBy("created_at", "desc")
-        ->paginate($limit ?: 10);
+        ->orderBy("created_at", "desc");
+
+        if ($limit == null) {
+            return $data->get();
+        } else {
+            return $data->paginate($limit ?: 10);
+        }
     }
 
     public function getAll($companyId)
