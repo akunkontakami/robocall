@@ -35,6 +35,9 @@ Route::middleware(['app-auth'])
 
         Route::get('/pds/monitoring', [MonitoringPdsController::class, 'monitoring'])->name('pds.monitoring');
         Route::get('/pds/monitoring/data', [MonitoringPdsController::class, 'monitoringData'])->name('pds.monitoring.data');
+        Route::get('/pds/monitoring/live-datatable', [MonitoringPdsController::class, 'monitoringDatatable'])->name('pds.monitoring.datatable');
+        Route::get('/pds/monitoring/history-datatable', [MonitoringPdsController::class, 'pdsHistoryDatatable'])->name('pds.monitoring.history-datatable');
+        Route::get('/pds/monitoring/history-export', [MonitoringPdsController::class, 'pdsHistoryExport'])->name('pds.monitoring.history-export');
         Route::get('/pds/report', [MonitoringPdsController::class, 'report'])->name('pds.report');
 
         Route::get('/pds/detail/{id}', [PdsDetailController::class, 'index'])->name('pds.detail');

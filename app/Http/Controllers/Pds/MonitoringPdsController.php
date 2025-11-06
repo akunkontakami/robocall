@@ -5,7 +5,11 @@ namespace App\Http\Controllers\Pds;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Rap2hpoutre\FastExcel\FastExcel;
+use App\Services\Pds\SetupPdsService;
 use App\Services\Pds\MonitoringPdsService;
+use App\Http\Resources\Pds\MonitoringResource;
+use App\Http\Resources\Pds\PdsHistoryResource;
 
 class MonitoringPdsController extends Controller
 {
@@ -24,5 +28,62 @@ class MonitoringPdsController extends Controller
         $data = (new MonitoringPdsService())->getMonitoring();
 
         return response()->json($data);
+    }
+
+    public function monitoringDatatable()
+    {
+        return MonitoringResource::collection(
+            (new SetupPdsService())->get(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: request('limit', 10),
+            )
+        );
+    }
+
+    public function pdsHistoryDatatable()
+    {
+        return PdsHistoryResource::collection(
+            (new SetupPdsService())->get(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: request('limit', 10),
+            )
+        );
+    }
+
+    public function pdsHistoryExport()
+    {
+        $data = PdsHistoryResource::collection(
+            (new SetupPdsService())->get(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: null
+            )
+        );
+
+        $arrayData = $data->toArray(request());
+        $name = 'pds_history_' . now()->format('Ymd_His') . '.xlsx';
+
+        return (new FastExcel(collect($arrayData)))
+            ->download($name, function ($row) {
+                $row = (object) $row;
+                return [
+                    'PDS' => $row->name,
+                    'Agent Ready' => $row->total_agent,
+                    'Start Time' => $row->session_start,
+                    'End Time' => $row->session_end,
+                    'Data Size PDS' => $row->data_size,
+                    'Data Utilize' => $row->data_utilize,
+                    'Calls' => $row->calls,
+                    'Call Contacted' => $row->contacted,
+                    'Call UnContacted' => $row->uncontacted,
+                    'Call Abandon' => $row->abandoned,
+                    'Abandon Rate' => $row->abandoned_rate
+                ];
+            });
     }
 }
