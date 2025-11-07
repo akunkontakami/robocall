@@ -220,7 +220,6 @@ class SetupPdsService
             }
 
             $result = Dialer::get($urlPath . "?" . http_build_query($query));
-
             $data = collect($result['data']);
 
             foreach ($data as $item) {
@@ -289,54 +288,59 @@ class SetupPdsService
         $agents = [];
         $totalIdleSeconds = 0;
 
-        do {
+        try {
+            do {
 
-            $query = [
-                'page'       => $page,
-                'per_page'   => $perPage
-            ];
+                $query = [
+                    'page'       => $page,
+                    'per_page'   => $perPage
+                ];
 
-            if ($startDate && $endDate) {
-                $query['start_date'] = $startDate;
-                $query['end_date']   = $endDate;
-            }
-
-            $result = Dialer::get($urlPath . "?" . http_build_query($query));
-
-            $data = collect($result['data']);
-
-            foreach ($data as $item) {
-                $extensions = DB::table("cms_extension")->where("agent_login", $item['agent'])->pluck("agent_id")->toArray();
-
-                $isAgent = CompanyUser::where("company_id", $companyId)->whereIn("user_id", $extensions)->first();
-                if ($isAgent) {
-                    $agents[] = [
-                        'agent'           => $item['agent'],
-                        'agent_group'     => $item['agent_group'],
-                        'status'          => $item['status'],
-                        'ext_number'      => $item['ext_number'],
-                        'total_idle_time' => $item['total_idle_time'],
-                    ];
-
-                    $totalIdleSeconds += $this->timeToSeconds($item['total_idle_time']);
+                if ($startDate && $endDate) {
+                    $query['start_date'] = $startDate;
+                    $query['end_date']   = $endDate;
                 }
-            }
 
-            $total = $result['total'] ?? $data->count();
-            $perPage = $result['per_page'] ?? $perPage;
-            $currentPage = $result['current_page'] ?? $page;
+                $result = Dialer::get($urlPath . "?" . http_build_query($query));
+                $data = collect($result['data']);
 
-            $page++;
-        } while ($currentPage * $perPage < $total);
+                foreach ($data as $item) {
+                    $extensions = DB::table("cms_extension")->where("agent_login", $item['agent'])->pluck("agent_id")->toArray();
 
-        $hours = floor($totalIdleSeconds / 3600);
-        $minutes = floor(($totalIdleSeconds % 3600) / 60);
-        $seconds = $totalIdleSeconds % 60;
-        $totalIdleTime = sprintf("%02d:%02d:%02d", $hours, $minutes, $seconds);
+                    $isAgent = CompanyUser::where("company_id", $companyId)->whereIn("user_id", $extensions)->first();
+                    if ($isAgent) {
+                        $agents[] = [
+                            'agent'           => $item['agent'],
+                            'agent_group'     => $item['agent_group'],
+                            'status'          => $item['status'],
+                            'ext_number'      => $item['ext_number'],
+                            'total_idle_time' => $item['total_idle_time'],
+                        ];
 
-        return (object) [
-            'time'  => $totalIdleTime
-        ];
+                        $totalIdleSeconds += $this->timeToSeconds($item['total_idle_time']);
+                    }
+                }
+
+                $total = $result['total'] ?? $data->count();
+                $perPage = $result['per_page'] ?? $perPage;
+                $currentPage = $result['current_page'] ?? $page;
+
+                $page++;
+            } while ($currentPage * $perPage < $total);
+
+            $hours = floor($totalIdleSeconds / 3600);
+            $minutes = floor(($totalIdleSeconds % 3600) / 60);
+            $seconds = $totalIdleSeconds % 60;
+            $totalIdleTime = sprintf("%02d:%02d:%02d", $hours, $minutes, $seconds);
+
+            return (object) [
+                'time'  => $totalIdleTime
+            ];
+        } catch (\Throwable $th) {
+            return (object) [
+                'time'  => '00:00:00'
+            ];
+        }
     }
 
     private function timeToSeconds($time)
