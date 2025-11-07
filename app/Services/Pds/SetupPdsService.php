@@ -4,9 +4,10 @@ namespace App\Services\Pds;
 
 use Carbon\Carbon;
 use App\Helpers\Dialer;
-use App\Models\Account\CompanyUser;
 use App\Models\Pds\Pds;
+use App\Models\Pds\PdsAgent;
 use Illuminate\Support\Facades\DB;
+use App\Models\Account\CompanyUser;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class SetupPdsService
@@ -25,6 +26,49 @@ class SetupPdsService
         ->where("company_id", $companyId)
         ->when($search, fn ($q) => $q->where("pds_name", "LIKE", "%$search%"))
         ->orderBy("created_at", "desc");
+
+        if ($limit == null) {
+            return $data->get();
+        } else {
+            return $data->paginate($limit ?: 10);
+        }
+    }
+
+    public function getByCampaign($companyId, $search, $filter, $limit)
+    {
+        $statuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $data = Pds::with(["campaign", "agents", "customers", "agents.companyUser", "spv", "spv.companyUser"])
+        ->withCount(['tickets as ticket_count' => function($q) use ($statuses) {
+            $q->whereIn('status', $statuses);
+        }])
+        ->where("company_id", $companyId)
+        ->when($search, fn ($q) => $q->where("pds_name", "LIKE", "%$search%"))
+        ->orderBy("created_at", "desc");
+
+        if ($limit == null) {
+            return $data->get();
+        } else {
+            return $data->paginate($limit ?: 10);
+        }
+    }
+
+    public function getByAgent($companyId, $search, $filter, $limit)
+    {
+        $statuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $data = PdsAgent::with([
+            'companyUser',
+            'pds.campaign',
+            'pds.customers',
+            'pds.spv',
+            'pds.spv.companyUser'
+        ])
+        ->withCount(['tickets as ticket_count' => function($q) use ($statuses) {
+            $q->whereIn('status', $statuses)
+            ->whereColumn('current_agent_id', 'pds_agents.user_id');
+        }])
+        ->whereHas('pds', fn($q) => $q->where('company_id', $companyId))
+        ->when($search, fn ($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
+        ->orderBy('created_at', 'desc');
 
         if ($limit == null) {
             return $data->get();

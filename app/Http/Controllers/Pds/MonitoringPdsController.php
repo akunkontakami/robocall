@@ -18,11 +18,6 @@ class MonitoringPdsController extends Controller
         return Inertia::render("Pds/Monitoring");
     }
 
-    public function report()
-    {
-        return Inertia::render("Pds/Report");
-    }
-
     public function monitoringData()
     {
         $data = (new MonitoringPdsService())->getMonitoring();

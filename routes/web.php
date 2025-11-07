@@ -5,6 +5,7 @@ use App\Http\Controllers\Dummy\DummyController;
 use App\Http\Controllers\Pds\DashboardPdsController;
 use App\Http\Controllers\Pds\MonitoringPdsController;
 use App\Http\Controllers\Pds\PdsDetailController;
+use App\Http\Controllers\Pds\ReportPdsController;
 use App\Http\Controllers\Pds\SetupPdsController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,7 +39,14 @@ Route::middleware(['app-auth'])
         Route::get('/pds/monitoring/live-datatable', [MonitoringPdsController::class, 'monitoringDatatable'])->name('pds.monitoring.datatable');
         Route::get('/pds/monitoring/history-datatable', [MonitoringPdsController::class, 'pdsHistoryDatatable'])->name('pds.monitoring.history-datatable');
         Route::get('/pds/monitoring/history-export', [MonitoringPdsController::class, 'pdsHistoryExport'])->name('pds.monitoring.history-export');
-        Route::get('/pds/report', [MonitoringPdsController::class, 'report'])->name('pds.report');
+
+        Route::get('/pds/report', [ReportPdsController::class, 'report'])->name('pds.report');
+        Route::get('/pds/report/campaign-datatable', [ReportPdsController::class, 'campaignDatatable'])->name('pds.report.campaign-datatable');
+        Route::get('/pds/report/agent-datatable', [ReportPdsController::class, 'agentDatatable'])->name('pds.report.agent-datatable');
+        Route::get('/pds/report/tracking-datatable', [ReportPdsController::class, 'trackingDatatable'])->name('pds.report.tracking-datatable');
+        Route::get('/pds/report/tracking-export', [ReportPdsController::class, 'trackingExport'])->name('pds.report.tracking-export');
+        Route::get('/pds/report/agent-export', [ReportPdsController::class, 'agentExport'])->name('pds.report.agent-export');
+        Route::get('/pds/report/campaign-export', [ReportPdsController::class, 'campaignExport'])->name('pds.report.campaign-export');
 
         Route::get('/pds/detail/{id}', [PdsDetailController::class, 'index'])->name('pds.detail');
         Route::post('/pds/detail/{id}/update', [PdsDetailController::class, 'update'])->name('pds.detail.update');
