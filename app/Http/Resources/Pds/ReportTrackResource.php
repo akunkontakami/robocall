@@ -44,6 +44,8 @@ class ReportTrackResource extends JsonResource
             ->get()
             ->pluck('count', 'status');
 
+        $agentReady = (new MonitoringPdsService())->getAgentReady($this->agents);
+
         return [
             'id' => $this->id,
             'campaign' => $this->campaign?->name ?? '-',
@@ -54,7 +56,7 @@ class ReportTrackResource extends JsonResource
             'end_date' => $log->SessionEnd ? Carbon::parse($log->SessionEnd)->format("d M Y") : '',
             'end_time' => $log->SessionEnd ? Carbon::parse($log->SessionEnd)->format("H.i") : '',
             'name' => $this->pds_name,
-            'total_agent' => count($this->agents),
+            'total_agent' => $agentReady,
             'data_size' => $log->DataSize,
             'data_utilize' => $log->DataDialed,
             'calls' => $log->DialCount,

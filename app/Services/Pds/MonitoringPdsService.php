@@ -274,4 +274,43 @@ class MonitoringPdsService
 
         return (object) $summary;
     }
+
+
+    public function getAgentReady($agents = [])
+    {
+        $urlPath = "/agent-monitoring?status=1";
+        $page = 1;
+        $perPage = 100;
+
+        $companyId = user()->company_id;
+        $countAgent = 0;
+        $agentsReady = [];
+
+        do {
+
+            $result = Dialer::get($urlPath);
+
+            $data = collect($result['data']);
+
+            foreach ($data as $item) {
+                foreach ($agents as $agent) {
+                    $agentLogin = optional($agent->ext)->agent_login;
+
+                    if ($agentLogin == $item['agent']) {
+                        $agentsReady[] = $agentLogin;
+                        $countAgent += 1;
+                    }
+                }
+
+            }
+
+            $total = $result['total'] ?? $data->count();
+            $perPage = $result['per_page'] ?? $perPage;
+            $currentPage = $result['current_page'] ?? $page;
+
+            $page++;
+        } while ($currentPage * $perPage < $total);
+
+        return $countAgent;
+    }
 }

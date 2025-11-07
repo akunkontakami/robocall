@@ -21,6 +21,7 @@ class ReportCampaignResource extends JsonResource
         $end = @$filter['created_end'];
 
         $log = (new MonitoringPdsService())->pdsHistoryLogs($this->pds_name, $start, $end);
+        $agentReady = (new MonitoringPdsService())->getAgentReady($this->agents);
 
         $duration = null;
         if ($log->SessionStart && $log->SessionEnd) {
@@ -47,7 +48,7 @@ class ReportCampaignResource extends JsonResource
             'end_date' => $log->SessionEnd ? Carbon::parse($log->SessionEnd)->format("d M Y") : '',
             'end_time' => $log->SessionEnd ? Carbon::parse($log->SessionEnd)->format("H.i") : '',
             'name' => $this->pds_name,
-            'total_agent' => count($this->agents),
+            'total_agent' => $agentReady,
             'data_size' => $log->DataSize,
             'data_utilize' => $log->DataDialed,
             'calls' => $log->DialCount,
