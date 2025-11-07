@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Http\Controllers\Pds;
+
+use App\Exports\PdsAgentExport;
+use App\Exports\PdsCampaignExport;
+use Inertia\Inertia;
+use Illuminate\Http\Request;
+use App\Exports\PdsTrackingExport;
+use App\Http\Controllers\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Rap2hpoutre\FastExcel\FastExcel;
+use App\Services\Pds\SetupPdsService;
+use App\Services\Pds\MonitoringPdsService;
+use App\Http\Resources\Pds\MonitoringResource;
+use App\Http\Resources\Pds\PdsHistoryResource;
+use App\Http\Resources\Pds\ReportAgentResource;
+use App\Http\Resources\Pds\ReportTrackResource;
+use App\Http\Resources\Pds\ReportCampaignResource;
+
+class ReportPdsController extends Controller
+{
+
+    public function report()
+    {
+        return Inertia::render("Pds/Report");
+    }
+
+    public function campaignDatatable()
+    {
+        return ReportCampaignResource::collection(
+            (new SetupPdsService())->getByCampaign(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: request('limit', 10),
+            )
+        );
+    }
+
+    public function agentDatatable()
+    {
+        return ReportAgentResource::collection(
+            (new SetupPdsService())->getByAgent(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: request('limit', 10),
+            )
+        );
+    }
+
+    public function trackingDatatable()
+    {
+        return ReportTrackResource::collection(
+            (new SetupPdsService())->getByCampaign(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: request('limit', 10),
+            )
+        );
+    }
+
+    public function trackingExport(Request $request)
+    {
+        $dataCollection = ReportTrackResource::collection(
+            (new SetupPdsService())->getByCampaign(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: null
+            )
+        );
+
+        $data = $dataCollection->toArray($request);
+
+        $filename = 'pds_tracking_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new PdsTrackingExport($data), $filename);
+    }
+
+    public function agentExport(Request $request)
+    {
+        $dataCollection = ReportAgentResource::collection(
+            (new SetupPdsService())->getByAgent(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: null
+            )
+        );
+
+        $data = $dataCollection->toArray($request);
+
+        $filename = 'pds_agent_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new PdsAgentExport($data), $filename);
+    }
+
+    public function campaignExport(Request $request)
+    {
+        $dataCollection = ReportCampaignResource::collection(
+            (new SetupPdsService())->getByCampaign(
+                companyId: user()->company_id,
+                search: request('search', ''),
+                filter: request('filter:', []),
+                limit: request('limit', 10),
+            )
+        );
+
+        $data = $dataCollection->toArray($request);
+
+        $filename = 'pds_campaign_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new PdsCampaignExport($data), $filename);
+    }
+
+}
