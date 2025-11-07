@@ -4,6 +4,7 @@ namespace App\Models\Pds;
 
 use App\Models\Account\User;
 use App\Models\Data\MarketingCampaign;
+use App\Models\Data\Ticket;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -35,5 +36,10 @@ class Pds extends Model
     public function spv(): HasOne
     {
         return $this->hasOne(User::class, 'id', 'spv_id');
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class, 'marketing_campaign_id', 'marketing_campaign_id');
     }
 }

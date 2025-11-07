@@ -6,7 +6,7 @@
                 <ButtonOutlineGrey class="ms-auto mb-3" icon="isax icon-setting-4" x-on:click="filter=true">
                     Filter
                 </ButtonOutlineGrey>
-                <ButtonOutlineGreen class="ms-auto mb-3">
+                <ButtonOutlineGreen class="ms-auto mb-3" @click="exportData">
                     Export Data
                 </ButtonOutlineGreen>
 
@@ -35,31 +35,31 @@
                 v-for="(row, i) in paginate.data.value"
             >
                 <Td>
-                    PDS-{{ i }}
+                    {{ row.name }}
                 </Td>
                 <Td>
-                    MC-A
+                    {{ row.campaign }}
                 </Td>
                 <Td>
-                    200
+                    {{ row.spv }}
                 </Td>
                 <Td>
-                    200
+                    {{ row.agent }}
                 </Td>
                 <Td>
-                    1200
+                    {{ row.data_utilize }}
                 </Td>
                 <Td>
-                    500
+                    {{ row.still_thinking }}
                 </Td>
                 <Td>
-                    1020
+                    {{ row.disagree }}
                 </Td>
                 <Td>
-                    150
+                    {{ row.incoming }}
                 </Td>
                 <Td>
-                    150
+                    {{ row.callback }}
                 </Td>
             </tr>
         </Table>
@@ -99,7 +99,7 @@ const filter = ref({
 });
 
 const paginate = usePaginate({
-    route: route('dummy'),
+    route: route('pds.report.agent-datatable'),
 });
 
 const filterData = () => {
@@ -124,4 +124,8 @@ const filterData = () => {
     }
 
 };
+
+const exportData = () => {
+    window.open(route('pds.report.agent-export'))
+}
 </script>

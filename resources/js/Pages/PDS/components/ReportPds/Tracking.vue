@@ -6,7 +6,7 @@
                 <ButtonOutlineGrey class="ms-auto mb-3" icon="isax icon-setting-4" x-on:click="filter=true">
                     Filter
                 </ButtonOutlineGrey>
-                <ButtonOutlineGreen class="ms-auto mb-3">
+                <ButtonOutlineGreen class="ms-auto mb-3" @click="exportData">
                     Export Data
                 </ButtonOutlineGreen>
 
@@ -23,9 +23,9 @@
                     <Th colspan="4" class="text-center border-x">Utilize PDS</Th>
                     <Th colspan="2" class="text-center border-x">Unutilize PDS</Th>
                     <Th rowspan="2">Duration</Th>
-                    <Th colspan="4" class="text-center border-x">Contacted</Th>
-                    <Th colspan="4" class="text-center border-x">UnContacted</Th>
-                    <Th colspan="4" class="text-center border-x">Abandon</Th>
+                    <Th colspan="3" class="text-center border-x">Contacted</Th>
+                    <Th colspan="3" class="text-center border-x">UnContacted</Th>
+                    <Th colspan="2" class="text-center border-x">Abandon</Th>
                     <Th colspan="4" class="text-center border-x">Call Status</Th>
                 </tr>
                 <tr class="bg-[#F4F6FA]">
@@ -38,18 +38,14 @@
                     <Th class="border-r">% Unutilize</Th>
 
                     <Th class="border-l">Data</Th>
-                    <Th>%</Th>
                     <Th>Calls</Th>
                     <Th class="border-r">%</Th>
 
                     <Th class="border-l">Data</Th>
-                    <Th>%</Th>
                     <Th>Calls</Th>
                     <Th class="border-r">%</Th>
 
                     <Th class="border-l">Data</Th>
-                    <Th>%</Th>
-                    <Th>Calls</Th>
                     <Th class="border-r">%</Th>
 
 
@@ -64,85 +60,73 @@
                 v-for="(row, i) in paginate.data.value"
             >
                 <Td>
-                    PDS-{{ i }}
+                    {{ row.name }}
                 </Td>
                 <Td>
-                    MC-A
+                    {{ row.campaign }}
                 </Td>
                 <Td>
-                    2
+                    {{ row.total_agent }}
                 </Td>
                 <Td>
-                    700
+                    {{ row.data_size }}
                 </Td>
                 <Td>
-                    500
+                    {{ row.data_utilize }}
                 </Td>
                 <Td>
-                    500
+                    {{ row.calls }}
                 </Td>
                 <Td>
-                    1,2
+                    {{ row.utilize_call_ratio }}
                 </Td>
                 <Td>
-                    12%
+                    {{ row.utilize_percentage }}
                 </Td>
                 <Td>
-                    20
+                    {{ row.unutilize }}
                 </Td>
                 <Td>
-                    70%
+                    {{ row.unutilize_percentage }}
                 </Td>
                 <Td>
-                    02:15:30
+                    {{ row.duration_pds }}
                 </Td>
                 <Td>
-                    70
+                    {{ row.contacted }}
                 </Td>
                 <Td>
-                    70%
+                    {{ row.contacted }}
                 </Td>
                 <Td>
-                    10
+                    {{ row.contacted_percentage }}
                 </Td>
                 <Td>
-                    13%
+                    {{ row.uncontacted }}
                 </Td>
                 <Td>
-                    70
+                    {{ row.uncontacted }}
                 </Td>
                 <Td>
-                    70%
+                    {{ row.uncontacted_percentage }}
                 </Td>
                 <Td>
-                    10
+                    {{ row.abandoned }}
                 </Td>
                 <Td>
-                    13%
+                    {{ row.abandoned_rate }}
                 </Td>
                 <Td>
-                    70
+                    {{ row.still_thinking }}
                 </Td>
                 <Td>
-                    70%
+                    {{ row.disagree }}
                 </Td>
                 <Td>
-                    10
+                    {{ row.incoming }}
                 </Td>
                 <Td>
-                    13%
-                </Td>
-                <Td>
-                    70
-                </Td>
-                <Td>
-                    70%
-                </Td>
-                <Td>
-                    10
-                </Td>
-                <Td>
-                    13%
+                    {{ row.callback }}
                 </Td>
             </tr>
         </Table>
@@ -198,7 +182,7 @@ const filter = ref({
 });
 
 const paginate = usePaginate({
-    route: route('dummy'),
+    route: route('pds.report.tracking-datatable'),
 });
 
 const filterData = () => {
@@ -223,4 +207,8 @@ const filterData = () => {
     }
 
 };
+
+const exportData = () => {
+    window.open(route('pds.report.tracking-export'))
+}
 </script>
