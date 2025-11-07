@@ -22,7 +22,7 @@ class SetupPdsService
 
     public function get($companyId, $search, $filter, $limit)
     {
-        $data = Pds::with(["campaign", "agents", "customers", "agents.companyUser", "spv", "spv.companyUser"])
+        $data = Pds::with(["campaign", "agents", "customers", "agents.companyUser", "agents.ext", "spv", "spv.companyUser"])
         ->where("company_id", $companyId)
         ->when($search, fn ($q) => $q->where("pds_name", "LIKE", "%$search%"))
         ->orderBy("created_at", "desc");
@@ -37,7 +37,7 @@ class SetupPdsService
     public function getByCampaign($companyId, $search, $filter, $limit)
     {
         $statuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
-        $data = Pds::with(["campaign", "agents", "customers", "agents.companyUser", "spv", "spv.companyUser"])
+        $data = Pds::with(["campaign", "agents", "customers", "agents.companyUser", "agents.ext", "spv", "spv.companyUser"])
         ->withCount(['tickets as ticket_count' => function($q) use ($statuses) {
             $q->whereIn('status', $statuses);
         }])
@@ -56,6 +56,7 @@ class SetupPdsService
     {
         $statuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
         $data = PdsAgent::with([
+            "ext",
             'companyUser',
             'pds.campaign',
             'pds.customers',

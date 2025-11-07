@@ -5,6 +5,7 @@ namespace App\Models\Pds;
 use App\Models\Data\Ticket;
 use App\Models\Account\User;
 use App\Models\Account\CompanyUser;
+use App\Models\Account\Extension;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -31,6 +32,11 @@ class PdsAgent extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function ext(): BelongsTo
+    {
+        return $this->belongsTo(Extension::class, 'user_id', 'agent_id');
     }
 
     public function tickets()

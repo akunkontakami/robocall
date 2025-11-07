@@ -19,6 +19,8 @@ class MonitoringResource extends JsonResource
         $log = (new MonitoringPdsService())->sessionLogs($this->pds_name);
         $activity = (new MonitoringPdsService())->sessionActivities($this->pds_name);
 
+        $agentReady = (new MonitoringPdsService())->getAgentReady($this->agents);
+
         return [
             'id' => $this->id,
             'date' => Carbon::parse($this->date)->format("Y-m-d"),
@@ -26,7 +28,7 @@ class MonitoringResource extends JsonResource
             'name' => $this->pds_name,
             'spv' => $this->spv?->company_user ? $this->spv->company_user->name : $this->spv?->name,
             'is_running' => $this->is_running,
-            'total_agent' => count($this->agents),
+            'total_agent' => $agentReady,
             'campaign' => $this->campaign?->name ?? '-',
             'data_size' => $log->DataSize,
             'retry' => $log->DialCount,
