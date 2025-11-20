@@ -1,5 +1,5 @@
 <template>
-    <FormPopup title="Add New PDS">
+    <FormPopup title="Setup new PDS">
         <form @submit.prevent="submit">
             <div class="overflow-auto max-h-[60vh]">
                 <Input
@@ -24,7 +24,7 @@
                     :error="form.errors.name"
                 />
                 <SelectSearch
-                    placeholder="Enter Trunk"
+                    placeholder="Choose Trunk"
                     label="Trunk"
                     id="trunk"
                     name="trunk"
@@ -34,7 +34,7 @@
                     :items="route"
                 />
                 <SelectSearch
-                    placeholder="Enter IVR"
+                    placeholder="Choose IVR"
                     label="IVR"
                     id="ivr"
                     name="ivr"
@@ -49,7 +49,7 @@
                     v-model="form.marketing_campaign"
                     :items="campaigns"
                     :error="form.errors.marketing_campaign"
-                    placeholder="Select Marketing Campaign"
+                    placeholder="Choose Marketing Campaign"
                 />
                 <SelectSearch
                     label="Supervisor"
@@ -57,7 +57,7 @@
                     v-model="form.spv"
                     v-bind:items="spvUsers"
                     :error="form.errors.spv"
-                    placeholder="Select Supervisor"
+                    placeholder="Choose Supervisor"
                 />
             </div>
             <div class="flex justify-end gap-3 pt-3 mt-2 border-t sticky bottom-0 bg-white">

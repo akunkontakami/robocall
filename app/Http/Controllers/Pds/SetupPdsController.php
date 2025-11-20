@@ -72,7 +72,7 @@ class SetupPdsController extends Controller
         try {
             $action->delete($request);
 
-            return to_route('pds.setup')->with('success', 'Successfully delete PDS');
+            return to_route('pds.setup')->with('success', 'Successfully deleted PDS');
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }

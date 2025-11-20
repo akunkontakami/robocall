@@ -31,7 +31,7 @@
                         class="!bg-[#F3F3F3]"
                     />
                     <SelectSearch
-                        placeholder="Enter Trunk"
+                        placeholder="Choose Trunk"
                         label="Trunk"
                         id="trunk"
                         name="trunk"
@@ -43,7 +43,7 @@
                         :disabled="true"
                     />
                     <SelectSearch
-                        placeholder="Enter IVR"
+                        placeholder="Choose IVR"
                         label="IVR"
                         id="ivr"
                         name="ivr"
@@ -61,8 +61,8 @@
                         :value="form.marketing_campaign"
                         :items="campaigns"
                         :error="form.errors.marketing_campaign"
-                        placeholder="Select Marketing Campaign"
-                        :disabled="data.spv_id"
+                        placeholder="Choose Marketing Campaign"
+                        :disabled="data.spv_id && data.customers.length"
                     />
                     <SelectSearch
                         label="Supervisor"
@@ -71,8 +71,8 @@
                         :value="form.spv"
                         v-bind:items="spvUsers"
                         :error="form.errors.spv"
-                        placeholder="Select SPV"
-                        :disabled="data.spv_id"
+                        placeholder="Choose SPV"
+                        :disabled="data.spv_id && data.agents.length"
                     />
                 </div>
             </div>
@@ -90,7 +90,7 @@
                                     !form.marketing_campaign ||
                                     !form.spv
                                 )
-                            ) || data.spv_id
+                            ) || (data.agents.length && data.customers.length)
                         "
                         :loading="form.processing"
                     > Submit </ButtonYellow>

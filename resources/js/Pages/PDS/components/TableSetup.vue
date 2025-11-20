@@ -19,10 +19,10 @@
                 <span class="text-green text-[13px] font-krub-semibold" v-if="row.is_running">Running</span>
             </Td>
             <Td>
-                {{ row.total_agent }}
+                {{ row.total_agent ?? '-' }}
             </Td>
             <Td>
-                {{ row.total_data }}
+                {{ row.total_data ?? '-' }}
             </Td>
             <Td>
                 <a
@@ -43,16 +43,26 @@
                             <i class="text-base isax icon-edit"></i>
                             <span class="text-xs">Manage</span>
                         </li>
-                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showDelete(row)">
+                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-red" @click="showDelete(row)">
                             <i class="text-base isax icon-trash"></i>
                             <span class="text-xs">Delete</span>
                         </li>
                         <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showRelease(row)" v-if="row.total_data > 0">
-                            <i class="text-base isax icon-trash"></i>
+                            <i class="text-base isax icon-refresh-circle"></i>
                             <span class="text-xs">Release Customers</span>
                         </li>
-                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showStart(row)">
-                            <i class="text-base isax-b icon-play-circle text-green"></i>
+                        <li
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showStart(row)"
+                            :class="{
+                                '!text-[#DDD] !cursor-default': row.campaign_status == 'non_active'
+                            }"
+                        >
+                            <i
+                                class="text-base isax-b icon-play-circle text-green"
+                                :class="{
+                                    '!text-[#DDD]': row.campaign_status == 'non_active'
+                                }"
+                            ></i>
                             <span class="text-xs">Start PDS</span>
                         </li>
                     </ul>
@@ -159,12 +169,14 @@ const paginate = usePaginate({
 });
 
 const showStart = (row: any) => {
-    if (row.total_data == 0) {
-        showAlert("Please upload customer data before starting")
-    } else if (row.total_agent == 0) {
-        showAlert("Please assign agent before starting")
-    } else {
-        emits('showStartPds', row)
+    if (row.campaign_status == 'active') {
+        if (row.total_data == 0) {
+            showAlert("Please upload customer data before starting")
+        } else if (row.total_agent == 0) {
+            showAlert("Please assign agent before starting")
+        } else {
+            emits('showStartPds', row)
+        }
     }
 }
 

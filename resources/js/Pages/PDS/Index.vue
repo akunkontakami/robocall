@@ -15,7 +15,7 @@
             <ButtonOutlineGreen class="ms-auto mb-3">
                 Export Data
             </ButtonOutlineGreen>
-            <p class="mb-3 text-[13px] text-[#181C32]">Pds Name:</p>
+            <p class="mb-3 text-[13px] text-[#181C32]">PDS Name:</p>
             <Select class="min-w-[180px]" v-model="filter.pds" :value="filter.pds">
                 <option value="" disabled selected>Select PDS Name</option>
 
