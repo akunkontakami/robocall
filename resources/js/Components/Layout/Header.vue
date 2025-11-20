@@ -9,7 +9,7 @@
                 <AppLogoSm class="md:hidden w-[30px] h-[30px]" />
                 <Link
                     :href="headerBackUrl"
-                    class="font-krub-bold flex items-center gap-2 text-[15px] text-dark w-fit"
+                    class="font-krub-bold flex items-center gap-2 text-[15px] text-dark w-fit py-2"
                     v-if="headerBackUrl"
                 >
                     <i
@@ -19,7 +19,7 @@
                     {{ header }}
                 </Link>
                 <h1
-                    class="font-krub-bold flex items-center gap-2 text-[15px] text-dark w-fit"
+                    class="font-krub-bold flex items-center gap-2 text-[15px] text-dark w-fit py-2"
                     v-else
                 >
                     {{ header }}
@@ -45,7 +45,7 @@
                             </b>
                             <p class="text-[9px]">
                                 <span v-if="user.company_name">
-                                    {{user.company_name}} - 
+                                    {{user.company_name}} -
                                 </span>
                                 <span class="text-yellow">
                                     {{ roleUser[user.role as string] }}

@@ -34,7 +34,7 @@ const menus = [
     },
     {
         key: "spv-agent",
-        name: "SPV/Agent",
+        name: "Detail SPV/Agent",
         url: route('pds.detail.spv-agent', props.id),
         show: true,
     }

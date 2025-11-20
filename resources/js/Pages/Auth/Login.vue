@@ -1,12 +1,12 @@
 <template>
     <AuthLayout title="Login">
         <section
-            class="bg-white rounded-lg border shadow-lg md:w-[400px] z-[2]"
+            class="bg-white rounded-lg border shadow-lg md:w-[515px] z-[2] mt-10"
         >
             <div class="flex md:flex-row flex-col">
                 <form
                     @submit.prevent="submit"
-                    class="flex-1 md:px-10 md:py-8 px-7 py-5 flex flex-col justify-center"
+                    class="flex-1 md:px-10 md:py-24 px-7 py-5 flex flex-col justify-center "
                     x-data="{popup : false}"
                 >
                     <div
@@ -22,10 +22,10 @@
                         {{ $page.props.flash.error }}
                     </div>
 
-                    <h1 class="text-dark text-[25px] font-krub-bold mb-5">
+                    <h1 class="text-dark text-[32px] font-krub-bold mb-5">
                         Login Dialer - Kontakami
                     </h1>
-                    <Select
+                    <!-- <Select
                         v-model="form.role"
                         required="true"
                         icon="isax icon-profile-2user"
@@ -38,7 +38,7 @@
                         >
                             {{ row.text }}
                         </option>
-                    </Select>
+                    </Select> -->
                     <Input
                         type="email"
                         placeholder="Email"
@@ -65,7 +65,7 @@
                             !form.email || !form.password || form.processing
                         "
                         :loading="form.processing"
-                        class="w-full block py-3 font-krub-medium uppercase"
+                        class="w-full block py-3 font-krub-medium uppercase mt-2"
                     >
                         SIGN IN
                     </ButtonYellow>

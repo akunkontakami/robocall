@@ -17,7 +17,7 @@ class SetupPdsResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'date' => Carbon::parse($this->date)->format("Y-m-d"),
+            'date' => Carbon::parse($this->date ?? $this->created_at)->format("Y-m-d"),
             'tenant' => $this->tenant_id,
             'name' => $this->pds_name,
             'spv' => $this->spv,
@@ -26,6 +26,7 @@ class SetupPdsResource extends JsonResource
             'total_agent' => count($this->agents),
             'total_data' => count($this->customers),
             'campaign' => $this->campaign?->name ?? '-',
+            'campaign_status' => $this->campaign?->status ?? 'non_active',
         ];
     }
 }

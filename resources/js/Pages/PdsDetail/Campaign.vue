@@ -1,5 +1,5 @@
 <template>
-    <AppLayout title="PDS Detail" header="PDS Detail" :headerBackUrl="route('pds.setup')">
+    <AppLayout title="PDS Detail" :header="data.pds_name" :headerBackUrl="route('pds.setup')">
         <template v-slot:tab>
             <TabMenu tab="campaign" :id="id" />
         </template>

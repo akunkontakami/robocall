@@ -32,6 +32,9 @@ class SetupPdsAction
             // 'trunk' => 'required|unique:pds,route',
             'trunk' => 'required',
             'ivr' => 'required|unique:pds,ivr'
+        ], [
+            'ivr.required' => 'VDN is required',
+            'ivr.unique'   => 'VDN has been used',
         ]);
 
         $user = user();

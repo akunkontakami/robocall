@@ -31,7 +31,7 @@
                         class="!bg-[#F3F3F3]"
                     />
                     <SelectSearch
-                        placeholder="Enter Trunk"
+                        placeholder="Choose Trunk"
                         label="Trunk"
                         id="trunk"
                         name="trunk"
@@ -43,7 +43,7 @@
                         :disabled="true"
                     />
                     <SelectSearch
-                        placeholder="Enter IVR"
+                        placeholder="Choose IVR"
                         label="IVR"
                         id="ivr"
                         name="ivr"
@@ -61,7 +61,7 @@
                         :value="form.marketing_campaign"
                         :items="campaigns"
                         :error="form.errors.marketing_campaign"
-                        placeholder="Select Marketing Campaign"
+                        placeholder="Choose Marketing Campaign"
                         :disabled="data.spv_id"
                     />
                     <SelectSearch
@@ -71,7 +71,7 @@
                         :value="form.spv"
                         v-bind:items="spvUsers"
                         :error="form.errors.spv"
-                        placeholder="Select SPV"
+                        placeholder="Choose SPV"
                         :disabled="data.spv_id"
                     />
                 </div>

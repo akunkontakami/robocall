@@ -14,6 +14,7 @@
                     :value="form.call_factor"
                     :hide-length="true"
                     :error="form.errors.call_factor"
+                    min="0"
                 />
                 <Input
                     type="number"
@@ -27,6 +28,7 @@
                     :value="form.call_wait"
                     :hide-length="true"
                     :error="form.errors.call_wait"
+                    min="0"
                 />
                 <Input
                     type="number"
@@ -40,6 +42,7 @@
                     :value="form.call_abandon_rate"
                     :hide-length="true"
                     :error="form.errors.call_abandon_rate"
+                    min="0"
                 />
                 <Input
                     type="number"
@@ -53,6 +56,7 @@
                     :value="form.call_limit"
                     :hide-length="true"
                     :error="form.errors.call_limit"
+                    min="0"
                 />
                 <Input
                     type="number"
@@ -66,6 +70,7 @@
                     :value="form.call_retry_after"
                     :hide-length="true"
                     :error="form.errors.call_retry_after"
+                    min="0"
                 />
                 <Input
                     type="number"
@@ -79,6 +84,7 @@
                     :value="form.call_retry_max"
                     :hide-length="true"
                     :error="form.errors.call_retry_max"
+                    min="0"
                 />
                 <!-- <Input
                     type="number"
@@ -101,6 +107,7 @@
                 </ButtonOutlineGrey>
                 <ButtonYellow
                     type="submit" class="w-[120px]"
+                    x-on:click="formPopup=false"
                     :disabled="
                         form.processing ||
                         !form.call_factor ||
@@ -115,6 +122,14 @@
             </div>
         </form>
     </FormPopup>
+
+    <div x-data="{confirmation:false}" v-if="showPopupStart">
+        <a hidden id="show-start-pds" x-on:click="confirmation=true"></a>
+        <ConfirmationSubmit
+            confirmation="Are you sure you want to stop this PDS?"
+            @action="actionStart"
+        />
+    </div>
 </template>
 <script setup lang="ts">
 import FormPopup from "@/Components/Popup/FormPopup.vue";
@@ -123,8 +138,12 @@ import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
 import ButtonOutlineGrey from "@/Components/Button/ButtonOutlineGrey.vue";
 import { useForm } from "@inertiajs/vue3";
 import { clickId } from "@/Plugins/Function/global-function";
+import { ref } from "vue";
+import ConfirmationSubmit from "@/Components/Popup/ConfirmationSubmit.vue";
 
 const props = defineProps(["id"])
+
+const showPopupStart = ref(true)
 
 const form = useForm({
     id: "",
@@ -137,12 +156,23 @@ const form = useForm({
 });
 
 const submit = () => {
+    clickId('show-start-pds')
+}
+
+const actionStart = () => {
     if (!form.processing) {
         form.id = props.id
 
         form.post(route("pds.setup.start"), {
             onSuccess: () => {
                 window.location.reload()
+            },
+            onError: () => {
+                showPopupStart.value = false
+
+                setTimeout(() => {
+                    showPopupStart.value = true
+                }, 100);
             }
         });
     }
