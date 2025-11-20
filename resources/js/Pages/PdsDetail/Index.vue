@@ -62,7 +62,7 @@
                         :items="campaigns"
                         :error="form.errors.marketing_campaign"
                         placeholder="Choose Marketing Campaign"
-                        :disabled="data.spv_id && data.customers.length"
+                        :disabled="data.spv_id"
                     />
                     <SelectSearch
                         label="Supervisor"
@@ -72,7 +72,7 @@
                         v-bind:items="spvUsers"
                         :error="form.errors.spv"
                         placeholder="Choose SPV"
-                        :disabled="data.spv_id && data.agents.length"
+                        :disabled="data.spv_id"
                     />
                 </div>
             </div>
@@ -90,7 +90,7 @@
                                     !form.marketing_campaign ||
                                     !form.spv
                                 )
-                            ) || (data.agents.length && data.customers.length)
+                            ) || data.spv_id
                         "
                         :loading="form.processing"
                     > Submit </ButtonYellow>
