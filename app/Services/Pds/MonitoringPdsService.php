@@ -194,8 +194,8 @@ class MonitoringPdsService
     public function getMonitoring()
     {
         return (object) [
-            'sessions' => $this->sessionLogs(),
             'dialer' => $this->campaignDialer(),
+            'sessions' => $this->sessionLogs(),
             'progress' => $this->sessionActivities()
         ];
     }

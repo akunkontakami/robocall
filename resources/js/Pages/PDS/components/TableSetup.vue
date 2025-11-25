@@ -105,14 +105,18 @@
     <Popup title="Spv" class="max-w-lg">
         <div class="flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
             <div
-                class="bg-[#F4F6FA] p-3 rounded-[4px] w-full text-[13px] text-[#181C32] font-opensauceone-medium flex justify-between items-center cursor-pointer"
+                class="bg-[#F4F6FA] p-3 rounded-[4px] w-full text-[13px] text-[#181C32] font-opensauceone-medium flex justify-between items-center"
                 @click="openSub('sub-'+spv?.id)"
+                :class="{
+                    'cursor-pointer': agents.length
+                }"
             >
                 {{ spv?.company_user?.name }} <i class="isax icon-arrow-down-1 text-base" v-if="agents.length"></i>
             </div>
             <div
                 class="ms-5 hidden"
                 :id="'sub-'+spv?.id"
+                v-if="agents.length"
             >
                 <div
                     v-for="agent in agents"
