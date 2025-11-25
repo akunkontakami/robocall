@@ -43,6 +43,7 @@
                     :hide-length="true"
                     :error="form.errors.call_abandon_rate"
                     min="0"
+                    step=".1"
                 />
                 <Input
                     type="number"
@@ -58,20 +59,7 @@
                     :error="form.errors.call_limit"
                     min="0"
                 />
-                <Input
-                    type="number"
-                    placeholder="Enter Call Retry After (in second)"
-                    label="Call Retry After (in second)"
-                    id="call_retry_after"
-                    name="call_retry_after"
-                    required
-                    maxlength="30"
-                    v-model="form.call_retry_after"
-                    :value="form.call_retry_after"
-                    :hide-length="true"
-                    :error="form.errors.call_retry_after"
-                    min="0"
-                />
+
                 <Input
                     type="number"
                     placeholder="Enter Call Retry Max"
@@ -84,6 +72,20 @@
                     :value="form.call_retry_max"
                     :hide-length="true"
                     :error="form.errors.call_retry_max"
+                    min="0"
+                />
+                <Input
+                    type="number"
+                    placeholder="Enter Call Retry After (in second)"
+                    label="Call Retry After (in second)"
+                    id="call_retry_after"
+                    name="call_retry_after"
+                    required
+                    maxlength="30"
+                    v-model="form.call_retry_after"
+                    :value="form.call_retry_after"
+                    :hide-length="true"
+                    :error="form.errors.call_retry_after"
                     min="0"
                 />
                 <!-- <Input
@@ -107,7 +109,6 @@
                 </ButtonOutlineGrey>
                 <ButtonYellow
                     type="submit" class="w-[120px]"
-                    x-on:click="formPopup=false"
                     :disabled="
                         form.processing ||
                         !form.call_factor ||
@@ -121,12 +122,14 @@
                 > Submit </ButtonYellow>
             </div>
         </form>
+
+        <a hidden x-on:click="formPopup=false" id="hide-form-start"></a>
     </FormPopup>
 
     <div x-data="{confirmation:false}" v-if="showPopupStart">
         <a hidden id="show-start-pds" x-on:click="confirmation=true"></a>
         <ConfirmationSubmit
-            confirmation="Are you sure you want to stop this PDS?"
+            confirmation="Are you sure you want to start this PDS?"
             @action="actionStart"
         />
     </div>
@@ -137,7 +140,7 @@ import Input from "@/Components/Input/Index.vue";
 import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
 import ButtonOutlineGrey from "@/Components/Button/ButtonOutlineGrey.vue";
 import { useForm } from "@inertiajs/vue3";
-import { clickId } from "@/Plugins/Function/global-function";
+import { clickId, showAlert } from "@/Plugins/Function/global-function";
 import { ref } from "vue";
 import ConfirmationSubmit from "@/Components/Popup/ConfirmationSubmit.vue";
 
@@ -156,12 +159,23 @@ const form = useForm({
 });
 
 const submit = () => {
+    if (form.call_abandon_rate == 0) {
+        showAlert("Call Abandon Rate cannot be set to zero")
+        return
+    }
+
+    clickId('hide-form-start')
     clickId('show-start-pds')
 }
 
 const actionStart = () => {
     if (!form.processing) {
         form.id = props.id
+
+        if (form.call_abandon_rate == 0) {
+            showAlert("Call Abandon Rate cannot be set to zero")
+            return
+        }
 
         form.post(route("pds.setup.start"), {
             onSuccess: () => {

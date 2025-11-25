@@ -190,7 +190,7 @@ const filterData = () => {
     if (
         !param.created_start || !param.created_end
     ) {
-        showAlert("Please select created date");
+        showAlert("Please select date");
         return;
     }
 

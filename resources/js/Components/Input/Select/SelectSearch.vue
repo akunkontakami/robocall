@@ -63,8 +63,11 @@
         <small
             v-if="error"
             class="text-red error-text mb-4 block text-[11px]"
-            >{{ error }}</small
-        >
+        >{{ error }}</small>
+        <small
+            class="text-[10px] mb-4 text-[#A3A3A3]"
+            v-if="help"
+        >{{ help }}</small>
     </div>
 </template>
 <script setup lang="ts">

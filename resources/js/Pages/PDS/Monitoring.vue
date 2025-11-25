@@ -34,7 +34,7 @@ const tabActive = ref(getQueryParam('tab') || 'live-monitoring')
 
 const tabs = ref([
     {
-        name: 'Live Monitoring',
+        name: 'Monitoring',
         key: 'live-monitoring'
     },
     {

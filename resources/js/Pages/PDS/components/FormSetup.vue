@@ -6,7 +6,7 @@
                     type="text"
                     placeholder="Enter Tenant Id"
                     label="Tenant Id"
-                    required
+                    :required="true"
                     :value="$page.props.auth.user.tenant_id"
                     :disabled="true"
                     class="!bg-[#F3F3F3]"
@@ -17,18 +17,19 @@
                     label="PDS Name"
                     id="name"
                     name="name"
-                    required
-                    maxlength="250"
+                    :required="true"
+                    maxlength="30"
                     :hide-length="true"
                     v-model="form.name"
                     :error="form.errors.name"
+                    help="Spaces are not allowed in this field. Please enter text without spaces"
                 />
                 <SelectSearch
                     placeholder="Choose Trunk"
                     label="Trunk"
                     id="trunk"
                     name="trunk"
-                    required
+                    :required="true"
                     v-model="form.trunk"
                     :error="form.errors.trunk"
                     :items="route"
@@ -38,7 +39,7 @@
                     label="IVR"
                     id="ivr"
                     name="ivr"
-                    required
+                    :required="true"
                     v-model="form.ivr"
                     :error="form.errors.ivr"
                     :items="ivr"
@@ -50,6 +51,7 @@
                     :items="campaigns"
                     :error="form.errors.marketing_campaign"
                     placeholder="Choose Marketing Campaign"
+                    help="To display the campaign name, please assign an SPV to the marketing campaign"
                 />
                 <SelectSearch
                     label="Supervisor"
@@ -86,6 +88,7 @@ import ButtonOutlineGrey from "@/Components/Button/ButtonOutlineGrey.vue";
 import { useForm } from "@inertiajs/vue3";
 import SelectSearch from "@/Components/Input/Select/SelectSearch.vue";
 import { ref, watch } from "vue";
+import { showAlert } from "@/Plugins/Function/global-function";
 
 const props = defineProps(["campaigns", "ivr", "route"])
 
@@ -102,6 +105,11 @@ const spvUsers = ref([])
 
 const submit = () => {
     if (!form.processing) {
+        if (/\s/.test(form.name)) {
+            showAlert('PDS Name must not contain spaces')
+            return
+        }
+
         form.post(route("pds.setup.store"), {
             onSuccess: () => {
                 window.location.reload()
