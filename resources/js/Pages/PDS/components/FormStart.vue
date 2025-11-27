@@ -32,8 +32,8 @@
                 />
                 <Input
                     type="number"
-                    placeholder="Enter Call Abandon Rate"
-                    label="Call Abandon Rate"
+                    placeholder="Enter Max Call Abandon Rate"
+                    label="Max Call Abandon Rate"
                     id="call_abandon_rate"
                     name="call_abandon_rate"
                     required
@@ -44,6 +44,7 @@
                     :error="form.errors.call_abandon_rate"
                     min="0"
                     step=".1"
+                    help="Example rates: 0.1, 0.2, 1. Please use the Up and Down arrow keys on your keyboard to input decimal values."
                 />
                 <Input
                     type="number"
