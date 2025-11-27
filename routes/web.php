@@ -22,6 +22,7 @@ Route::middleware(['app-auth'])
     ->group(function () {
         Route::inertia('/auto-dial', 'AutoDial/Index')->name('auto-dial.index');
         Route::get('/pds/dashboard', [DashboardPdsController::class, 'index'])->name('pds.dashboard');
+        Route::get('/pds/dashboard/export', [DashboardPdsController::class, 'export'])->name('pds.dashboard.export');
         Route::get('/pds/dashboard/data', [DashboardPdsController::class, 'data'])->name('pds.dashboard.data');
         Route::get('/pds/dashboard/monitoring', [DashboardPdsController::class, 'monitoring'])->name('pds.dashboard.monitoring');
 

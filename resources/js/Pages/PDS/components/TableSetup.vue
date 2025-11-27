@@ -230,9 +230,15 @@ const actionRelease = () => {
 }
 
 const showDelete = (row: any) => {
-    form.id = row.id
+    if (row.total_data > 0) {
+        showAlert("Please release customer data before delete pds")
+    } else if (row.total_agent > 0) {
+        showAlert("Please release agent before delete pds")
+    } else {
+        form.id = row.id
+        clickId("show-delete")
+    }
 
-    clickId("show-delete")
 }
 
 const showRelease = (row: any) => {

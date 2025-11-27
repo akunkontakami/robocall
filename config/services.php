@@ -35,7 +35,7 @@ return [
         ],
     ],
 
-    'session-user-prefix' => 'kontakami-robocall',
+    'session-user-prefix' => 'kontakami-dialer',
 
     'socket_broadcast' => [
         'url' => env('SOCKET_BROADCAST_URL'),
