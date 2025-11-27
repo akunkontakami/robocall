@@ -10,7 +10,7 @@
                     Export Data
                 </ButtonOutlineGreen>
 
-                <FilterTracking :filter="filter" @filterData="filterData" />
+                <FilterTracking :filter="filter" @filterData="filterData" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
             </div>
         </div>
         <Table :columns="columns" :paginate="paginate" :hide-th="true">
@@ -141,8 +141,10 @@ import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { ref, onBeforeUnmount, onMounted } from "vue";
 import FilterTracking from "./FilterTracking.vue";
-import { closeFilter, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
+import { closeFilter, getArrayParamsFromUrl, getQueryParam, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 import Th from "@/Components/Table/Th.vue";
+
+defineProps(["campaigns", "spv", "agents", "pds"])
 
 const columns = ref([
     "PDS Name",
@@ -175,10 +177,10 @@ const columns = ref([
 ]);
 
 const filter = ref({
-    created_start: "",
-    created_end: "",
-    campaigns: [],
-    pds: [],
+    created_start: getQueryParam("created_start"),
+    created_end: getQueryParam("created_end"),
+    campaigns: getArrayParamsFromUrl("filter[campaigns]"),
+    pds: getArrayParamsFromUrl("filter[pds]"),
 });
 
 const paginate = usePaginate({
@@ -196,10 +198,18 @@ const filterData = () => {
 
     if (validateGreaterDateRange(param.created_start, param.created_end)) {
         var filterParam: any = {
-            "filter[created_start]": param.created_start || "",
-            "filter[created_end]": param.created_end || "",
+            "created_start": param.created_start || "",
+            "created_end": param.created_end || "",
             "tab": 'tracking'
         };
+
+        param.pds.forEach((id, index) => {
+            filterParam[`filter[pds][${index}]`] = id;
+        });
+
+        param.campaigns.forEach((id, index) => {
+            filterParam[`filter[campaigns][${index}]`] = id;
+        });
 
         removeAllUrlParameter();
         routeAppendParam(filterParam, false);
@@ -209,6 +219,8 @@ const filterData = () => {
 };
 
 const exportData = () => {
-    window.open(route('pds.report.tracking-export'))
+    window.open(
+        route('pds.report.tracking-export') + window.location.search
+    )
 }
 </script>

@@ -10,7 +10,7 @@
                     Export Data
                 </ButtonOutlineGreen>
 
-                <FilterByAgent :filter="filter" @filterData="filterData" />
+                <FilterByAgent :filter="filter" @filterData="filterData" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
             </div>
         </div>
         <Table :columns="columns" :paginate="paginate" :hide-th="true">
@@ -74,8 +74,10 @@ import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { ref, onBeforeUnmount, onMounted } from "vue";
 import FilterByAgent from "./FilterByAgent.vue";
-import { closeFilter, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
+import { closeFilter, getArrayParamsFromUrl, getQueryParam, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 import Th from "@/Components/Table/Th.vue";
+
+defineProps(["campaigns", "spv", "agents", "pds"])
 
 const columns = ref([
     "PDS Name",
@@ -90,12 +92,12 @@ const columns = ref([
 ]);
 
 const filter = ref({
-    created_start: "",
-    created_end: "",
-    campaigns: [],
-    pds: [],
-    spv: [],
-    agent: []
+    created_start: getQueryParam("created_start"),
+    created_end: getQueryParam("created_end"),
+    campaigns: getArrayParamsFromUrl("filter[campaigns]"),
+    pds: getArrayParamsFromUrl("filter[pds]"),
+    spv: getArrayParamsFromUrl("filter[spv]"),
+    agent: getArrayParamsFromUrl("filter[agent]"),
 });
 
 const paginate = usePaginate({
@@ -113,10 +115,30 @@ const filterData = () => {
 
     if (validateGreaterDateRange(param.created_start, param.created_end)) {
         var filterParam: any = {
-            "filter[created_start]": param.created_start || "",
-            "filter[created_end]": param.created_end || "",
+            "created_start": param.created_start || "",
+            "created_end": param.created_end || "",
             "tab": 'agent'
         };
+
+        param.pds.forEach((id, index) => {
+            filterParam[`filter[pds][${index}]`] = id;
+        });
+
+        param.campaigns.forEach((id, index) => {
+            filterParam[`filter[campaigns][${index}]`] = id;
+        });
+
+        param.pds.forEach((id, index) => {
+            filterParam[`filter[pds][${index}]`] = id;
+        });
+
+        param.spv.forEach((id, index) => {
+            filterParam[`filter[spv][${index}]`] = id;
+        });
+
+        param.agent.forEach((id, index) => {
+            filterParam[`filter[agent][${index}]`] = id;
+        });
 
         removeAllUrlParameter();
         routeAppendParam(filterParam, false);
@@ -126,6 +148,8 @@ const filterData = () => {
 };
 
 const exportData = () => {
-    window.open(route('pds.report.agent-export'))
+    window.open(
+        route('pds.report.agent-export') + window.location.search
+    )
 }
 </script>

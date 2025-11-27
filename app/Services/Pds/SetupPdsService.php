@@ -37,11 +37,16 @@ class SetupPdsService
     public function getByCampaign($companyId, $search, $filter, $limit)
     {
         $statuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $pds = @$filter['pds'];
+        $campaigns = @$filter['campaigns'];
+
         $data = Pds::with(["campaign", "agents", "customers", "agents.companyUser", "agents.ext", "spv", "spv.companyUser"])
         ->withCount(['tickets as ticket_count' => function($q) use ($statuses) {
             $q->whereIn('status', $statuses);
         }])
         ->where("company_id", $companyId)
+        ->when($campaigns, fn ($q) => $q->whereIn("marketing_campaign_id", $campaigns))
+        ->when($pds, fn ($q) => $q->whereIn("id", $pds))
         ->when($search, fn ($q) => $q->where("pds_name", "LIKE", "%$search%"))
         ->orderBy("created_at", "desc");
 
@@ -55,6 +60,11 @@ class SetupPdsService
     public function getByAgent($companyId, $search, $filter, $limit)
     {
         $statuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $pds = @$filter['pds'];
+        $campaigns = @$filter['campaigns'];
+        $spv = @$filter['spv'];
+        $agent = @$filter['agent'];
+
         $data = PdsAgent::with([
             "ext",
             'companyUser',
@@ -67,7 +77,16 @@ class SetupPdsService
             $q->whereIn('status', $statuses)
             ->whereColumn('current_agent_id', 'pds_agents.user_id');
         }])
-        ->whereHas('pds', fn($q) => $q->where('company_id', $companyId))
+        ->whereHas(
+            'pds', fn($q) => $q->where('company_id', $companyId)
+                                ->when($campaigns, fn ($q) => $q->whereIn("marketing_campaign_id", $campaigns))
+                                ->when($spv, fn ($q) => $q->whereIn("spv_id", $spv))
+                                ->when($pds, fn ($q) => $q->whereIn("id", $pds))
+        )
+        ->whereHas(
+            "companyUser", fn ($q) => $q->where("status", "active")
+                                        ->when($agent, fn ($q) => $q->whereIn("id", $agent))
+        )
         ->when($search, fn ($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
         ->orderBy('created_at', 'desc');
 
@@ -384,5 +403,18 @@ class SetupPdsService
         return (object) [
             'total' => $countAgent
         ];
+    }
+
+    public function listItems()
+    {
+        $user = user();
+
+        return Pds::select([
+            'id',
+            'pds_name as value',
+            "company_id",
+        ])
+        ->where("company_id", $user->company_id)
+        ->orderBy("pds_name", "asc")->get();
     }
 }
