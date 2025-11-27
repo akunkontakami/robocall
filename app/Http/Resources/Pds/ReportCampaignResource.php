@@ -16,9 +16,8 @@ class ReportCampaignResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $filter = $request->filter;
-        $start = @$filter['created_start'];
-        $end = @$filter['created_end'];
+        $start = @$request->created_start;
+        $end = @$request->created_end;
 
         $log = (new MonitoringPdsService())->pdsHistoryLogs($this->pds_name, $start, $end);
         $agentReady = (new MonitoringPdsService())->getAgentReady($this->agents);

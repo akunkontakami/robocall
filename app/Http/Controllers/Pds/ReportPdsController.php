@@ -17,13 +17,20 @@ use App\Http\Resources\Pds\PdsHistoryResource;
 use App\Http\Resources\Pds\ReportAgentResource;
 use App\Http\Resources\Pds\ReportTrackResource;
 use App\Http\Resources\Pds\ReportCampaignResource;
+use App\Services\Data\CampaignService;
+use App\Services\Data\UserService;
 
 class ReportPdsController extends Controller
 {
 
     public function report()
     {
-        return Inertia::render("Pds/Report");
+        return Inertia::render("Pds/Report", [
+            "pds" => (new SetupPdsService())->listItems(),
+            "campaigns" => (new CampaignService())->listCampaigns(true),
+            "spv" => (new UserService())->listSpv(),
+            "agents" => (new UserService())->listAgent(),
+        ]);
     }
 
     public function campaignDatatable()
@@ -32,7 +39,7 @@ class ReportPdsController extends Controller
             (new SetupPdsService())->getByCampaign(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: request('limit', 10),
             )
         );
@@ -44,7 +51,7 @@ class ReportPdsController extends Controller
             (new SetupPdsService())->getByAgent(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: request('limit', 10),
             )
         );
@@ -56,7 +63,7 @@ class ReportPdsController extends Controller
             (new SetupPdsService())->getByCampaign(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: request('limit', 10),
             )
         );
@@ -68,7 +75,7 @@ class ReportPdsController extends Controller
             (new SetupPdsService())->getByCampaign(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: null
             )
         );
@@ -86,7 +93,7 @@ class ReportPdsController extends Controller
             (new SetupPdsService())->getByAgent(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: null
             )
         );
@@ -104,7 +111,7 @@ class ReportPdsController extends Controller
             (new SetupPdsService())->getByCampaign(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: request('limit', 10),
             )
         );

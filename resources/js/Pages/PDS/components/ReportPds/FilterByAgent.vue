@@ -5,7 +5,8 @@
                 label="PDS Name"
                 id="pds"
                 v-model="filter.pds"
-                :items="options"
+                :selected="filter.pds"
+                :items="pds"
                 placeholder="Select"
             />
 
@@ -13,7 +14,8 @@
                 label="Marketing Campaign"
                 id="campaigns"
                 v-model="filter.campaigns"
-                :items="options"
+                :selected="filter.campaigns"
+                :items="campaigns"
                 placeholder="Select"
             />
 
@@ -21,7 +23,8 @@
                 label="Spv"
                 id="spv"
                 v-model="filter.spv"
-                :items="options"
+                :selected="filter.spv"
+                :items="spv"
                 placeholder="Select"
             />
 
@@ -29,7 +32,8 @@
                 label="Agent"
                 id="agent"
                 v-model="filter.agent"
-                :items="options"
+                :selected="filter.agent"
+                :items="agents"
                 placeholder="Select"
             />
 
@@ -40,6 +44,7 @@
                     required
                     v-model="filter.created_start"
                     :value="filter.created_start"
+                    :default="filter.created_start"
                 />
                 <DatePicker
                     name="created_end"
@@ -47,6 +52,7 @@
                     required
                     v-model="filter.created_end"
                     :value="filter.created_end"
+                    :default="filter.created_end"
                     :min="filter.created_start"
                 />
             </div>
@@ -80,13 +86,17 @@ import Filter from "@/Components/Popup/Filter.vue";
 import { getAllQueryParameter } from "@/Plugins/Function/global-function";
 import { ref } from "vue";
 
-const props = defineProps(["filter"]);
+const props = defineProps(["filter", "campaigns", "spv", "agents", "pds"]);
 
 const resetInput = () => {
     const queries = getAllQueryParameter()
     let status: any = []
     props.filter.created_start = ''
     props.filter.created_end = ''
+    props.filter.campaigns = []
+    props.filter.pds = []
+    props.filter.spv = []
+    props.filter.agent = []
 }
 
 const options = [

@@ -160,14 +160,16 @@ onMounted(() => {
                     value: row.value,
                 });
             }
-            row.sub.forEach((key: any) => {
-                if (selectedId.includes(key.id)) {
-                    itemSelected.push({
-                        id: key.id,
-                        value: key.value,
-                    });
-                }
-            });
+            if (row.sub && row.sub.length) {
+                row.sub.forEach((key: any) => {
+                    if (selectedId.includes(key.id)) {
+                        itemSelected.push({
+                            id: key.id,
+                            value: key.value,
+                        });
+                    }
+                });
+            }
         });
         selected.value = itemSelected;
     }

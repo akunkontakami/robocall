@@ -39,6 +39,19 @@ export const getQueryParam = (key: string,defaultValue?:string) => {
     return new URLSearchParams(window.location.search).get(key) || defaultValue
 }
 
+export function getArrayParamsFromUrl(name: string): string[] {
+    const urlParams = new URLSearchParams(window.location.search);
+    const arrayParams: string[] = [];
+
+    for (const [key, value] of urlParams.entries()) {
+        if (key.startsWith(name)) {
+            arrayParams.push(value);
+        }
+    }
+
+    return arrayParams;
+}
+
 
 export const isNumber = (evt: any) => {
     if (evt.target.value.length >= 1) {
@@ -223,7 +236,7 @@ export const validateMinimumDateRange = (start: string, end: string, validate = 
     return true;
 }
 export const closeFilter = () => {
-    document.getElementById('cancel-filter')?.click()
+    document.getElementById('close-filter-hidden')?.click()
 }
 
 export const randomString = (length = 10) => {

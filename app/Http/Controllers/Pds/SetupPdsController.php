@@ -28,7 +28,7 @@ class SetupPdsController extends Controller
             (new SetupPdsService())->get(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: request('limit', 10),
             )
         );

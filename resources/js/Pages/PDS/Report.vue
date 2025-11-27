@@ -18,9 +18,9 @@
         </div>
 
 
-        <ByCampaign v-if="tabActive == 'campaign'" />
-        <ByAgent v-if="tabActive == 'agent'" />
-        <Tracking v-if="tabActive == 'tracking'" />
+        <ByCampaign v-if="tabActive == 'campaign'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
+        <ByAgent v-if="tabActive == 'agent'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
+        <Tracking v-if="tabActive == 'tracking'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
     </AppLayout>
 </template>
 <script setup lang="ts">
@@ -31,6 +31,8 @@ import { getQueryParam, removeAllUrlParameter, routeAppendParam } from "@/Plugin
 import ByCampaign from "./components/ReportPds/ByCampaign.vue";
 import ByAgent from "./components/ReportPds/ByAgent.vue";
 import Tracking from "./components/ReportPds/Tracking.vue";
+
+defineProps(["campaigns", "spv", "agents", "pds"])
 
 const tabActive = ref(getQueryParam('tab') || 'campaign')
 

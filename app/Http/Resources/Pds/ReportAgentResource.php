@@ -16,9 +16,8 @@ class ReportAgentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $filter = $request->filter;
-        $start = @$filter['created_start'];
-        $end = @$filter['created_end'];
+        $start = @$request->created_start;
+        $end = @$request->created_end;
         $pds = $this->pds;
 
         $log = (new MonitoringPdsService())->pdsHistoryLogs($pds->pds_name, $start, $end);
@@ -47,7 +46,7 @@ class ReportAgentResource extends JsonResource
             'disagree' => $ticketCount['Disagree'] ?? 0,
             'callback' => $ticketCount['Callback'] ?? 0,
             'spv' => $this->pds?->spv?->company_user ? $this->pds?->spv->company_user->name : $this->pds?->spv?->name,
-            'agent' => $this->agent?->company_user ? $this->agent->company_user->name : $this->agent?->name,
+            'agent' => $this->companyUser ? $this->companyUser->name : $this->name
         ];
     }
 }

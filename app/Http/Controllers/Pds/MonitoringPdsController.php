@@ -31,7 +31,7 @@ class MonitoringPdsController extends Controller
             (new SetupPdsService())->get(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: request('limit', 10),
             )
         );
@@ -43,7 +43,7 @@ class MonitoringPdsController extends Controller
             (new SetupPdsService())->get(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: request('limit', 10),
             )
         );
@@ -55,7 +55,7 @@ class MonitoringPdsController extends Controller
             (new SetupPdsService())->get(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter:', []),
+                filter: request('filter', []),
                 limit: null
             )
         );
