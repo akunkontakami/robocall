@@ -23,7 +23,7 @@ class MonitoringResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'date' => Carbon::parse($this->date)->format("Y-m-d"),
+            'date' => Carbon::parse($this->date ?? $this->created_at)->format("Y-m-d"),
             'tenant' => $this->tenant_id,
             'name' => $this->pds_name,
             'spv' => $this->spv?->company_user ? $this->spv->company_user->name : $this->spv?->name,

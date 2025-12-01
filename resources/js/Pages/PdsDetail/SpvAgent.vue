@@ -1,12 +1,12 @@
 <template>
-    <AppLayout title="PDS Detail" header="PDS Detail" :headerBackUrl="route('pds.setup')">
+    <AppLayout title="PDS Detail" :header="data.pds_name" :headerBackUrl="route('pds.setup')">
         <template v-slot:tab>
             <TabMenu tab="spv-agent" :id="id" />
         </template>
 
 
         <data x-data="{openRowIndex: ''}" class="flex flex-col gap-4">
-            <div v-for="(item, i) in data">
+            <div v-for="(item, i) in itemData">
                 <div
                     class="w-full bg-white flex items-center gap-2 py-3 px-6 border cursor-pointer"
                     :x-bind:class="`openRowIndex === '${i}' ? 'rounded-t-md' : 'rounded-md'`"
@@ -50,10 +50,10 @@ import IconArrowUp from "@/Components/Icon/Etc/IconArrowUp.vue";
 
 const props = defineProps(["id", "data"])
 
-const data = ref<any>([
+const itemData = ref<any>([
     {
-        name: props.data.spv?.company_user?.name,
-        agents: props.data.agents
+        name: props.data.spv?.company_user?.name ?? '-',
+        agents: props.data.agents ?? []
     }
 ])
 </script>

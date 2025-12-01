@@ -25,7 +25,7 @@ class Pds extends Model
 
     public function agents(): HasMany
     {
-        return $this->hasMany(PdsAgent::class, 'pds_id', 'id');
+        return $this->hasMany(PdsAgent::class, 'pds_id', 'id')->whereRelation("companyUser", "status", "active");
     }
 
     public function customers(): HasMany

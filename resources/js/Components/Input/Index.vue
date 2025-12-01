@@ -42,11 +42,11 @@
         />
         <small
             v-if="error"
-            class="mt-[-7px] error-text mb-4 block text-[11px]"
+            class="error-text mb-4 block text-[11px]"
             >{{ error }}</small
         >
         <small
-            class="block mt-[-7px] text-[10px] mb-4 text-[#A3A3A3]"
+            class="block text-[10px] mb-4 text-[#A3A3A3]"
             v-if="help"
             >{{ help }}</small
         >

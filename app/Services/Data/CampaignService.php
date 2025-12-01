@@ -14,14 +14,18 @@ class CampaignService
         //
     }
 
-    public function listCampaigns()
+    public function listCampaigns($multipleSelect = false)
     {
         $user = user();
 
         return MarketingCampaign::whereHas("spv")
-                ->select([
+                ->select(!$multipleSelect ? [
                     "id as value",
                     "name as label",
+                    "company_id",
+                    "id"
+                ] : [
+                    "name as value",
                     "company_id",
                     "id"
                 ])

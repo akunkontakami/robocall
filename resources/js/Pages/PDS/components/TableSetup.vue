@@ -19,10 +19,10 @@
                 <span class="text-green text-[13px] font-krub-semibold" v-if="row.is_running">Running</span>
             </Td>
             <Td>
-                {{ row.total_agent }}
+                {{ row.total_agent ?? '-' }}
             </Td>
             <Td>
-                {{ row.total_data }}
+                {{ row.total_data ?? '-' }}
             </Td>
             <Td>
                 <a
@@ -43,16 +43,26 @@
                             <i class="text-base isax icon-edit"></i>
                             <span class="text-xs">Manage</span>
                         </li>
-                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showDelete(row)">
+                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-red" @click="showDelete(row)">
                             <i class="text-base isax icon-trash"></i>
                             <span class="text-xs">Delete</span>
                         </li>
                         <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showRelease(row)" v-if="row.total_data > 0">
-                            <i class="text-base isax icon-trash"></i>
+                            <i class="text-base isax icon-refresh-circle"></i>
                             <span class="text-xs">Release Customers</span>
                         </li>
-                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showStart(row)">
-                            <i class="text-base isax-b icon-play-circle text-green"></i>
+                        <li
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showStart(row)"
+                            :class="{
+                                '!text-[#DDD] !cursor-default': row.campaign_status == 'non_active'
+                            }"
+                        >
+                            <i
+                                class="text-base isax-b icon-play-circle text-green"
+                                :class="{
+                                    '!text-[#DDD]': row.campaign_status == 'non_active'
+                                }"
+                            ></i>
                             <span class="text-xs">Start PDS</span>
                         </li>
                     </ul>
@@ -95,14 +105,18 @@
     <Popup title="Spv" class="max-w-lg">
         <div class="flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
             <div
-                class="bg-[#F4F6FA] p-3 rounded-[4px] w-full text-[13px] text-[#181C32] font-opensauceone-medium flex justify-between items-center cursor-pointer"
+                class="bg-[#F4F6FA] p-3 rounded-[4px] w-full text-[13px] text-[#181C32] font-opensauceone-medium flex justify-between items-center"
                 @click="openSub('sub-'+spv?.id)"
+                :class="{
+                    'cursor-pointer': agents.length
+                }"
             >
                 {{ spv?.company_user?.name }} <i class="isax icon-arrow-down-1 text-base" v-if="agents.length"></i>
             </div>
             <div
                 class="ms-5 hidden"
                 :id="'sub-'+spv?.id"
+                v-if="agents.length"
             >
                 <div
                     v-for="agent in agents"
@@ -159,12 +173,14 @@ const paginate = usePaginate({
 });
 
 const showStart = (row: any) => {
-    if (row.total_data == 0) {
-        showAlert("Please upload customer data before starting")
-    } else if (row.total_agent == 0) {
-        showAlert("Please assign agent before starting")
-    } else {
-        emits('showStartPds', row)
+    if (row.campaign_status == 'active') {
+        if (row.total_data == 0) {
+            showAlert("Please upload customer data before starting")
+        } else if (row.total_agent == 0) {
+            showAlert("Please assign agent before starting")
+        } else {
+            emits('showStartPds', row)
+        }
     }
 }
 
@@ -214,9 +230,15 @@ const actionRelease = () => {
 }
 
 const showDelete = (row: any) => {
-    form.id = row.id
+    if (row.total_data > 0) {
+        showAlert("Please release customer data before delete pds")
+    } else if (row.total_agent > 0) {
+        showAlert("Please release agent before delete pds")
+    } else {
+        form.id = row.id
+        clickId("show-delete")
+    }
 
-    clickId("show-delete")
 }
 
 const showRelease = (row: any) => {

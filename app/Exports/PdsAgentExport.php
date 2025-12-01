@@ -10,41 +10,55 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class PdsAgentExport implements FromArray, WithHeadings, WithEvents
 {
-    private $data;
+    private $data, $outbounds;
 
-    public function __construct(array $data)
+    public function __construct(array $data, array $outbounds)
     {
         $this->data = $data;
+        $this->outbounds = $outbounds;
     }
 
     public function array(): array
     {
         return array_map(function ($row) {
-            return [
+            $ticketCounts = $row['ticket_status_count'] ?? [];
+            $statusColumns = [];
+            foreach ($this->outbounds as $status) {
+                $name = is_array($status) ? $status['name'] : $status;
+                $statusColumns[] = (string) ($ticketCounts[$name] ?? '0');
+            }
+
+            return array_merge([
                 $row['name'],
                 $row['campaign'],
                 $row['spv'],
                 $row['agent'],
-                $row['data_utilize'] ?? '0',
-                $row['still_thinking'] ?? '0',
-                $row['disagree'] ?? '0',
-                $row['incoming'] ?? '0',
-                $row['callback'] ?? '0',
-            ];
+                (string) $row['data_utilize'] ?? '0',
+            ],
+            $statusColumns);
         }, $this->data);
     }
 
     public function headings(): array
     {
+        $statusNames = [];
+
+        foreach ($this->outbounds as $status) {
+            $statusNames[] = is_array($status) ? $status['name'] : $status;
+        }
+
         return [
-            [
-                'PDS Name','Marketing Campaign','SPV','Agent', 'Data Utilize PDS',
-                'Receive Agent','','','',
-            ],
-            [
-                '','','','', '',
-                'Still Thinking','Disagree','Incoming','Callback'
-            ]
+            array_merge(
+                [
+                    'PDS Name','Marketing Campaign','SPV','Agent', 'Data Utilize PDS',
+                    'Receive Agent'
+                ],
+                array_fill(0, count($statusNames) - 1, '')
+            ),
+            array_merge(
+                ['','','','', '',],
+                $statusNames
+            )
         ];
     }
 
@@ -61,16 +75,46 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                 $sheet->mergeCells('C1:C2');
                 $sheet->mergeCells('D1:D2');
                 $sheet->mergeCells('E1:E2');
-                $sheet->mergeCells('F1:I1');
+
+                $callStatusStartIndex = 6; // kolom T
+                $statusCount = count($this->outbounds);
+
+                if ($statusCount > 0) {
+                    $callStatusEndIndex = $callStatusStartIndex + $statusCount - 1;
+
+                    $sheet->mergeCells(
+                        $this->excelColumn($callStatusStartIndex) . '1:' .
+                        $this->excelColumn($callStatusEndIndex) . '1'
+                    );
+                }
+
+                $lastColumnIndex = $callStatusStartIndex + $statusCount - 1;
+                $lastColumnLetter = $this->excelColumn($lastColumnIndex);
 
                 // Alignment header
-                $sheet->getStyle('A1:I2')->getAlignment()
+                $sheet->getStyle("A1:{$lastColumnLetter}2")
+                    ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_CENTER)
                     ->setVertical(Alignment::VERTICAL_CENTER);
 
-                // Bold header
-                $sheet->getStyle('A1:I2')->getFont()->setBold(true);
+                $sheet->getStyle("A1:{$lastColumnLetter}2")
+                    ->getFont()
+                    ->setBold(true);
             }
         ];
     }
+
+    private function excelColumn(int $index): string
+    {
+        $column = '';
+
+        while ($index > 0) {
+            $index--;
+            $column = chr($index % 26 + 65) . $column;
+            $index = intdiv($index, 26);
+        }
+
+        return $column;
+    }
+
 }

@@ -3,14 +3,14 @@
         class="bg-auth h-full flex flex-col items-center justify-center md:py-6 md:px-6 py-2 px-2 min-h-screen"
     >
         <Head :title="title" />
-        <div class="md:w-[250px] w-[70%] mb-3">
+        <div class="md:w-[400px] w-[70%] mb-3">
             <AppLogoLg class="w-full" />
         </div>
         <slot />
-        <div class="fixed bottom-[-50px] left-[-60px]">
+        <div class="fixed bottom-0 left-0">
             <AuthLayerLeft />
         </div>
-        <div class="fixed bottom-[-50px] right-[-60px] md:block hidden">
+        <div class="fixed bottom-0 right-0 md:block hidden">
             <AuthLayerRight />
         </div>
         <p class="text-[11px] text-dark fixed bottom-3">

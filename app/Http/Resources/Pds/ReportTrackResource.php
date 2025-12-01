@@ -16,18 +16,17 @@ class ReportTrackResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $filter = $request->filter;
-        $start = @$filter['created_start'];
-        $end = @$filter['created_end'];
+        $start = @$request->created_start;
+        $end = @$request->created_end;
 
         $log = (new MonitoringPdsService())->pdsHistoryLogs($this->pds_name, $start, $end);
-        $Utilize = $log->DataSize - $log->DataDialed;
+        $Unutilize = $log->DataSize - $log->DataDialed;
         $UtilizeCallRatio = $log->DataDialed > 0 ? round(($log->DialCount / $log->DataDialed), 2) : 0;
-        $UtilizePercentage = $log->DataSize > 0 ? round(($log->DialCount / $log->DataSize) * 100, 2) : 0;
-        $ContactedPercentage = $Utilize > 0 ? round(($log->DialContacted / $Utilize) * 100, 2) : 0;
-        $UncontactedPercentage = $Utilize > 0 ? round(($log->DialFailed / $Utilize) * 100, 2) : 0;
+        $UtilizePercentage = $log->DataSize > 0 ? round(($log->DataDialed / $log->DataSize) * 100, 2) : 0;
+        $ContactedPercentage = $log->DataDialed > 0 ? round(($log->DialContacted / $log->DataDialed) * 100, 2) : 0;
+        $UncontactedPercentage = $Unutilize > 0 ? round(($log->DialFailed / $Unutilize) * 100, 2) : 0;
 
-        $UnutilizePercentage = $log->DataSize > 0 ? round(($Utilize / $log->DataSize) * 100, 2) : 0;
+        $UnutilizePercentage = $log->DataSize > 0 ? round(($Unutilize / $log->DataSize) * 100, 2) : 0;
 
         $duration = null;
         if ($log->SessionStart && $log->SessionEnd) {
@@ -36,7 +35,7 @@ class ReportTrackResource extends JsonResource
             $duration = $endTime->diff($startTime)->format('%H:%I:%S');
         }
 
-        $ticketStatuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $ticketStatuses = $this->outbounds;
         $ticketCount = $this->tickets()
             ->whereIn('status', $ticketStatuses)
             ->selectRaw('status, COUNT(*) as count')
@@ -63,16 +62,12 @@ class ReportTrackResource extends JsonResource
             'contacted' => $log->DialContacted,
             'uncontacted' => $log->DialFailed,
             'abandoned' => $log->DialAbandoned,
-            'data_utilize' => $log->DataDialed,
-            'unutilize' => $Utilize,
+            'unutilize' => $Unutilize,
             'answered' => $log->DialAgentAnswered,
             'abandoned_rate' => $log->AbandonedRate,
             'abandoned_rate_num' => $log->AbandonedRateNum,
             'duration_pds' => $duration,
-            'still_thinking' => $ticketCount['Still Thinking'] ?? 0,
-            'incoming' => $ticketCount['Incoming'] ?? 0,
-            'disagree' => $ticketCount['Disagree'] ?? 0,
-            'callback' => $ticketCount['Callback'] ?? 0,
+            'ticket_status' => $ticketCount,
             'utilize_percentage' => "$UtilizePercentage%",
             'utilize_call_ratio' => $UtilizeCallRatio,
             'unutilize_percentage' => "$UnutilizePercentage%",

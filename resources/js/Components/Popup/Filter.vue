@@ -54,6 +54,8 @@
                 <slot />
             </div>
         </div>
+
+        <a hidden id="close-filter-hidden" x-on:click="filter=false"></a>
     </div>
 </template>
 

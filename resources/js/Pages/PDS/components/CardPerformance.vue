@@ -10,11 +10,11 @@
         <div class="bg-[#E5E5EF] w-full mb-7 h-[1px]"></div>
 
         <div v-for="(item, index) in data" :key="index" class="flex justify-between gap-9 items-center mb-5">
-            <div class="w-[20%]">
+            <div class="w-[30%] 2xl:w-[20%]">
                 <span class="text-lg text-[#615E83] font-krub-medium">{{ item.label }}</span>
             </div>
 
-            <div class="w-[70%] bg-[#F8F8FF] rounded-lg h-[22px]">
+            <div class="w-[55%] 2xl:w-[70%] bg-[#F8F8FF] rounded-lg h-[22px]">
                 <div
                     class="h-[22px] rounded-lg transition-all duration-300"
                     :class="item.color"
@@ -22,7 +22,7 @@
                 ></div>
             </div>
 
-            <div class="w-[10%]">
+            <div class="w-[15%] 2xl:w-[10%]">
                 <span class="text-lg text-[#615E83] font-krub-medium">{{ item.count }}</span>
             </div>
         </div>

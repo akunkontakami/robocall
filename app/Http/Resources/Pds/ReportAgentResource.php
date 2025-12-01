@@ -16,14 +16,13 @@ class ReportAgentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $filter = $request->filter;
-        $start = @$filter['created_start'];
-        $end = @$filter['created_end'];
+        $start = @$request->created_start;
+        $end = @$request->created_end;
         $pds = $this->pds;
 
         $log = (new MonitoringPdsService())->pdsHistoryLogs($pds->pds_name, $start, $end);
 
-        $ticketStatuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $ticketStatuses = $this->outbounds;
         $ticketCount = $pds->tickets()
             ->whereIn('status', $ticketStatuses)
             ->selectRaw('status, COUNT(*) as count')
@@ -42,12 +41,9 @@ class ReportAgentResource extends JsonResource
             'end_time' => $log->SessionEnd ? Carbon::parse($log->SessionEnd)->format("H.i") : '',
             'name' => $pds->pds_name,
             'data_utilize' => $log->DataDialed,
-            'still_thinking' => $ticketCount['Still Thinking'] ?? 0,
-            'incoming' => $ticketCount['Incoming'] ?? 0,
-            'disagree' => $ticketCount['Disagree'] ?? 0,
-            'callback' => $ticketCount['Callback'] ?? 0,
+            'ticket_status' => $ticketCount,
             'spv' => $this->pds?->spv?->company_user ? $this->pds?->spv->company_user->name : $this->pds?->spv?->name,
-            'agent' => $this->agent?->company_user ? $this->agent->company_user->name : $this->agent?->name,
+            'agent' => $this->companyUser ? $this->companyUser->name : $this->name
         ];
     }
 }

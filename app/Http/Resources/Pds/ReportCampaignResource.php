@@ -16,9 +16,8 @@ class ReportCampaignResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $filter = $request->filter;
-        $start = @$filter['created_start'];
-        $end = @$filter['created_end'];
+        $start = @$request->created_start;
+        $end = @$request->created_end;
 
         $log = (new MonitoringPdsService())->pdsHistoryLogs($this->pds_name, $start, $end);
         $agentReady = (new MonitoringPdsService())->getAgentReady($this->agents);
@@ -30,7 +29,7 @@ class ReportCampaignResource extends JsonResource
             $duration = $endTime->diff($startTime)->format('%H:%I:%S');
         }
 
-        $ticketStatuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $ticketStatuses = $this->outbounds;
         $ticketCount = $this->tickets()
             ->whereIn('status', $ticketStatuses)
             ->selectRaw('status, COUNT(*) as count')
@@ -60,10 +59,7 @@ class ReportCampaignResource extends JsonResource
             'abandoned_rate' => $log->AbandonedRate,
             'abandoned_rate_num' => $log->AbandonedRateNum,
             'duration_pds' => $duration,
-            'still_thinking' => $ticketCount['Still Thinking'] ?? 0,
-            'incoming' => $ticketCount['Incoming'] ?? 0,
-            'disagree' => $ticketCount['Disagree'] ?? 0,
-            'callback' => $ticketCount['Callback'] ?? 0
+            'ticket_status' => $ticketCount
         ];
     }
 }

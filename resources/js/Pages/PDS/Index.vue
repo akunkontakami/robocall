@@ -12,10 +12,10 @@
             </div>
             <p class="font-krub-bold text-[#0D0D0D] text-base mb-3">PDS Dashboard</p>
 
-            <ButtonOutlineGreen class="ms-auto mb-3">
+            <ButtonOutlineGreen class="ms-auto mb-3" @click="exportData">
                 Export Data
             </ButtonOutlineGreen>
-            <p class="mb-3 text-[13px] text-[#181C32]">Pds Name:</p>
+            <p class="mb-3 text-[13px] text-[#181C32]">PDS Name:</p>
             <Select class="min-w-[180px]" v-model="filter.pds" :value="filter.pds">
                 <option value="" disabled selected>Select PDS Name</option>
 
@@ -262,6 +262,20 @@ onMounted(() => {
 function safePercentage(value: any, total: any) {
     if (!total || total === 0) return 0;
     return (value / total) * 100;
+}
+
+const exportData = () => {
+    const url = new URL(route('pds.dashboard.export'))
+
+    if (filter.value.period) {
+        url.searchParams.set('period', filter.value.period)
+    }
+    if (filter.value.pds) {
+        url.searchParams.set('pds', filter.value.pds)
+    }
+
+    window.open(url.toString())
+
 }
 
 

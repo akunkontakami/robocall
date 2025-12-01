@@ -168,16 +168,18 @@ class MonitoringPdsService
             $data = collect($result['data']);
 
             foreach ($data as $item) {
-                if (Str::lower($item['IsRunning']) == 'running') {
-                    $summary['Active'] += 1;
-                }
+                if ($item['tenant_id'] == $tenantId) {
+                    if (Str::lower($item['IsRunning']) == 'running') {
+                        $summary['Active'] += 1;
+                    }
 
-                if (Str::lower($item['IsRunning']) == 'paused' || Str::lower($item['IsRunning']) == 'pause') {
-                    $summary['Paused'] += 1;
-                }
+                    if (Str::lower($item['IsRunning']) == 'paused' || Str::lower($item['IsRunning']) == 'pause') {
+                        $summary['Paused'] += 1;
+                    }
 
-                if (Str::lower($item['IsRunning']) == 'stopped') {
-                    $summary['Finished'] += 1;
+                    if (Str::lower($item['IsRunning']) == 'stopped') {
+                        $summary['Finished'] += 1;
+                    }
                 }
             }
 
@@ -194,8 +196,8 @@ class MonitoringPdsService
     public function getMonitoring()
     {
         return (object) [
-            'sessions' => $this->sessionLogs(),
             'dialer' => $this->campaignDialer(),
+            'sessions' => $this->sessionLogs(),
             'progress' => $this->sessionActivities()
         ];
     }
