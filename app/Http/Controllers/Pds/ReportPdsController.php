@@ -18,6 +18,7 @@ use App\Http\Resources\Pds\ReportAgentResource;
 use App\Http\Resources\Pds\ReportTrackResource;
 use App\Http\Resources\Pds\ReportCampaignResource;
 use App\Services\Data\CampaignService;
+use App\Services\Data\TicketService;
 use App\Services\Data\UserService;
 
 class ReportPdsController extends Controller
@@ -30,6 +31,7 @@ class ReportPdsController extends Controller
             "campaigns" => (new CampaignService())->listCampaigns(true),
             "spv" => (new UserService())->listSpv(),
             "agents" => (new UserService())->listAgent(),
+            "outbounds" => (new TicketService())->getOutboundStatus(user()->company_id)
         ]);
     }
 
@@ -71,6 +73,7 @@ class ReportPdsController extends Controller
 
     public function trackingExport(Request $request)
     {
+        $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
         $dataCollection = ReportTrackResource::collection(
             (new SetupPdsService())->getByCampaign(
                 companyId: user()->company_id,
@@ -84,11 +87,12 @@ class ReportPdsController extends Controller
 
         $filename = 'pds_tracking_' . now()->format('Ymd_His') . '.xlsx';
 
-        return Excel::download(new PdsTrackingExport($data), $filename);
+        return Excel::download(new PdsTrackingExport($data, $outbounds), $filename);
     }
 
     public function agentExport(Request $request)
     {
+        $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
         $dataCollection = ReportAgentResource::collection(
             (new SetupPdsService())->getByAgent(
                 companyId: user()->company_id,
@@ -102,11 +106,12 @@ class ReportPdsController extends Controller
 
         $filename = 'pds_agent_' . now()->format('Ymd_His') . '.xlsx';
 
-        return Excel::download(new PdsAgentExport($data), $filename);
+        return Excel::download(new PdsAgentExport($data, $outbounds), $filename);
     }
 
     public function campaignExport(Request $request)
     {
+        $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
         $dataCollection = ReportCampaignResource::collection(
             (new SetupPdsService())->getByCampaign(
                 companyId: user()->company_id,
@@ -120,7 +125,7 @@ class ReportPdsController extends Controller
 
         $filename = 'pds_campaign_' . now()->format('Ymd_His') . '.xlsx';
 
-        return Excel::download(new PdsCampaignExport($data), $filename);
+        return Excel::download(new PdsCampaignExport($data, $outbounds), $filename);
     }
 
 }

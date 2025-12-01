@@ -21,13 +21,18 @@
                     <Th rowspan="2">SPV</Th>
                     <Th rowspan="2">Agent</Th>
                     <Th rowspan="2">Data Utilize PDS</Th>
-                    <Th colspan="4" class="text-center border-x">Receive Agent</Th>
+                    <Th :colspan="outbounds.length" class="text-center border-x">Receive Agent</Th>
                 </tr>
                 <tr class="bg-[#F4F6FA]">
-                    <Th class="border-l">Still Thinking</Th>
-                    <Th>Disagree</Th>
-                    <Th>Incoming</Th>
-                    <Th class="border-r">Callback</Th>
+                    <Th
+                        v-for="(outbound, i) in outbounds"
+                        :class="{
+                            'border-l': i == 0,
+                            'border-r': i + 1 == outbounds.length
+                        }"
+                    >
+                        {{ outbound }}
+                    </Th>
                 </tr>
             </template>
 
@@ -49,17 +54,8 @@
                 <Td>
                     {{ row.data_utilize }}
                 </Td>
-                <Td>
-                    {{ row.still_thinking }}
-                </Td>
-                <Td>
-                    {{ row.disagree }}
-                </Td>
-                <Td>
-                    {{ row.incoming }}
-                </Td>
-                <Td>
-                    {{ row.callback }}
+                <Td v-for="(outbound, i) in outbounds">
+                    {{ row.ticket_status?.[outbound] ?? 0 }}
                 </Td>
             </tr>
         </Table>
@@ -72,24 +68,14 @@ import Table from "@/Components/Table/Table.vue";
 import TableSearch from "@/Components/Table/TableSearch.vue";
 import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
-import { ref, onBeforeUnmount, onMounted } from "vue";
+import { ref, onBeforeUnmount, onMounted, onBeforeMount } from "vue";
 import FilterByAgent from "./FilterByAgent.vue";
 import { closeFilter, getArrayParamsFromUrl, getQueryParam, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 import Th from "@/Components/Table/Th.vue";
 
-defineProps(["campaigns", "spv", "agents", "pds"])
+const props = defineProps(["campaigns", "spv", "agents", "pds", "outbounds"])
 
-const columns = ref([
-    "PDS Name",
-    "Marketing Campaign",
-    "SPV",
-    "Agent",
-    "Data Utilize PDS",
-    "Still Thinking",
-    "Disagree",
-    "Incoming",
-    "Callback",
-]);
+const columns = ref([]);
 
 const filter = ref({
     created_start: getQueryParam("created_start"),
@@ -152,4 +138,16 @@ const exportData = () => {
         route('pds.report.agent-export') + window.location.search
     )
 }
+
+onBeforeMount(() => {
+    (columns.value as any) = [
+        'PDS Name',
+        'Marketing Campaign',
+        'SPV',
+        'Agent',
+        'Data Utilize PDS',
+        ...props.outbounds
+    ]
+})
+
 </script>
