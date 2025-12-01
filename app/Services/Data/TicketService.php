@@ -5,6 +5,7 @@ namespace App\Services\Data;
 use App\Models\Data\Ticket;
 use App\Models\Pds\PdsAgent;
 use Illuminate\Support\Facades\DB;
+use App\Models\Data\OutboundStatus;
 
 class TicketService
 {
@@ -75,5 +76,39 @@ class TicketService
             ->filter(fn ($row) => !empty($row["phone"]))
             ->values()
             ->toArray();
+    }
+
+    public function getOutboundStatus($companyId)
+    {
+        $status = [];
+        $data = OutboundStatus::with([
+                        'sub' => function ($query) {
+                            $query->select('id', 'parent_id', 'name', 'submit_without_fill', 'status_category');
+                        },
+                        'sub.sub' => function ($query) {
+                            $query->select('id', 'parent_id', 'name', 'submit_without_fill', 'status_category');
+                        }
+                    ])
+                    ->where('company_id', $companyId)
+                    ->orderBy('sorting', 'asc')
+                    ->select('id', 'parent_id', 'name', 'submit_without_fill', 'status_category')
+                    ->where("status", "active")
+                    ->whereNull('parent_id')
+                    ->get();
+
+        $this->collectStatusNames($data, $status);
+
+        return $status;
+    }
+
+    private function collectStatusNames($items, array &$status)
+    {
+        foreach ($items as $item) {
+            $status[] = $item->name;
+
+            if ($item->sub && $item->sub->count()) {
+                $this->collectStatusNames($item->sub, $status);
+            }
+        }
     }
 }

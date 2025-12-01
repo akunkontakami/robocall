@@ -18,9 +18,9 @@
         </div>
 
 
-        <ByCampaign v-if="tabActive == 'campaign'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
-        <ByAgent v-if="tabActive == 'agent'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
-        <Tracking v-if="tabActive == 'tracking'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
+        <ByCampaign v-if="tabActive == 'campaign'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" :outbounds="outbounds" />
+        <ByAgent v-if="tabActive == 'agent'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" :outbounds="outbounds" />
+        <Tracking v-if="tabActive == 'tracking'" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" :outbounds="outbounds" />
     </AppLayout>
 </template>
 <script setup lang="ts">
@@ -32,7 +32,7 @@ import ByCampaign from "./components/ReportPds/ByCampaign.vue";
 import ByAgent from "./components/ReportPds/ByAgent.vue";
 import Tracking from "./components/ReportPds/Tracking.vue";
 
-defineProps(["campaigns", "spv", "agents", "pds"])
+defineProps(["campaigns", "spv", "agents", "pds", "outbounds"])
 
 const tabActive = ref(getQueryParam('tab') || 'campaign')
 

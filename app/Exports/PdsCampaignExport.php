@@ -10,49 +10,66 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
 {
-    private $data;
+    private $data, $outbounds;
 
-    public function __construct(array $data)
+    public function __construct(array $data, array $outbounds)
     {
         $this->data = $data;
+        $this->outbounds = $outbounds;
     }
 
     public function array(): array
     {
         return array_map(function ($row) {
-            return [
+            $ticketCounts = $row['ticket_status_count'] ?? [];
+            $statusColumns = [];
+            foreach ($this->outbounds as $status) {
+                $name = is_array($status) ? $status['name'] : $status;
+                $statusColumns[] = (string) ($ticketCounts[$name] ?? '0');
+            }
+
+            return array_merge([
                 $row['name'],
                 $row['campaign'],
                 $row['total_agent'],
-                $row['data_size'] ?? '0',
-                $row['data_utilize'] ?? '0',
-                $row['still_thinking'] ?? '0',
-                $row['disagree'] ?? '0',
-                $row['incoming'] ?? '0',
-                $row['callback'] ?? '0',
-                $row['uncontacted'] ?? '0',
-                $row['abandoned'] ?? '0',
-                $row['unutilize'] ?? '0',
-                $row['duration_pds'] ?? '0',
-            ];
+                (string) $row['data_size'] ?? '0',
+                (string) $row['data_utilize'] ?? '0',
+            ],
+            $statusColumns,
+            [
+                (string) $row['uncontacted'] ?? '0',
+                (string) $row['abandoned'] ?? '0',
+                (string) $row['unutilize'] ?? '0',
+                $row['duration_pds'],
+            ]);
         }, $this->data);
     }
 
     public function headings(): array
     {
+        $statusNames = [];
+
+        foreach ($this->outbounds as $status) {
+            $statusNames[] = is_array($status) ? $status['name'] : $status;
+        }
+
         return [
-            [
-                'PDS Name','Marketing Campaign','Agent Ready','Data Size', 'Data Utilize',
-                'Data Contacted','','','',
-                'Uncontacted', 'Abandon', 'Unutilize PDS', 'Duration PDS'
-            ],
-            [
-                '','','','', '',
-                'Still Thinking','Disagree','Incoming','Callback',
-                '', '', '', ''
-            ]
+            array_merge(
+                [
+                    'PDS Name','Marketing Campaign','Agent Ready','Data Size','Data Utilize',
+                    'Data Contacted'
+                ],
+                array_fill(0, count($statusNames) - 1, ''),
+                ['Uncontacted','Abandon','Unutilize PDS','Duration PDS']
+            ),
+            array_merge(
+                ['','','','',''],
+                $statusNames,
+                ['','','','']
+            )
         ];
     }
+
 
     public function registerEvents(): array
     {
@@ -61,26 +78,58 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
                 /** @var Worksheet $sheet */
                 $sheet = $event->sheet->getDelegate();
 
-                // Merge header cells sesuai colspan/rowspan
-                $sheet->mergeCells('A1:A2');
-                $sheet->mergeCells('B1:B2');
-                $sheet->mergeCells('C1:C2');
-                $sheet->mergeCells('D1:D2');
-                $sheet->mergeCells('E1:E2');
-                $sheet->mergeCells('F1:I1');
-                $sheet->mergeCells('J1:J2');
-                $sheet->mergeCells('K1:K2');
-                $sheet->mergeCells('L1:L2');
-                $sheet->mergeCells('M1:M2');
+                $fixedLeft = 5;
+                $statusCount = count($this->outbounds);
+                $statusStartIndex = $fixedLeft + 1;
+                $statusEndIndex   = $statusStartIndex + $statusCount - 1;
 
-                // Alignment header
-                $sheet->getStyle('A1:M2')->getAlignment()
+                $totalColumnCount = 9 + $statusCount;
+                $lastColumnLetter = $this->excelColumn($totalColumnCount);
+
+                // === MERGE KOLOM FIXED (A–E) ===
+                for ($i = 1; $i <= $fixedLeft; $i++) {
+                    $col = $this->excelColumn($i);
+                    $sheet->mergeCells("{$col}1:{$col}2");
+                }
+
+                // === MERGE HEADER STATUS (F1 : ?1) ===
+                if ($statusCount > 0) {
+                    $sheet->mergeCells(
+                        $this->excelColumn($statusStartIndex) . '1:' .
+                        $this->excelColumn($statusEndIndex) . '1'
+                    );
+                }
+
+                // === MERGE KOLOM SETELAH STATUS ===
+                for ($i = $statusEndIndex + 1; $i <= $totalColumnCount; $i++) {
+                    $col = $this->excelColumn($i);
+                    $sheet->mergeCells("{$col}1:{$col}2");
+                }
+
+                // === STYLE HEADER ===
+                $sheet->getStyle("A1:{$lastColumnLetter}2")
+                    ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_CENTER)
                     ->setVertical(Alignment::VERTICAL_CENTER);
 
-                // Bold header
-                $sheet->getStyle('A1:M2')->getFont()->setBold(true);
+                $sheet->getStyle("A1:{$lastColumnLetter}2")
+                    ->getFont()
+                    ->setBold(true);
             }
         ];
     }
+
+    private function excelColumn(int $index): string
+    {
+        $column = '';
+
+        while ($index > 0) {
+            $index--;
+            $column = chr($index % 26 + 65) . $column;
+            $index = intdiv($index, 26);
+        }
+
+        return $column;
+    }
+
 }

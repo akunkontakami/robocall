@@ -8,6 +8,7 @@ use App\Models\Pds\Pds;
 use App\Models\Pds\PdsAgent;
 use Illuminate\Support\Facades\DB;
 use App\Models\Account\CompanyUser;
+use App\Services\Data\TicketService;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class SetupPdsService
@@ -36,7 +37,9 @@ class SetupPdsService
 
     public function getByCampaign($companyId, $search, $filter, $limit)
     {
-        $statuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
+
+        $statuses = $outbounds;
         $pds = @$filter['pds'];
         $campaigns = @$filter['campaigns'];
 
@@ -50,16 +53,25 @@ class SetupPdsService
         ->when($search, fn ($q) => $q->where("pds_name", "LIKE", "%$search%"))
         ->orderBy("created_at", "desc");
 
-        if ($limit == null) {
-            return $data->get();
+        if ($limit === null) {
+            $data = $data->get();
         } else {
-            return $data->paginate($limit ?: 10);
+            $data = $data->paginate($limit ?: 10);
         }
+
+        $data->each(function ($item) use ($outbounds) {
+            $item->outbounds = $outbounds;
+            return $item;
+        });
+
+        return $data;
     }
 
     public function getByAgent($companyId, $search, $filter, $limit)
     {
-        $statuses = ["Still Thinking", "Incoming", "Disagree", "Callback"];
+        $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
+
+        $statuses = $outbounds;
         $pds = @$filter['pds'];
         $campaigns = @$filter['campaigns'];
         $spv = @$filter['spv'];
@@ -90,11 +102,18 @@ class SetupPdsService
         ->when($search, fn ($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
         ->orderBy('created_at', 'desc');
 
-        if ($limit == null) {
-            return $data->get();
+        if ($limit === null) {
+            $data = $data->get();
         } else {
-            return $data->paginate($limit ?: 10);
+            $data = $data->paginate($limit ?: 10);
         }
+
+        $data->each(function ($item) use ($outbounds) {
+            $item->outbounds = $outbounds;
+            return $item;
+        });
+
+        return $data;
     }
 
     public function getAll($companyId)
@@ -269,9 +288,11 @@ class SetupPdsService
                                     ? gmdate("H:i:s", $summary['TotalDuration'] / $summary['DataDialed'])
                                     : "00:00:00";
 
-        $summary['DurationCall'] = $summary['DialContacted'] > 0
-                                    ? gmdate("H:i:s", $summary['TotalDuration'] / $summary['DialContacted'])
-                                    : "00:00:00";
+        // $summary['DurationCall'] = $summary['DialContacted'] > 0
+        //                             ? gmdate("H:i:s", $summary['TotalDuration'] / $summary['DialContacted'])
+        //                             : "00:00:00";
+
+        $summary['DurationCall'] = gmdate("H.i.s", $summary['TotalDuration']);
 
         return (object) $summary;
     }

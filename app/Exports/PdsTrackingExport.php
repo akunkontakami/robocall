@@ -10,67 +10,82 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class PdsTrackingExport implements FromArray, WithHeadings, WithEvents
 {
-    private $data;
+    private $data, $outbounds;
 
-    public function __construct(array $data)
+    public function __construct(array $data, array $outbounds)
     {
         $this->data = $data;
+        $this->outbounds = $outbounds;
     }
 
     public function array(): array
     {
         return array_map(function ($row) {
-            return [
+            $ticketCounts = $row['ticket_status_count'] ?? [];
+            $statusColumns = [];
+            foreach ($this->outbounds as $status) {
+                $name = is_array($status) ? $status['name'] : $status;
+                $statusColumns[] = (string) ($ticketCounts[$name] ?? '0');
+            }
+
+            return array_merge([
                 $row['name'],
                 $row['campaign'],
                 $row['total_agent'],
-                $row['data_size'] ?? '0',
-                $row['data_utilize'] ?? '0',
-                $row['calls'] ?? '0',
-                $row['utilize_call_ratio'] ?? '0',
-                $row['utilize_percentage'] ?? '0%',
-                $row['unutilize'] ?? '0',
-                $row['unutilize_percentage'] ?? '0%',
-                $row['duration_pds'] ?? '0',
-                $row['contacted'] ?? '0',
-                $row['contacted'] ?? '0',
-                $row['contacted_percentage'] ?? '0%',
-                $row['uncontacted'] ?? '0',
-                $row['uncontacted'] ?? '0',
-                $row['uncontacted_percentage'] ?? '0%',
-                $row['abandoned'] ?? '0',
-                $row['abandoned_rate'] ?? '0',
-                $row['still_thinking'] ?? '0',
-                $row['disagree'] ?? '0',
-                $row['incoming'] ?? '0',
-                $row['callback'] ?? '0',
-            ];
+                (string) $row['data_size'] ?? '0',
+                (string) $row['data_utilize'] ?? '0',
+                (string) $row['calls'] ?? '0',
+                (string) $row['utilize_call_ratio'] ?? '0',
+                (string) $row['utilize_percentage'] ?? '0%',
+                (string) $row['unutilize'] ?? '0',
+                (string) $row['unutilize_percentage'] ?? '0%',
+                (string) $row['duration_pds'] ?? '0',
+                (string) $row['contacted'] ?? '0',
+                (string) $row['contacted'] ?? '0',
+                (string) $row['contacted_percentage'] ?? '0%',
+                (string) $row['uncontacted'] ?? '0',
+                (string) $row['uncontacted'] ?? '0',
+                (string) $row['uncontacted_percentage'] ?? '0%',
+                (string) $row['abandoned'] ?? '0',
+                (string) $row['abandoned_rate'] ?? '0',
+            ],
+            $statusColumns);
         }, $this->data);
     }
 
     public function headings(): array
     {
+        $statusNames = [];
+
+        foreach ($this->outbounds as $status) {
+            $statusNames[] = is_array($status) ? $status['name'] : $status;
+        }
+
         return [
-            [
-                'PDS Name','Marketing Campaign','Agent Ready','Data Size PDS',
-                'Utilize PDS','','','',
-                'Unutilize PDS','',
-                'Duration',
-                'Contacted','','',
-                'UnContacted','','',
-                'Abandon','',
-                'Call Status','','',''
-            ],
-            [
-                '', '', '', '',
-                'Data','Calls','Call Ratio','% Utilize',
-                'Data','% Unutilize',
-                '',
-                'Data','Calls','%',
-                'Data','Calls','%',
-                'Data','%',
-                'Still Thinking','Disagree','Incoming','Callback'
-            ]
+            array_merge(
+                [
+                    'PDS Name','Marketing Campaign','Agent Ready','Data Size PDS',
+                    'Utilize PDS','','','',
+                    'Unutilize PDS','',
+                    'Duration',
+                    'Contacted','','',
+                    'UnContacted','','',
+                    'Abandon','',
+                ],
+                array_fill(0, count($statusNames) - 1, '')
+            ),
+            array_merge(
+                [
+                    '', '', '', '',
+                    'Data','Calls','Call Ratio','% Utilize',
+                    'Data','% Unutilize',
+                    '',
+                    'Data','Calls','%',
+                    'Data','Calls','%',
+                    'Data','%',
+                ],
+                $statusNames
+            )
         ];
     }
 
@@ -92,16 +107,45 @@ class PdsTrackingExport implements FromArray, WithHeadings, WithEvents
                 $sheet->mergeCells('L1:N1'); // Contacted
                 $sheet->mergeCells('O1:Q1'); // UnContacted
                 $sheet->mergeCells('R1:S1'); // Abandon
-                $sheet->mergeCells('T1:W1'); // Call Status
+
+                $callStatusStartIndex = 20; // kolom T
+                $statusCount = count($this->outbounds);
+
+                if ($statusCount > 0) {
+                    $callStatusEndIndex = $callStatusStartIndex + $statusCount - 1;
+
+                    $sheet->mergeCells(
+                        $this->excelColumn($callStatusStartIndex) . '1:' .
+                        $this->excelColumn($callStatusEndIndex) . '1'
+                    );
+                }
+
+                $lastColumnIndex = $callStatusStartIndex + $statusCount - 1;
+                $lastColumnLetter = $this->excelColumn($lastColumnIndex);
 
                 // Alignment header
-                $sheet->getStyle('A1:W2')->getAlignment()
+                $sheet->getStyle("A1:{$lastColumnLetter}2")
+                    ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_CENTER)
                     ->setVertical(Alignment::VERTICAL_CENTER);
 
-                // Bold header
-                $sheet->getStyle('A1:W2')->getFont()->setBold(true);
+                $sheet->getStyle("A1:{$lastColumnLetter}2")
+                    ->getFont()
+                    ->setBold(true);
             }
         ];
+    }
+
+    private function excelColumn(int $index): string
+    {
+        $column = '';
+
+        while ($index > 0) {
+            $index--;
+            $column = chr($index % 26 + 65) . $column;
+            $index = intdiv($index, 26);
+        }
+
+        return $column;
     }
 }
