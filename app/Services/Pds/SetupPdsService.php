@@ -207,6 +207,27 @@ class SetupPdsService
     {
         $companyId = user()->company_id;
 
+        $period = request()->period;
+        $startDate = null;
+        $endDate   = null;
+
+        switch ($period) {
+            case 'Today':
+                $startDate = Carbon::today()->startOfDay()->toDateString();
+                $endDate   = Carbon::today()->endOfDay()->toDateString();
+                break;
+
+            case 'Month':
+                $startDate = Carbon::now()->startOfMonth()->toDateString();
+                $endDate   = Carbon::now()->endOfMonth()->toDateString();
+                break;
+
+            case 'Week':
+                $startDate = Carbon::now()->startOfWeek()->toDateString();
+                $endDate   = Carbon::now()->endOfWeek()->toDateString();
+                break;
+        }
+
         $pdsAgent = PdsAgent::where('company_id', $companyId)
             ->pluck('user_id')
             ->toArray();
@@ -215,6 +236,9 @@ class SetupPdsService
             ->whereNotNull('sip')
             ->where('company_id', $companyId)
             ->whereIn('agent_id', $pdsAgent)
+            ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            })
             ->sum('total_duration');
 
         $idleDuration = max(0, $TotalDuration - $totalCall);
