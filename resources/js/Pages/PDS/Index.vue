@@ -122,7 +122,7 @@ const durations = ref([
     {
         id: 1,
         label: getQueryParam('period') || "All",
-        title: 'Duration Call',
+        title: 'Total Duration Calls',
         count: "00:00:00",
     },
     {

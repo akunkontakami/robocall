@@ -59,7 +59,7 @@ import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { ref, onBeforeUnmount, onMounted } from "vue";
 
 const columns = ref([
-    "PDS Id",
+    "PDS Name",
     "Status",
     "SPV",
     "Agent Ready",

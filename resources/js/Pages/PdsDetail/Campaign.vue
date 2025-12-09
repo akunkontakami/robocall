@@ -28,7 +28,7 @@
                     :items="statuses"
                     :error="form.errors.status"
                     placeholder="Select Status"
-                    v-if="!data.customers.length"
+                    v-if="!data.customers.length && data.campaign"
                 />
 
                 <ButtonYellow

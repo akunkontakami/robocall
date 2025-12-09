@@ -28,7 +28,7 @@ const menus = [
     },
     {
         key: "campaign",
-        name: "Assign Campaign",
+        name: "Assign Customer",
         url: route('pds.detail.campaign', props.id),
         show: true,
     },
