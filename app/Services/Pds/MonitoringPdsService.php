@@ -227,7 +227,8 @@ class MonitoringPdsService
             'DialContacted' => 0,
             'DialAbandoned' => 0,
             'SessionStart' => '',
-            'SessionEnd' => ''
+            'SessionEnd' => '',
+            'Duration' => 0
         ];
 
         do {
@@ -258,6 +259,11 @@ class MonitoringPdsService
                 $summary['DialAbandoned'] += $item['DialAbandoned'];
                 $summary['SessionStart'] = $item['SessionStart'];
                 $summary['SessionEnd'] = $item['SessionEnd'];
+
+                $start = \Carbon\Carbon::parse($item['SessionStart']);
+                $end   = \Carbon\Carbon::parse($item['SessionEnd']);
+                $duration = $start->diffInSeconds($end, false);
+                $summary['Duration'] += max(0, $duration);
             }
 
             $total = $result['total'] ?? $data->count();

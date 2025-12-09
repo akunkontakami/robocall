@@ -45,7 +45,7 @@ class SetupPdsService
 
         $data = Pds::with(["campaign", "agents", "customers", "agents.companyUser", "agents.ext", "spv", "spv.companyUser"])
         ->withCount(['tickets as ticket_count' => function($q) use ($statuses) {
-            $q->whereIn('status', $statuses);
+            $q->whereIn('status', $statuses)->where("is_bucket", 1);
         }])
         ->where("company_id", $companyId)
         ->when($campaigns, fn ($q) => $q->whereIn("marketing_campaign_id", $campaigns))
@@ -87,6 +87,7 @@ class SetupPdsService
         ])
         ->withCount(['tickets as ticket_count' => function($q) use ($statuses) {
             $q->whereIn('status', $statuses)
+            ->where("is_bucket", 1)
             ->whereColumn('current_agent_id', 'pds_agents.user_id');
         }])
         ->whereHas(
