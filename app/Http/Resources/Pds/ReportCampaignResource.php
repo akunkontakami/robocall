@@ -22,12 +22,12 @@ class ReportCampaignResource extends JsonResource
         $log = (new MonitoringPdsService())->pdsHistoryLogs($this->pds_name, $start, $end);
         $agentReady = (new MonitoringPdsService())->getAgentReady($this->agents);
 
-        $duration = null;
-        if ($log->SessionStart && $log->SessionEnd) {
-            $startTime = Carbon::parse($log->SessionStart);
-            $endTime = Carbon::parse($log->SessionEnd);
-            $duration = $endTime->diff($startTime)->format('%H:%I:%S');
-        }
+        $duration =gmdate("H:i:s", $log->Duration);
+        // if ($log->SessionStart && $log->SessionEnd) {
+        //     $startTime = Carbon::parse($log->SessionStart);
+        //     $endTime = Carbon::parse($log->SessionEnd);
+        //     $duration = $endTime->diff($startTime)->format('%H:%I:%S');
+        // }
 
         $ticketStatuses = $this->outbounds;
         $ticketCount = $this->tickets()

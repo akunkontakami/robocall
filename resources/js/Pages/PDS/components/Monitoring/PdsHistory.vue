@@ -73,7 +73,7 @@ import FilterPds from "./FilterPds.vue";
 import { closeFilter, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 
 const columns = ref([
-    "PDS",
+    "PDS Name",
     "Agent Ready",
     "Start Time",
     "End Time",

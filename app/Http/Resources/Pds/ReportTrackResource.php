@@ -24,16 +24,17 @@ class ReportTrackResource extends JsonResource
         $UtilizeCallRatio = $log->DataDialed > 0 ? round(($log->DialCount / $log->DataDialed), 2) : 0;
         $UtilizePercentage = $log->DataSize > 0 ? round(($log->DataDialed / $log->DataSize) * 100, 2) : 0;
         $ContactedPercentage = $log->DataDialed > 0 ? round(($log->DialContacted / $log->DataDialed) * 100, 2) : 0;
-        $UncontactedPercentage = $Unutilize > 0 ? round(($log->DialFailed / $Unutilize) * 100, 2) : 0;
+        $UncontactedPercentage = $log->DataDialed > 0 ? round(($log->DialFailed / $log->DataDialed) * 100, 2) : 0;
+        // $UncontactedPercentage = $Unutilize > 0 ? round(($log->DialFailed / $Unutilize) * 100, 2) : 0;
 
         $UnutilizePercentage = $log->DataSize > 0 ? round(($Unutilize / $log->DataSize) * 100, 2) : 0;
 
-        $duration = null;
-        if ($log->SessionStart && $log->SessionEnd) {
-            $startTime = Carbon::parse($log->SessionStart);
-            $endTime = Carbon::parse($log->SessionEnd);
-            $duration = $endTime->diff($startTime)->format('%H:%I:%S');
-        }
+        $duration =gmdate("H:i:s", $log->Duration);
+        // if ($log->SessionStart && $log->SessionEnd) {
+        //     $startTime = Carbon::parse($log->SessionStart);
+        //     $endTime = Carbon::parse($log->SessionEnd);
+        //     $duration = $endTime->diff($startTime)->format('%H:%I:%S');
+        // }
 
         $ticketStatuses = $this->outbounds;
         $ticketCount = $this->tickets()
