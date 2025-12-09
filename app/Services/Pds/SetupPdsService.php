@@ -199,7 +199,7 @@ class SetupPdsService
 
         return (object) [
             'sessions' => $sessions,
-            'idle' => $this->idleAgent($sessions->TotalDuration)
+            'idle' => $this->totalIdleAgent($sessions->TotalDuration)
         ];
     }
 
