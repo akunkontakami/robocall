@@ -199,7 +199,28 @@ class SetupPdsService
 
         return (object) [
             'sessions' => $sessions,
-            'idle' => $this->idleAgent()
+            'idle' => $this->idleAgent($sessions->TotalDuration)
+        ];
+    }
+
+    public function totalIdleAgent($TotalDuration)
+    {
+        $companyId = user()->company_id;
+
+        $pdsAgent = PdsAgent::where('company_id', $companyId)
+            ->pluck('user_id')
+            ->toArray();
+
+        $totalCall = DB::table('calls')
+            ->whereNotNull('sip')
+            ->where('company_id', $companyId)
+            ->whereIn('agent_id', $pdsAgent)
+            ->sum('total_duration');
+
+        $idleDuration = max(0, $TotalDuration - $totalCall);
+
+        return (object) [
+            'time' => gmdate('H:i:s', $idleDuration)
         ];
     }
 
@@ -284,7 +305,7 @@ class SetupPdsService
             $page++;
         } while ($currentPage * $perPage < $total);
 
-        $summary['TotalDurationFormatted'] = gmdate("H.i.s", $summary['TotalDuration']);
+        $summary['TotalDurationFormatted'] = gmdate("H:i:s", $summary['TotalDuration']);
         $summary['AverageHandling'] = $summary['DataDialed'] > 0
                                     ? gmdate("H:i:s", $summary['TotalDuration'] / $summary['DataDialed'])
                                     : "00:00:00";
@@ -293,7 +314,7 @@ class SetupPdsService
         //                             ? gmdate("H:i:s", $summary['TotalDuration'] / $summary['DialContacted'])
         //                             : "00:00:00";
 
-        $summary['DurationCall'] = gmdate("H.i.s", $summary['TotalDuration']);
+        $summary['DurationCall'] = gmdate("H:i:s", $summary['TotalDuration']);
 
         return (object) $summary;
     }
