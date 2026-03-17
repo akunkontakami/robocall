@@ -31,8 +31,9 @@ class TicketService
         ->whereNotNull('outbound_data_upload_id')
         ->where('type', 'outbound')
         ->where('marketing_campaign_id', $campaignId)
-        ->where(function ($q) use ($agents) {
-            $q->whereIn('current_agent_id', $agents)->orWhereNull('current_agent_id');
+        ->where(function ($q) {
+            // $q->whereIn('current_agent_id', $agents)->orWhereNull('current_agent_id');
+            $q->whereNull('current_agent_id');
         })
         ->where(function ($q) {
             $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
@@ -70,8 +71,9 @@ class TicketService
             ->where('type', 'outbound')
             ->whereIn('status', $status)
             ->where('marketing_campaign_id', $campaignId)
-            ->where(function ($q) use ($agents) {
-                $q->whereIn('current_agent_id', $agents)->orWhereNull('current_agent_id');
+            ->where(function ($q) {
+                // $q->whereIn('current_agent_id', $agents)->orWhereNull('current_agent_id');
+                $q->whereNull('current_agent_id');
             })
             ->where(function ($q) {
                 $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
