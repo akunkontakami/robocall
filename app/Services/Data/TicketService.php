@@ -63,7 +63,7 @@ class TicketService
 
         $agents = PdsAgent::query()->where('pds_id', $pdsId)->pluck('user_id')->toArray();
 
-        return Ticket::withWhereHas('dataBucket')
+        $data = Ticket::withWhereHas('dataBucket')
             ->where('company_id', $companyId)
             // ->whereNotNull("customer_id")
             ->whereNotNull('outbound_data_upload_id')
@@ -79,16 +79,18 @@ class TicketService
 
                 $q->whereRaw("$customerName <> ?", ['-'])
                 ->whereRaw("$categoryDistribution <> ?", ['KP'])
-                // ->whereNotIn('status', ['Visit Request', 'VISIT REQUEST (UNCONTACT)', 'VISIT REQUEST (CONTACT)', 'VISIT REQUEST (UNCONTACTED)', 'VISIT REQUEST (CONTACTED)', 'CASE REQUEST', 'Case Request'])
                 ->where(function ($w) {
                     $w->whereNull('is_blocked')
                         ->orWhere('is_blocked', '<>', 1);
                 });
             })
-            ->get()
-            ->map(function ($ticket) {
+            ->get();
+
+        return $data->map(function ($ticket) {
                 $json = json_decode(optional($ticket->dataBucket)->data, true);
-                $phone = $json['mobile_phone'] ?? null;
+                $phone = $json['MOBILE_PHONE'] ?? null;
+                $phones = explode(",", $phone);
+                $phone = @$phones[0] ?: '';
 
                 if ($phone && str_starts_with($phone, '62')) {
                     $phone = '0'.substr($phone, 2);

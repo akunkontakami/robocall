@@ -2,16 +2,16 @@
 
 namespace App\Actions\Pds;
 
-use Carbon\Carbon;
 use App\Helpers\Dialer;
 use App\Models\Pds\Pds;
-use Illuminate\Support\Str;
 use App\Models\Pds\PdsAgent;
-use Illuminate\Http\Request;
 use App\Models\Pds\PdsCustomer;
+use App\Services\Data\TicketService;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Services\Data\TicketService;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
@@ -22,7 +22,6 @@ class SetupPdsAction
      */
     public function __construct()
     {
-        //
     }
 
     public function execute(Request $request)
@@ -31,10 +30,10 @@ class SetupPdsAction
             'name' => 'required|unique:pds,pds_name',
             // 'trunk' => 'required|unique:pds,route',
             'trunk' => 'required',
-            'ivr' => 'required|unique:pds,ivr'
+            'ivr' => 'required|unique:pds,ivr',
         ], [
             'ivr.required' => 'VDN is required',
-            'ivr.unique'   => 'VDN has been used',
+            'ivr.unique' => 'VDN has been used',
         ]);
 
         $user = user();
@@ -51,14 +50,14 @@ class SetupPdsAction
                 'is_running' => 0,
             ]);
 
-            $dialer = Dialer::post("/campaign-dialer/setup-pds", [
+            $dialer = Dialer::post('/campaign-dialer/setup-pds', [
                 'tenant_id' => $user->tenant_id,
                 'campaign_id' => $request->name,
                 'route_id' => $request->trunk,
                 'vdn' => $request->ivr,
             ]);
 
-            Log::info("PAYLOAD SETUP PDS", [
+            Log::info('PAYLOAD SETUP PDS', [
                 'tenant_id' => $user->tenant_id,
                 'campaign_id' => $request->name,
                 'route_id' => $request->trunk,
@@ -106,26 +105,22 @@ class SetupPdsAction
             'call_retry_max' => 'required',
         ]);
 
-        $customers = PdsCustomer::where("pds_id", $request->id)->count();
+        $customers = PdsCustomer::where('pds_id', $request->id)->count();
 
         if ($customers == 0) {
-            throw ValidationException::withMessages([
-                'call_factor' => 'Please upload customer data before starting'
-            ]);
+            throw ValidationException::withMessages(['call_factor' => 'Please upload customer data before starting']);
         }
 
-        $agents = PdsAgent::where("pds_id", $request->id)->count();
+        $agents = PdsAgent::where('pds_id', $request->id)->count();
 
         if ($agents == 0) {
-            throw ValidationException::withMessages([
-                'call_factor' => 'Please assign agent before starting'
-            ]);
+            throw ValidationException::withMessages(['call_factor' => 'Please assign agent before starting']);
         }
 
         $user = user();
 
-        return DB::transaction(function () use ($request, $user) {
-            $pds = Pds::where("id", $request->id)->first();
+        return DB::transaction(function () use ($request) {
+            $pds = Pds::where('id', $request->id)->first();
 
             $pds->update([
                 'call_factor' => $request->call_factor,
@@ -134,30 +129,29 @@ class SetupPdsAction
                 'call_limit' => $request->call_limit,
                 'call_retry_after' => $request->call_retry_after,
                 'call_retry_max' => $request->call_retry_max,
-                'is_running' => 1
+                'is_running' => 1,
             ]);
 
-
-            $dialer = Dialer::post("/pds-start", [
+            $dialer = Dialer::post('/pds-start', [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-                "CallFactor" => $request->call_factor,
-                "CallWait" => $request->call_wait,
-                "CallAbandonRate" => $request->call_abandon_rate,
-                "CallLimit" => $request->call_limit,
-                "CallRetryAfter" => $request->call_retry_after,
-                "CallRetryMax" => $request->call_retry_max,
+                'CallFactor' => $request->call_factor,
+                'CallWait' => $request->call_wait,
+                'CallAbandonRate' => $request->call_abandon_rate,
+                'CallLimit' => $request->call_limit,
+                'CallRetryAfter' => $request->call_retry_after,
+                'CallRetryMax' => $request->call_retry_max,
             ]);
 
-            Log::info("PAYLOAD START PDS", [
+            Log::info('PAYLOAD START PDS', [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-                "CallFactor" => $request->call_factor,
-                "CallWait" => $request->call_wait,
-                "CallAbandonRate" => $request->call_abandon_rate,
-                "CallLimit" => $request->call_limit,
-                "CallRetryAfter" => $request->call_retry_after,
-                "CallRetryMax" => $request->call_retry_max,
+                'CallFactor' => $request->call_factor,
+                'CallWait' => $request->call_wait,
+                'CallAbandonRate' => $request->call_abandon_rate,
+                'CallLimit' => $request->call_limit,
+                'CallRetryAfter' => $request->call_retry_after,
+                'CallRetryMax' => $request->call_retry_max,
             ]);
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
@@ -179,35 +173,36 @@ class SetupPdsAction
     public function stop(Request $request)
     {
         $request->validate([
-            'id' => 'required|exists:pds,id'
+            'id' => 'required|exists:pds,id',
         ]);
 
-        $pdsStatus = Pds::where("id", $request->id)->where("is_running", 0)->first();
+        $pdsStatus = Pds::where('id', $request->id)->where('is_running', 0)->first();
 
         if ($pdsStatus) {
-            throw new BadRequestException("PDS already stop");
+            throw new BadRequestException('PDS already stop');
+
             return;
         }
 
         $user = user();
 
-        return DB::transaction(function () use ($request, $user) {
-            $pds = Pds::where("id", $request->id)->first();
+        return DB::transaction(function () use ($request) {
+            $pds = Pds::where('id', $request->id)->first();
 
             $pds->update([
-                'is_running' => 0
+                'is_running' => 0,
             ]);
 
-
-            $dialer = Dialer::post("/pds-stop", [
+            $dialer = Dialer::post('/pds-stop', [
                 'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name
+                'campaign_id' => $pds->pds_name,
             ]);
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
                 $errorMessage = $dialer['errors'];
 
                 throw new BadRequestException($errorMessage);
+
                 return;
             }
 
@@ -218,51 +213,53 @@ class SetupPdsAction
         });
     }
 
-
     public function delete(Request $request)
     {
         $request->validate([
-            'id' => 'required|exists:pds,id'
+            'id' => 'required|exists:pds,id',
         ]);
 
         $user = user();
 
-        return DB::transaction(function () use ($request, $user) {
-            $pds = Pds::where("id", $request->id)->first();
+        return DB::transaction(function () use ($request) {
+            $pds = Pds::where('id', $request->id)->first();
 
-            $dialer = Dialer::post("/campaign-dialer/releaseCustomerPDS", [
+            $dialer = Dialer::post('/campaign-dialer/releaseCustomerPDS', [
                 'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name
+                'campaign_id' => $pds->pds_name,
             ]);
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
                 $errorMessage = $dialer['errors'];
 
                 throw new BadRequestException($errorMessage);
+
                 return;
             }
 
-            $dialer = Dialer::post("/campaign-dialer/release-agent", [
+            $dialer = Dialer::post('/campaign-dialer/release-agent', [
                 'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name
+                'campaign_id' => $pds->pds_name,
             ]);
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
                 $errorMessage = $dialer['errors'];
 
                 throw new BadRequestException($errorMessage);
+
                 return;
             }
 
-            $dialer = Dialer::post("/campaign-dialer/unsetup-pds", [
+            $dialer = Dialer::post('/campaign-dialer/unsetup-pds', [
                 'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name
+                'campaign_id' => $pds->pds_name,
             ]);
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
                 $errorMessage = $dialer['errors'];
 
                 throw new BadRequestException($errorMessage);
+
                 return;
             }
 
@@ -279,13 +276,13 @@ class SetupPdsAction
     {
         $request->validate([
             'marketing_campaign' => 'required',
-            'spv' => 'required'
+            'spv' => 'required',
         ]);
 
         $user = user();
 
-        return DB::transaction(function () use ($request, $user, $id) {
-            $pds = Pds::where("id", $id)->first();
+        return DB::transaction(function () use ($request, $id) {
+            $pds = Pds::where('id', $id)->first();
             $pds->update([
                 'marketing_campaign_id' => $request->marketing_campaign,
                 'spv_id' => $request->spv,
@@ -296,13 +293,13 @@ class SetupPdsAction
     public function assign(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required'
+            'status' => 'required',
         ]);
 
         $user = user();
 
         return DB::transaction(function () use ($request, $user, $id) {
-            $pds = Pds::where("id", $id)->first();
+            $pds = Pds::where('id', $id)->first();
             $customers = (new TicketService())->getCustByTicket($user->company_id, $pds->marketing_campaign_id, $pds->id, $request->status);
 
             foreach ($customers as $key => $value) {
@@ -310,26 +307,27 @@ class SetupPdsAction
                     'company_id' => $user->company_id,
                     'pds_id' => $pds->id,
                     'ticket_id' => $value['customer_id'],
-                    'phone' => $value['phone']
+                    'phone' => $value['phone'],
                 ]);
             }
 
-            $dialer = Dialer::post("/campaign-dialer/uploadJsonPDS", [
+            $dialer = Dialer::post('/campaign-dialer/uploadJsonPDS', [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-                "data" => $customers
+                'data' => $customers,
             ]);
 
-            Log::info("PAYLOAD PDS " . Carbon::now()->format("Y-m-d H:i:s"), [
+            Log::info('PAYLOAD PDS '.Carbon::now()->format('Y-m-d H:i:s'), [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-                "data" => $customers
+                'data' => $customers,
             ]);
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
                 $errorMessage = $dialer['errors'];
 
                 throw new BadRequestException($errorMessage);
+
                 return;
             }
         });
@@ -339,19 +337,20 @@ class SetupPdsAction
     {
         $user = user();
 
-        return DB::transaction(function () use ($request, $user, $id) {
-            $pds = Pds::where("id", $id)->first();
-            PdsCustomer::where("pds_id", $pds->id)->where("company_id", $user->company_id)->delete();
+        return DB::transaction(function () use ($user, $id) {
+            $pds = Pds::where('id', $id)->first();
+            PdsCustomer::where('pds_id', $pds->id)->where('company_id', $user->company_id)->delete();
 
-            $dialer = Dialer::post("/campaign-dialer/releaseCustomerPDS", [
+            $dialer = Dialer::post('/campaign-dialer/releaseCustomerPDS', [
                 'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name
+                'campaign_id' => $pds->pds_name,
             ]);
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
                 $errorMessage = $dialer['errors'];
 
                 throw new BadRequestException($errorMessage);
+
                 return;
             }
         });
