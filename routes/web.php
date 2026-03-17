@@ -10,6 +10,7 @@ use App\Http\Controllers\Pds\SetupPdsController;
 use Illuminate\Support\Facades\Route;
 
 // Route::inertia('/', 'Welcome');
+Route::get('/', fn () => redirect()->route('auth.login.index'));
 
 Route::controller(AuthenticateSessionController::class)
     ->as('auth.')
@@ -59,6 +60,5 @@ Route::middleware(['app-auth'])
         Route::inertia('/robocall/dashboard', 'Robocall/Index')->name('robocall.dashboard');
         Route::inertia('/robocall/setup', 'Robocall/Setup')->name('robocall.setup');
 
-
-        Route::get("dummy", [DummyController::class, 'dummy'])->name('dummy');
+        Route::get('dummy', [DummyController::class, 'dummy'])->name('dummy');
     });
