@@ -2,25 +2,24 @@
 
 namespace App\Http\Controllers\Pds;
 
-use Inertia\Inertia;
-use App\Models\Pds\Pds;
-use Illuminate\Http\Request;
 use App\Actions\Pds\SetupPdsAction;
 use App\Http\Controllers\Controller;
+use App\Services\Data\CampaignService;
 use App\Services\Data\TicketService;
 use App\Services\Pds\SetupPdsService;
-use App\Services\Data\CampaignService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class PdsDetailController extends Controller
 {
     public function index($id)
     {
-        return Inertia::render("PdsDetail/Index", [
+        return Inertia::render('PdsDetail/Index', [
             'data' => (new SetupPdsService())->find(user()->company_id, $id, [0]),
             'campaigns' => (new CampaignService())->listCampaigns(),
             'ivr' => (new SetupPdsService())->getAllIvr(),
             'routes' => (new SetupPdsService())->getAllRoute(),
-            "id" => $id
+            'id' => $id,
         ]);
     }
 
@@ -28,18 +27,18 @@ class PdsDetailController extends Controller
     {
         $data = (new SetupPdsService())->find(user()->company_id, $id, [0]);
 
-        return Inertia::render("PdsDetail/Campaign", [
+        return Inertia::render('PdsDetail/Campaign', [
             'data' => $data,
-            "id" => $id,
-            "statuses" => (new TicketService())->getStatus(user()->company_id, $data->marketing_campaign_id, $data->id)
+            'id' => $id,
+            'statuses' => (new TicketService())->getStatus(user()->company_id, $data->marketing_campaign_id, $data->id),
         ]);
     }
 
     public function spvAgent($id)
     {
-        return Inertia::render("PdsDetail/SpvAgent", [
+        return Inertia::render('PdsDetail/SpvAgent', [
             'data' => (new SetupPdsService())->find(user()->company_id, $id, [0]),
-            "id" => $id
+            'id' => $id,
         ]);
     }
 

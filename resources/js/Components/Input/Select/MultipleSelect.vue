@@ -36,7 +36,7 @@
             <span
                 class="border px-2 items-center flex rounded bg-[#F4F6FA] text-[10px] h-[20px] text-[#0E0F0F] font-krub-medium"
                 x-on:click="itemsDropdownOpen=false"
-                v-for="item in (selected as any)"
+                v-for="item in selected as any"
             >
                 {{ item.value }}
                 <i
@@ -112,7 +112,7 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted } from "vue";
 
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits(["update:modelValue", "updateMaxMobile"]);
 const props = defineProps<{
     label?: string;
     help?: string;
@@ -127,26 +127,36 @@ const search = ref("");
 const itemList = ref(props.items);
 const selected = ref([]);
 
+const emitChanges = () => {
+    emit(
+        "update:modelValue",
+        selected.value.map((row: any) => row.id),
+    );
+
+    const maxPhones = selected.value.length
+        ? Math.max(
+              ...selected.value.map((row: any) => Number(row.max_mobile || 0)),
+          )
+        : 0;
+
+    emit("updateMaxMobile", maxPhones);
+};
+
 const addItem = (row: any) => {
     const selectedIds = selected.value.map((val: any) => val.id);
     if (!selectedIds.includes(row.id)) {
         (selected.value as any).push({
             id: row.id,
             value: row.value,
+            max_mobile: row.max_mobile,
         });
-        emit(
-            "update:modelValue",
-            selected.value.map((row: any) => row.id)
-        );
+        emitChanges();
     }
 };
 
 const removeItem = (id: string) => {
     selected.value = selected.value.filter((row: any) => row.id !== id);
-    emit(
-        "update:modelValue",
-        selected.value.map((row: any) => row.id)
-    );
+    emitChanges();
 };
 
 onMounted(() => {
@@ -158,19 +168,23 @@ onMounted(() => {
                 itemSelected.push({
                     id: row.id,
                     value: row.value,
+                    max_mobile: row.max_mobile,
                 });
             }
+
             if (row.sub && row.sub.length) {
                 row.sub.forEach((key: any) => {
                     if (selectedId.includes(key.id)) {
                         itemSelected.push({
                             id: key.id,
                             value: key.value,
+                            max_mobile: key.max_mobile,
                         });
                     }
                 });
             }
         });
+
         selected.value = itemSelected;
     }
 });

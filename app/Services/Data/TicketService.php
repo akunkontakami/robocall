@@ -24,7 +24,22 @@ class TicketService
 
         $agents = PdsAgent::query()->where('pds_id', $pdsId)->pluck('user_id')->toArray();
 
-        return Ticket::select('status', DB::raw('COUNT(*) as total'))
+        return Ticket::select([
+            'status',
+            DB::raw('COUNT(*) as total'),
+            DB::raw("
+                MAX(
+                    CASE
+                        WHEN JSON_VALUE(bucket, '$.MOBILE_PHONE') IS NULL
+                            OR JSON_VALUE(bucket, '$.MOBILE_PHONE') = ''
+                        THEN 0
+                        ELSE
+                            LENGTH(JSON_VALUE(bucket, '$.MOBILE_PHONE'))
+                            - LENGTH(REPLACE(JSON_VALUE(bucket, '$.MOBILE_PHONE'), ',', '')) + 1
+                    END
+                ) as max_mobile
+            "),
+        ])
         ->withWhereHas('dataBucket')
         ->where('company_id', $companyId)
         // ->whereNotNull("customer_id")
@@ -50,28 +65,43 @@ class TicketService
         ->get()->each(function ($row) {
             $row->id = $row->status;
             $row->value = $row->status.' - '.$row->total;
+            $row->max_mobile = (int) $row->max_mobile;
 
             return $row;
         });
     }
 
-    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [])
+    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [], $selectedMobiles = [])
     {
         if (!$pdsId || !$campaignId) {
             return [];
         }
 
-        $agents = PdsAgent::query()->where('pds_id', $pdsId)->pluck('user_id')->toArray();
+        $agents = PdsAgent::query()
+            ->where('pds_id', $pdsId)
+            ->pluck('user_id')
+            ->toArray();
+
+        $mobileIndexes = collect($selectedMobiles)
+            ->map(function ($label) {
+                preg_match('/(\d+)$/', $label, $matches);
+
+                return isset($matches[1]) ? ((int) $matches[1] - 1) : null;
+            })
+            ->filter(fn ($index) => $index !== null && $index >= 0)
+            ->unique()
+            ->values()
+            ->toArray();
 
         $data = Ticket::withWhereHas('dataBucket')
             ->where('company_id', $companyId)
-            // ->whereNotNull("customer_id")
             ->whereNotNull('outbound_data_upload_id')
             ->where('type', 'outbound')
             ->whereIn('status', $status)
             ->where('marketing_campaign_id', $campaignId)
             ->where(function ($q) use ($agents) {
-                $q->whereIn('current_agent_id', $agents)->orWhereNull('current_agent_id');
+                $q->whereIn('current_agent_id', $agents)
+                ->orWhereNull('current_agent_id');
             })
             ->where(function ($q) {
                 $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
@@ -86,22 +116,42 @@ class TicketService
             })
             ->get();
 
-        return $data->map(function ($ticket) {
+        return $data
+            ->flatMap(function ($ticket) use ($mobileIndexes) {
                 $json = json_decode(optional($ticket->dataBucket)->data, true);
-                $phone = $json['MOBILE_PHONE'] ?? null;
-                $phones = explode(",", $phone);
-                $phone = @$phones[0] ?: '';
 
-                if ($phone && str_starts_with($phone, '62')) {
-                    $phone = '0'.substr($phone, 2);
+                $rawPhones = $json['MOBILE_PHONE'] ?? '';
+                $phones = collect(explode(',', $rawPhones))
+                    ->map(fn ($phone) => trim($phone))
+                    ->filter(fn ($phone) => !empty($phone))
+                    ->values();
+
+                if ($phones->isEmpty()) {
+                    return [];
                 }
 
-                return [
-                    'customer_id' => $ticket->id,
-                    'phone' => $phone,
-                ];
+                $selectedPhones = collect($mobileIndexes)
+                    ->map(function ($index) use ($phones) {
+                        return $phones->get($index);
+                    })
+                    ->filter(fn ($phone) => !empty($phone))
+                    ->map(function ($phone) {
+                        if (str_starts_with($phone, '62')) {
+                            $phone = '0'.substr($phone, 2);
+                        }
+
+                        return $phone;
+                    })
+                    ->unique()
+                    ->values();
+
+                return $selectedPhones->map(function ($phone) use ($ticket) {
+                    return [
+                        'customer_id' => $ticket->id,
+                        'phone' => $phone,
+                    ];
+                });
             })
-            ->filter(fn ($row) => !empty($row['phone']))
             ->values()
             ->toArray();
     }
