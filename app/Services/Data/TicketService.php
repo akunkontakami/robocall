@@ -22,56 +22,70 @@ class TicketService
             return [];
         }
 
-        $agents = PdsAgent::query()->where('pds_id', $pdsId)->pluck('user_id')->toArray();
+        $agents = PdsAgent::query()
+            ->where('pds_id', $pdsId)
+            ->pluck('user_id')
+            ->toArray();
 
-        return Ticket::select([
-            'status',
-            DB::raw('COUNT(*) as total'),
-            DB::raw("
-                MAX(
-                    CASE
-                        WHEN JSON_VALUE(bucket, '$.MOBILE_PHONE') IS NULL
-                            OR JSON_VALUE(bucket, '$.MOBILE_PHONE') = ''
-                        THEN 0
-                        ELSE
-                            LENGTH(JSON_VALUE(bucket, '$.MOBILE_PHONE'))
-                            - LENGTH(REPLACE(JSON_VALUE(bucket, '$.MOBILE_PHONE'), ',', '')) + 1
-                    END
-                ) as max_mobile
-            "),
-        ])
-        ->withWhereHas('dataBucket')
-        ->where('company_id', $companyId)
-        // ->whereNotNull("customer_id")
-        ->whereNotNull('outbound_data_upload_id')
-        ->where('type', 'outbound')
-        ->where('marketing_campaign_id', $campaignId)
-        ->where(function ($q) use ($agents) {
-            $q->whereIn('current_agent_id', $agents)->orWhereNull('current_agent_id');
-        })
-        ->where(function ($q) {
-            $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
-            $categoryDistribution = "COALESCE(JSON_VALUE(bucket, '$.category_distribution'), '')";
+        return Ticket::query()
+            ->select([
+                'status',
+                DB::raw('COUNT(*) as total'),
+                DB::raw("
+                    MAX(
+                        CASE
+                            WHEN JSON_VALUE(bucket, '$.MOBILE_PHONE') IS NULL
+                                OR JSON_VALUE(bucket, '$.MOBILE_PHONE') = ''
+                            THEN 0
+                            ELSE
+                                LENGTH(JSON_VALUE(bucket, '$.MOBILE_PHONE'))
+                                - LENGTH(REPLACE(JSON_VALUE(bucket, '$.MOBILE_PHONE'), ',', '')) + 1
+                        END
+                    ) as max_mobile
+                "),
+                DB::raw("
+                    MAX(
+                        (
+                            SELECT COUNT(*)
+                            FROM ticket_additional_phones
+                            WHERE ticket_additional_phones.customer_number = tickets.customer_number
+                        )
+                    ) as max_additional_phone
+                "),
+            ])
+            ->withWhereHas('dataBucket')
+            ->where('company_id', $companyId)
+            ->whereNotNull('outbound_data_upload_id')
+            ->where('type', 'outbound')
+            ->where('marketing_campaign_id', $campaignId)
+            ->where(function ($q) use ($agents) {
+                $q->whereIn('current_agent_id', $agents)
+                ->orWhereNull('current_agent_id');
+            })
+            ->where(function ($q) {
+                $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
+                $categoryDistribution = "COALESCE(JSON_VALUE(bucket, '$.category_distribution'), '')";
 
-            $q->whereRaw("$customerName <> ?", ['-'])
-            ->whereRaw("$categoryDistribution <> ?", ['KP'])
-            // ->whereNotIn('status', ['Visit Request', 'VISIT REQUEST (UNCONTACT)', 'VISIT REQUEST (CONTACT)', 'VISIT REQUEST (UNCONTACTED)', 'VISIT REQUEST (CONTACTED)', 'CASE REQUEST', 'Case Request'])
-            ->where(function ($w) {
-                $w->whereNull('is_blocked')
-                    ->orWhere('is_blocked', '<>', 1);
+                $q->whereRaw("$customerName <> ?", ['-'])
+                ->whereRaw("$categoryDistribution <> ?", ['KP'])
+                ->where(function ($w) {
+                    $w->whereNull('is_blocked')
+                        ->orWhere('is_blocked', '<>', 1);
+                });
+            })
+            ->groupBy('status')
+            ->get()
+            ->each(function ($row) {
+                $row->id = $row->status;
+                $row->value = $row->status . ' - ' . $row->total;
+                $row->max_mobile = (int) $row->max_mobile;
+                $row->max_additional_phone = (int) $row->max_additional_phone;
+
+                return $row;
             });
-        })
-        ->groupBy('status')
-        ->get()->each(function ($row) {
-            $row->id = $row->status;
-            $row->value = $row->status.' - '.$row->total;
-            $row->max_mobile = (int) $row->max_mobile;
-
-            return $row;
-        });
     }
 
-    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [], $selectedMobiles = [])
+    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [], $selectedMobiles = [], $selectedAdditionals = [])
     {
         if (!$pdsId || !$campaignId) {
             return [];
@@ -93,7 +107,19 @@ class TicketService
             ->values()
             ->toArray();
 
+        $additionalIndexes = collect($selectedAdditionals)
+            ->map(function ($label) {
+                preg_match('/(\d+)$/', $label, $matches);
+
+                return isset($matches[1]) ? ((int) $matches[1] - 1) : null;
+            })
+            ->filter(fn ($index) => $index !== null && $index >= 0)
+            ->unique()
+            ->values()
+            ->toArray();
+
         $data = Ticket::withWhereHas('dataBucket')
+            ->with('additionalPhones')
             ->where('company_id', $companyId)
             ->whereNotNull('outbound_data_upload_id')
             ->where('type', 'outbound')
@@ -117,7 +143,7 @@ class TicketService
             ->get();
 
         return $data
-            ->flatMap(function ($ticket) use ($mobileIndexes) {
+            ->flatMap(function ($ticket) use ($mobileIndexes, $additionalIndexes) {
                 $json = json_decode(optional($ticket->dataBucket)->data, true);
 
                 $rawPhones = $json['MOBILE_PHONE'] ?? '';
@@ -126,19 +152,29 @@ class TicketService
                     ->filter(fn ($phone) => !empty($phone))
                     ->values();
 
-                if ($phones->isEmpty()) {
-                    return [];
-                }
-
-                $selectedPhones = collect($mobileIndexes)
-                    ->map(function ($index) use ($phones) {
-                        return $phones->get($index);
-                    })
+                $additionalPhones = $ticket->additionalPhones
+                    ->pluck('phone')
+                    ->map(fn ($phone) => trim($phone))
                     ->filter(fn ($phone) => !empty($phone))
+                    ->values();
+
+                $selectedMainPhones = collect($mobileIndexes)
+                    ->map(fn ($index) => $phones->get($index))
+                    ->filter(fn ($phone) => !empty($phone));
+
+                $selectedAdditionalPhones = collect($additionalIndexes)
+                    ->map(fn ($index) => $additionalPhones->get($index))
+                    ->filter(fn ($phone) => !empty($phone));
+
+                $selectedPhones = $selectedMainPhones
+                    ->merge($selectedAdditionalPhones)
                     ->map(function ($phone) {
                         if (str_starts_with($phone, '62')) {
-                            $phone = '0'.substr($phone, 2);
+                            $phone = '0' . substr($phone, 2);
+                        } elseif (str_starts_with($phone, '8')) {
+                            $phone = '0' . $phone;
                         }
+
 
                         return $phone;
                     })

@@ -33,6 +33,7 @@
                     :error="form.errors.status"
                     placeholder="Select Status"
                     @updateMaxMobile="updateMaxMobile"
+                    @updateMaxAdditional="updateMaxAdditional"
                     v-if="!data.customers.length && data.campaign"
                 />
 
@@ -196,7 +197,7 @@ const form = useForm({
 });
 
 const mobileOptions = ref<number[]>([]);
-const additionalOptions = ref([]);
+const additionalOptions = ref<number[]>([]);
 
 const toggleParent = (type: string) => {
     if (type === "mobile") {
@@ -246,6 +247,20 @@ const updateMaxMobile = (max: number) => {
     }
 
     mobileOptions.value = Array.from({ length: max }, (_, i) => i + 1);
+};
+
+const updateMaxAdditional = (max: number) => {
+    if (!max || max <= 0) {
+        additionalOptions.value = [];
+        form.additional = [];
+        return;
+    }
+
+    if (max < additionalOptions.value.length) {
+        form.additional = [];
+    }
+
+    additionalOptions.value = Array.from({ length: max }, (_, i) => i + 1);
 };
 
 const submit = () => {

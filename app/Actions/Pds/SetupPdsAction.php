@@ -300,7 +300,7 @@ class SetupPdsAction
 
         return DB::transaction(function () use ($request, $user, $id) {
             $pds = Pds::where('id', $id)->first();
-            $customers = (new TicketService())->getCustByTicket($user->company_id, $pds->marketing_campaign_id, $pds->id, $request->status, $request->mobile ?? []);
+            $customers = (new TicketService())->getCustByTicket($user->company_id, $pds->marketing_campaign_id, $pds->id, $request->status, $request->mobile ?? [], $request->additional ?? []);
 
             foreach ($customers as $key => $value) {
                 PdsCustomer::create([

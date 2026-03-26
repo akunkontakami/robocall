@@ -112,7 +112,11 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted } from "vue";
 
-const emit = defineEmits(["update:modelValue", "updateMaxMobile"]);
+const emit = defineEmits([
+    "update:modelValue",
+    "updateMaxMobile",
+    "updateMaxAdditional",
+]);
 const props = defineProps<{
     label?: string;
     help?: string;
@@ -140,6 +144,16 @@ const emitChanges = () => {
         : 0;
 
     emit("updateMaxMobile", maxPhones);
+
+    const maxAdditionals = selected.value.length
+        ? Math.max(
+              ...selected.value.map((row: any) =>
+                  Number(row.max_additional_phone || 0),
+              ),
+          )
+        : 0;
+
+    emit("updateMaxAdditional", maxAdditionals);
 };
 
 const addItem = (row: any) => {
@@ -149,6 +163,7 @@ const addItem = (row: any) => {
             id: row.id,
             value: row.value,
             max_mobile: row.max_mobile,
+            max_additional_phone: row.max_additional_phone,
         });
         emitChanges();
     }
@@ -169,6 +184,7 @@ onMounted(() => {
                     id: row.id,
                     value: row.value,
                     max_mobile: row.max_mobile,
+                    max_additional_phone: row.max_additional_phone,
                 });
             }
 
@@ -179,6 +195,7 @@ onMounted(() => {
                             id: key.id,
                             value: key.value,
                             max_mobile: key.max_mobile,
+                            max_additional_phone: key.max_additional_phone,
                         });
                     }
                 });
