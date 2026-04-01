@@ -6,7 +6,7 @@
             <div class="flex md:flex-row flex-col">
                 <form
                     @submit.prevent="submit"
-                    class="flex-1 md:px-10 md:py-24 px-7 py-5 flex flex-col justify-center "
+                    class="flex-1 md:px-10 md:py-24 px-7 py-5 flex flex-col justify-center"
                     x-data="{popup : false}"
                 >
                     <div
@@ -25,7 +25,7 @@
                     <h1 class="text-dark text-[32px] font-krub-bold mb-5">
                         Login Dialer - Kontakami
                     </h1>
-                    <!-- <Select
+                    <Select
                         v-model="form.role"
                         required="true"
                         icon="isax icon-profile-2user"
@@ -38,7 +38,7 @@
                         >
                             {{ row.text }}
                         </option>
-                    </Select> -->
+                    </Select>
                     <Input
                         type="email"
                         placeholder="Email"
