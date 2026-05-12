@@ -15,12 +15,14 @@
             class="flex items-center justify-between border bg-white rounded-lg text-[12px] px-4 py-3 cursor-pointer"
             v-bind:class="{
                 'border-red': error,
-                '!bg-[#F3F3F3] !cursor-default': disabled
+                '!bg-[#F3F3F3] !cursor-default': disabled,
             }"
             x-on:click="selectOpen=!selectOpen"
             x-ref="selectContainer"
         >
-            <span class="pre-text-content max-w-[95%]"> {{ selected || placeholder }}</span>
+            <span class="pre-text-content max-w-[95%]">
+                {{ selected || placeholder }}</span
+            >
             <i class="isax icon-arrow-down-1" v-if="!disabled"></i>
         </div>
         <div
@@ -63,17 +65,17 @@
         <small
             v-if="error"
             class="text-red error-text mb-4 block text-[11px]"
-        >{{ error }}</small>
-        <small
-            class="text-[10px] mb-4 text-[#A3A3A3]"
-            v-if="help"
-        >{{ help }}</small>
+            >{{ error }}</small
+        >
+        <small class="text-[10px] mb-4 text-[#A3A3A3]" v-if="help">{{
+            help
+        }}</small>
     </div>
 </template>
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
 
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits(["update:modelValue", "changeValue"]);
 const props = defineProps([
     "label",
     "help",
@@ -82,7 +84,7 @@ const props = defineProps([
     "placeholder",
     "items",
     "value",
-    "disabled"
+    "disabled",
 ]);
 
 const search = ref("");
@@ -96,12 +98,15 @@ const choose = (item: any) => {
 };
 
 const setSelected = () => {
-    const selectedValue = props.value
-    if(selectedValue){
-        const item = itemsList.value.find((row:any)=>row.value==selectedValue)
-        selected.value = item?.label
-    }else{
-    selected.value = ""
+    const selectedValue = props.value;
+    if (selectedValue) {
+        const item = itemsList.value.find(
+            (row: any) => row.value == selectedValue,
+        );
+        selected.value = item?.label;
+        emit("changeValue", item.value);
+    } else {
+        selected.value = "";
     }
 };
 
@@ -109,21 +114,21 @@ watch(
     () => props.value,
     (val, value) => {
         setSelected();
-    }
+    },
 );
 watch(
     () => props.items,
     (val, value) => {
         itemsList.value = props.items;
-    }
+    },
 );
 watch(
     () => search.value,
     (val, value) => {
         itemsList.value = props.items.filter((row: any) =>
-            row.label.toLowerCase().includes(search.value.toLowerCase())
+            row.label.toLowerCase().includes(search.value.toLowerCase()),
         );
-    }
+    },
 );
 
 onMounted(() => {

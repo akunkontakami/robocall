@@ -1,18 +1,6 @@
 <template>
     <FormPopup title="Add New Robocall">
-        <form action="">
-            <Input
-                type="text"
-                placeholder="Enter Robocall Code"
-                label="Robocall Code"
-                id="code"
-                name="code"
-                required
-                maxlength="250"
-                v-model="form.code"
-                :hide-length="true"
-                :error="form.errors.code"
-            />
+        <form action="" @submit.prevent="submit">
             <Input
                 type="text"
                 placeholder="Enter Robocall Name"
@@ -25,57 +13,22 @@
                 v-model="form.name"
                 :error="form.errors.name"
             />
-            <Input
-                type="number"
-                placeholder="Enter Call Limit"
-                label="Call Limit"
-                id="limit"
-                name="limit"
-                required
-                maxlength="100"
-                v-model="form.limit"
-                :hide-length="true"
-                help="* Maximum Call Limit 100"
-                :error="form.errors.limit"
-            />
-            <div class="grid grid-cols-3 gap-4">
-                <div>
-                    <DatePicker
-                        name="schedule_date"
-                        v-model="form.schedule_date"
-                        :error="form.errors.schedule_date"
-                        label="Schedule"
-                        :min="new Date()"
-                    />
-                </div>
-                <div class="flex items-end">
-                    <TimePicker
-                        name="schedule_start"
-                        v-model="form.schedule_start"
-                        :error="form.errors.schedule_start"
-                        label="Start Time"
-                        placeholder="00:00"
-                        :min="new Date()"
-                    />
-                    <span class="block mb-7 text-[12px] ms-2">hh:mm</span>
-                </div>
-                <div class="flex items-end">
-                    <TimePicker
-                        name="schedule_end"
-                        v-model="form.schedule_end"
-                        :error="form.errors.schedule_end"
-                        label="End Time"
-                        placeholder="00:00"
-                        :min="new Date()"
-                    />
-                    <span class="block mb-7 text-[12px] ms-2">hh:mm</span>
-                </div>
-            </div>
             <div class="flex justify-end gap-3">
-                <ButtonOutlineGrey type="button" x-on:click="formPopup=false" class="w-[120px]">
+                <ButtonOutlineGrey
+                    type="button"
+                    x-on:click="formPopup=false"
+                    class="w-[120px]"
+                >
                     Cancel
                 </ButtonOutlineGrey>
-                <ButtonYellow type="submit" class="w-[120px]"> Submit </ButtonYellow>
+                <ButtonYellow
+                    type="submit"
+                    class="w-[120px]"
+                    :disabled="form.processing || !form.name.trim()"
+                    :loading="form.processing"
+                >
+                    Submit
+                </ButtonYellow>
             </div>
         </form>
     </FormPopup>
@@ -88,13 +41,24 @@ import TimePicker from "@/Components/Input/TimePicker.vue";
 import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
 import ButtonOutlineGrey from "@/Components/Button/ButtonOutlineGrey.vue";
 import { useForm } from "@inertiajs/vue3";
+import { showAlert } from "@/Plugins/Function/global-function";
 
 const form = useForm({
-    code: "",
     name: "",
-    limit: 0,
-    schedule_date: "",
-    schedule_start: "",
-    schedule_end: "",
 });
+
+const submit = () => {
+    if (!form.processing) {
+        if (/\s/.test(form.name)) {
+            showAlert("Robocall Name must not contain spaces");
+            return;
+        }
+
+        form.post(route("robocall.setup.store"), {
+            onSuccess: () => {
+                window.location.reload();
+            },
+        });
+    }
+};
 </script>
