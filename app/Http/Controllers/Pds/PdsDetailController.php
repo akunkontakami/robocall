@@ -29,8 +29,16 @@ class PdsDetailController extends Controller
 
         return Inertia::render('PdsDetail/Campaign', [
             'data' => $data,
-            'id' => $id,
-            'statuses' => (new TicketService())->getStatus(user()->company_id, $data->marketing_campaign_id, $data->id),
+            'id' => $id
+        ]);
+    }
+
+    public function status($id)
+    {
+        $data = (new SetupPdsService())->find(user()->company_id, $id, [0]);
+
+        return response()->json([
+            'data' => (new TicketService())->getStatus(user()->company_id, $data->marketing_campaign_id, $data->id),
         ]);
     }
 
@@ -48,7 +56,7 @@ class PdsDetailController extends Controller
             $action->update($request, $id);
 
             return to_route('pds.detail', $id)->with('success', 'Successfully update PDS');
-        } catch (BadRequestException $e) {
+        } catch (\Throwable $e) {
             return back()->with(['error' => $e->getMessage()]);
         }
     }
@@ -59,7 +67,7 @@ class PdsDetailController extends Controller
             $action->assign($request, $id);
 
             return to_route('pds.detail.campaign', $id)->with('success', 'Successfully assign customers');
-        } catch (BadRequestException $e) {
+        } catch (\Throwable $e) {
             return back()->with(['error' => $e->getMessage()]);
         }
     }

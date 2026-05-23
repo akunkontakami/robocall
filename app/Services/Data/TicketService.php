@@ -22,6 +22,23 @@ class TicketService
             return [];
         }
 
+        $riskMap = [
+            'low_risk' => 'LOW',
+            'medium_risk' => 'MEDIUM',
+            'high_risk' => 'HIGH',
+        ];
+
+        $riskCriteria = collect(request('risk_criteria', []))
+            ->map(function ($item) use ($riskMap) {
+                return [
+                    'risk' => $riskMap[$item['risk']] ?? null,
+                    'number' => $item['number'] ?? null,
+                ];
+            })
+            ->filter(fn ($item) => $item['risk'] && $item['number'])
+            ->values()
+            ->toArray();
+
         $agents = PdsAgent::query()
             ->where('pds_id', $pdsId)
             ->pluck('user_id')
@@ -43,7 +60,7 @@ class TicketService
                         END
                     ) as max_mobile
                 "),
-                DB::raw("
+                DB::raw('
                     MAX(
                         (
                             SELECT COUNT(*)
@@ -51,7 +68,7 @@ class TicketService
                             WHERE ticket_additional_phones.customer_number = tickets.customer_number
                         )
                     ) as max_additional_phone
-                "),
+                '),
             ])
             ->withWhereHas('dataBucket')
             ->where('company_id', $companyId)
@@ -62,22 +79,34 @@ class TicketService
                 $q->whereIn('current_agent_id', $agents)
                 ->orWhereNull('current_agent_id');
             })
-            ->where(function ($q) {
+            ->where(function ($q) use ($riskCriteria) {
                 $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
                 $categoryDistribution = "COALESCE(JSON_VALUE(bucket, '$.category_distribution'), '')";
+                $risk = "COALESCE(JSON_VALUE(bucket, '$.DR_RISK'), '')";
+                $odDays = "COALESCE(JSON_VALUE(bucket, '$.OVERDUE_DAYS'), '')";
 
                 $q->whereRaw("$customerName <> ?", ['-'])
-                ->whereRaw("$categoryDistribution <> ?", ['KP'])
-                ->where(function ($w) {
-                    $w->whereNull('is_blocked')
-                        ->orWhere('is_blocked', '<>', 1);
-                });
+                    ->whereRaw("$categoryDistribution <> ?", ['KP'])
+                    ->when(count($riskCriteria), function ($q) use ($riskCriteria, $risk, $odDays) {
+                        $q->where(function ($w) use ($riskCriteria, $risk, $odDays) {
+                            foreach ($riskCriteria as $criteria) {
+                                $w->orWhere(function ($x) use ($criteria, $risk, $odDays) {
+                                    $x->whereRaw("$risk = ?", [$criteria['risk']])
+                                        ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
+                                });
+                            }
+                        });
+                    })
+                    ->where(function ($w) {
+                        $w->whereNull('is_blocked')
+                            ->orWhere('is_blocked', '<>', 1);
+                    });
             })
             ->groupBy('status')
             ->get()
             ->each(function ($row) {
                 $row->id = $row->status;
-                $row->value = $row->status . ' - ' . $row->total;
+                $row->value = $row->status.' - '.$row->total;
                 $row->max_mobile = (int) $row->max_mobile;
                 $row->max_additional_phone = (int) $row->max_additional_phone;
 
@@ -85,11 +114,30 @@ class TicketService
             });
     }
 
-    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [], $selectedMobiles = [], $selectedAdditionals = [])
+    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [], $selectedMobiles = [], $selectedAdditionals = [], $selectedRiskCriteria = [])
     {
         if (!$pdsId || !$campaignId) {
             return [];
         }
+
+        $riskMap = [
+            'low_risk' => 'LOW',
+            'medium_risk' => 'MEDIUM',
+            'high_risk' => 'HIGH',
+        ];
+
+        $riskCriteria = collect($selectedRiskCriteria)
+            ->flatMap(function ($numbers, $riskKey) use ($riskMap) {
+                return collect($numbers)->map(function ($number) use ($riskMap, $riskKey) {
+                    return [
+                        'risk' => $riskMap[$riskKey] ?? null,
+                        'number' => $number,
+                    ];
+                });
+            })
+            ->filter(fn ($item) => $item['risk'] && $item['number'])
+            ->values()
+            ->toArray();
 
         $agents = PdsAgent::query()
             ->where('pds_id', $pdsId)
@@ -129,16 +177,28 @@ class TicketService
                 $q->whereIn('current_agent_id', $agents)
                 ->orWhereNull('current_agent_id');
             })
-            ->where(function ($q) {
+            ->where(function ($q) use ($riskCriteria) {
                 $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
                 $categoryDistribution = "COALESCE(JSON_VALUE(bucket, '$.category_distribution'), '')";
+                $risk = "COALESCE(JSON_VALUE(bucket, '$.DR_RISK'), '')";
+                $odDays = "COALESCE(JSON_VALUE(bucket, '$.OVERDUE_DAYS'), '')";
 
                 $q->whereRaw("$customerName <> ?", ['-'])
-                ->whereRaw("$categoryDistribution <> ?", ['KP'])
-                ->where(function ($w) {
-                    $w->whereNull('is_blocked')
-                        ->orWhere('is_blocked', '<>', 1);
-                });
+                    ->whereRaw("$categoryDistribution <> ?", ['KP'])
+                    ->when(count($riskCriteria), function ($q) use ($riskCriteria, $risk, $odDays) {
+                        $q->where(function ($w) use ($riskCriteria, $risk, $odDays) {
+                            foreach ($riskCriteria as $criteria) {
+                                $w->orWhere(function ($x) use ($criteria, $risk, $odDays) {
+                                    $x->whereRaw("$risk = ?", [$criteria['risk']])
+                                        ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
+                                });
+                            }
+                        });
+                    })
+                    ->where(function ($w) {
+                        $w->whereNull('is_blocked')
+                            ->orWhere('is_blocked', '<>', 1);
+                    });
             })
             ->get();
 
@@ -170,11 +230,10 @@ class TicketService
                     ->merge($selectedAdditionalPhones)
                     ->map(function ($phone) {
                         if (str_starts_with($phone, '62')) {
-                            $phone = '0' . substr($phone, 2);
+                            $phone = '0'.substr($phone, 2);
                         } elseif (str_starts_with($phone, '8')) {
-                            $phone = '0' . $phone;
+                            $phone = '0'.$phone;
                         }
-
 
                         return $phone;
                     })
