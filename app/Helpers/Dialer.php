@@ -4,10 +4,11 @@ namespace App\Helpers;
 
 use Illuminate\Support\Facades\Http;
 
-class Dialer {
+class Dialer
+{
     public static function token()
     {
-        $url = config("services.dialer.api") . '/login';
+        $url = config('services.dialer.api').'/login';
         $response = Http::post($url, [
             'email' => config('services.dialer.email'),
             'password' => config('services.dialer.password'),
@@ -22,7 +23,7 @@ class Dialer {
     {
         $token = self::token();
 
-        $url = config("services.dialer.api") . $path;
+        $url = config('services.dialer.api').$path;
         $res = Http::withToken($token)->get($url);
 
         return $res->json();
@@ -32,7 +33,7 @@ class Dialer {
     {
         $token = self::token();
 
-        $url = config("services.dialer.api") . $path;
+        $url = config('services.dialer.api').$path;
         $res = Http::withToken($token)->post($url, $payload);
 
         return $res->json();

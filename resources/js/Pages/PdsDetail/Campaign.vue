@@ -7,6 +7,7 @@
         <template v-slot:tab>
             <TabMenu tab="campaign" :id="id" />
         </template>
+
         <form @submit.prevent="submit">
             <div class="bg-white max-w-3xl p-4 mx-auto">
                 <Input
@@ -17,6 +18,7 @@
                     :disabled="true"
                     class="!bg-[#F3F3F3]"
                 />
+
                 <Input
                     type="text"
                     placeholder="Supervisor"
@@ -25,6 +27,183 @@
                     :disabled="true"
                     class="!bg-[#F3F3F3]"
                 />
+
+                <!-- Risk Criteria -->
+                <div
+                    ref="riskCriteriaRef"
+                    class="mt-4 mb-4 border rounded-xl overflow-visible"
+                    v-if="!data.customers.length && data.campaign"
+                >
+                    <div
+                        class="flex items-center justify-between bg-[#F3F3F3] px-4 py-3"
+                    >
+                        <span
+                            class="text-xs font-opensauceone-medium text-slate-700"
+                        >
+                            Criteria & Overdue Settings
+                        </span>
+
+                        <span
+                            class="text-[10px] font-opensauceone-medium text-[#3943B7]"
+                        >
+                            Select at least one range per criteria
+                        </span>
+                    </div>
+
+                    <div class="space-y-4 p-4">
+                        <div
+                            v-for="risk in riskCriteriaOptions"
+                            :key="risk.value"
+                            class="grid grid-cols-[150px_1fr] gap-x-4 p-4 border rounded-xl"
+                            :class="{
+                                'border-[#3943B7] shadow-sm':
+                                    form.risk_criteria[risk.value]?.length,
+                            }"
+                        >
+                            <label
+                                class="flex items-center gap-x-3 h-[38px] cursor-pointer"
+                            >
+                                <input
+                                    type="checkbox"
+                                    class="shrink-0 mb-4"
+                                    :checked="
+                                        form.risk_criteria[risk.value]?.length >
+                                        0
+                                    "
+                                    @change="toggleRisk(risk.value)"
+                                />
+
+                                <span
+                                    class="text-xs font-opensauceone-medium text-slate-700"
+                                >
+                                    {{ risk.label }}
+                                </span>
+                            </label>
+
+                            <div class="relative">
+                                <button
+                                    type="button"
+                                    class="w-full min-h-[38px] px-4 py-2 border rounded-lg text-left text-xs flex items-center gap-x-3"
+                                    :class="{
+                                        'text-slate-400 bg-slate-50':
+                                            !form.risk_criteria[risk.value]
+                                                ?.length,
+                                    }"
+                                    @click="toggleDropdown(risk.value)"
+                                >
+                                    <div
+                                        class="flex-1 flex flex-wrap items-center gap-2"
+                                    >
+                                        <template
+                                            v-if="
+                                                form.risk_criteria[risk.value]
+                                                    ?.length
+                                            "
+                                        >
+                                            <span
+                                                v-for="day in form
+                                                    .risk_criteria[risk.value]"
+                                                :key="`${risk.value}-${day}`"
+                                                class="inline-flex items-center px-2 py-1 bg-[#3943B7] text-white rounded-full text-xs"
+                                            >
+                                                {{ day }} ×
+                                            </span>
+                                        </template>
+
+                                        <span v-else>
+                                            Click to select days
+                                            {{ risk.rangeLabel }}
+                                        </span>
+                                    </div>
+
+                                    <span class="shrink-0 text-slate-500">
+                                        <i
+                                            class="isax icon-arrow-up-2"
+                                            v-if="
+                                                activeRiskDropdown ===
+                                                risk.value
+                                            "
+                                        ></i>
+                                        <i
+                                            class="isax icon-arrow-down-1"
+                                            v-else
+                                        ></i>
+                                    </span>
+                                </button>
+
+                                <div
+                                    v-if="activeRiskDropdown === risk.value"
+                                    class="absolute z-20 mt-2 w-full bg-white border rounded-lg shadow-lg p-4"
+                                >
+                                    <div
+                                        class="flex items-center justify-between mb-3"
+                                    >
+                                        <span
+                                            class="text-[10px] font-opensauceone-medium text-slate-500"
+                                        >
+                                            Select OD Days
+                                        </span>
+
+                                        <div class="flex items-center gap-x-2">
+                                            <button
+                                                type="button"
+                                                class="text-[10px] font-opensauceone-medium text-[#3943B7]"
+                                                @click.stop="
+                                                    selectAllRiskDays(
+                                                        risk.value,
+                                                    )
+                                                "
+                                            >
+                                                All
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                class="text-[10px] font-opensauceone-medium text-slate-500"
+                                                @click.stop="
+                                                    clearRiskDays(risk.value)
+                                                "
+                                            >
+                                                None
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="grid grid-cols-4 sm:grid-cols-7 gap-3"
+                                    >
+                                        <button
+                                            v-for="day in risk.days"
+                                            :key="`${risk.value}-day-${day}`"
+                                            type="button"
+                                            class="h-8 rounded-lg border text-xs font-opensauceone-medium transition-colors"
+                                            :class="
+                                                form.risk_criteria[
+                                                    risk.value
+                                                ]?.includes(day)
+                                                    ? 'bg-[#3943B7] text-white border-[#3943B7]'
+                                                    : 'bg-slate-50 text-slate-700 hover:border-[#3943B7]'
+                                            "
+                                            @click.stop="
+                                                toggleRiskDay(risk.value, day)
+                                            "
+                                        >
+                                            {{ day }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="form.errors.risk_criteria"
+                            class="text-xs text-red-500"
+                        >
+                            {{ form.errors.risk_criteria }}
+                        </div>
+                    </div>
+                </div>
+
                 <MultipleSelect
                     label="Status"
                     id="status"
@@ -34,7 +213,11 @@
                     placeholder="Select Status"
                     @updateMaxMobile="updateMaxMobile"
                     @updateMaxAdditional="updateMaxAdditional"
-                    v-if="!data.customers.length && data.campaign"
+                    v-if="
+                        !data.customers.length &&
+                        data.campaign &&
+                        !loadingStatus
+                    "
                 />
 
                 <!-- Phone Options -->
@@ -48,6 +231,7 @@
                                     :checked="form.mobile.length > 0"
                                     @change="toggleParent('mobile')"
                                 />
+
                                 <span
                                     class="text-xs font-opensauceone-medium text-slate-600 group-hover:text-slate-800 transition-colors"
                                 >
@@ -56,7 +240,6 @@
                             </label>
                         </div>
 
-                        <!-- Mobile Phone Sub-list -->
                         <transition
                             enter-active-class="transition duration-200 ease-out"
                             enter-from-class="opacity-0 -translate-y-2"
@@ -67,7 +250,7 @@
                         >
                             <div
                                 v-if="form.mobile.length > 0"
-                                class="ml-4 grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-lg border border-slate-100"
+                                class="ml-4 grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-lg border"
                             >
                                 <label
                                     v-for="num in mobileOptions"
@@ -88,6 +271,7 @@
                                             )
                                         "
                                     />
+
                                     <span
                                         class="text-xs font-opensauceone-medium text-slate-500 group-hover:text-slate-700 transition-colors"
                                     >
@@ -107,6 +291,7 @@
                                     :checked="form.additional.length > 0"
                                     @change="toggleParent('additional')"
                                 />
+
                                 <span
                                     class="text-xs font-opensauceone-medium text-slate-600 group-hover:text-slate-800 transition-colors"
                                 >
@@ -115,7 +300,6 @@
                             </label>
                         </div>
 
-                        <!-- Additional Phone Sub-list -->
                         <transition
                             enter-active-class="transition duration-200 ease-out"
                             enter-from-class="opacity-0 -translate-y-2"
@@ -126,7 +310,7 @@
                         >
                             <div
                                 v-if="form.additional.length > 0"
-                                class="ml-4 grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-lg border border-slate-100"
+                                class="ml-4 grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-lg border"
                             >
                                 <label
                                     v-for="num in additionalOptions"
@@ -147,6 +331,7 @@
                                             )
                                         "
                                     />
+
                                     <span
                                         class="text-xs font-opensauceone-medium text-slate-500 group-hover:text-slate-700 transition-colors"
                                     >
@@ -185,19 +370,141 @@ import ButtonOutlineGrey from "@/Components/Button/ButtonOutlineGrey.vue";
 import { useForm } from "@inertiajs/vue3";
 import MultipleSelect from "@/Components/Input/Select/MultipleSelect.vue";
 import TabMenu from "./components/TabMenu.vue";
-import { ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
+import axios from "axios";
 
-const props = defineProps(["id", "data", "statuses"]);
+const props = defineProps(["id", "data"]);
+
+const statuses = ref<any>([]);
+const loadingStatus = ref(false);
+const riskCriteriaRef = ref<HTMLElement | null>(null);
 
 const form = useForm({
     campaign: "",
     status: [],
     mobile: [] as any,
     additional: [] as any,
+    risk_criteria: {
+        low_risk: [] as number[],
+        medium_risk: [] as number[],
+        high_risk: [] as number[],
+    } as any,
 });
+
+const activeRiskDropdown = ref<string | null>(null);
+const riskDropdownSnapshot = ref<string>("");
+
+const riskCriteriaOptions = [
+    {
+        label: "Low Risk",
+        value: "low_risk",
+        days: Array.from({ length: 14 }, (_, i) => i + 1),
+        rangeLabel: "(1-14)",
+    },
+    {
+        label: "Medium Risk",
+        value: "medium_risk",
+        days: Array.from({ length: 7 }, (_, i) => i + 1),
+        rangeLabel: "(1-7)",
+    },
+    {
+        label: "High Risk",
+        value: "high_risk",
+        days: Array.from({ length: 3 }, (_, i) => i + 1),
+        rangeLabel: "(1-3)",
+    },
+];
 
 const mobileOptions = ref<number[]>([]);
 const additionalOptions = ref<number[]>([]);
+
+const getRiskDaysSnapshot = (risk: any) => {
+    return JSON.stringify(
+        [...(form.risk_criteria[risk] || [])].sort(
+            (a: number, b: number) => a - b,
+        ),
+    );
+};
+
+const openRiskDropdown = (risk: any) => {
+    activeRiskDropdown.value = risk;
+    riskDropdownSnapshot.value = getRiskDaysSnapshot(risk);
+};
+
+const closeRiskDropdown = () => {
+    if (!activeRiskDropdown.value) {
+        return;
+    }
+
+    const currentSnapshot = getRiskDaysSnapshot(activeRiskDropdown.value);
+    const hasChanged = currentSnapshot !== riskDropdownSnapshot.value;
+
+    activeRiskDropdown.value = null;
+    riskDropdownSnapshot.value = "";
+
+    if (hasChanged) {
+        resetStatusAndPhoneOptions();
+        fetchStatuses();
+    }
+};
+
+const toggleDropdown = (risk: any) => {
+    if (activeRiskDropdown.value === risk) {
+        closeRiskDropdown();
+        return;
+    }
+
+    if (activeRiskDropdown.value) {
+        closeRiskDropdown();
+    }
+
+    openRiskDropdown(risk);
+};
+
+const toggleRisk = (risk: any) => {
+    const currentValue = form.risk_criteria[risk];
+
+    if (currentValue.length > 0) {
+        form.risk_criteria[risk] = [];
+    } else {
+        const selectedRisk = riskCriteriaOptions.find(
+            (item) => item.value === risk,
+        );
+
+        form.risk_criteria[risk] = selectedRisk ? [...selectedRisk.days] : [];
+    }
+
+    if (activeRiskDropdown.value === risk) {
+        activeRiskDropdown.value = null;
+        riskDropdownSnapshot.value = "";
+    }
+
+    resetStatusAndPhoneOptions();
+    fetchStatuses();
+};
+
+const toggleRiskDay = (risk: any, day: number) => {
+    if (form.risk_criteria[risk].includes(day)) {
+        form.risk_criteria[risk] = form.risk_criteria[risk].filter(
+            (item: number) => item !== day,
+        );
+    } else {
+        form.risk_criteria[risk].push(day);
+        form.risk_criteria[risk].sort((a: number, b: number) => a - b);
+    }
+};
+
+const selectAllRiskDays = (risk: any) => {
+    const selectedRisk = riskCriteriaOptions.find(
+        (item) => item.value === risk,
+    );
+
+    form.risk_criteria[risk] = selectedRisk ? [...selectedRisk.days] : [];
+};
+
+const clearRiskDays = (risk: any) => {
+    form.risk_criteria[risk] = [];
+};
 
 const toggleParent = (type: string) => {
     if (type === "mobile") {
@@ -263,6 +570,58 @@ const updateMaxAdditional = (max: number) => {
     additionalOptions.value = Array.from({ length: max }, (_, i) => i + 1);
 };
 
+const getSelectedRiskCriteria = () => {
+    return Object.entries(form.risk_criteria).flatMap(([risk, numbers]) =>
+        (numbers as number[]).map((number) => ({
+            risk,
+            number,
+        })),
+    );
+};
+
+const resetStatusAndPhoneOptions = () => {
+    form.status = [];
+    form.mobile = [];
+    form.additional = [];
+    mobileOptions.value = [];
+    additionalOptions.value = [];
+};
+
+const fetchStatuses = () => {
+    loadingStatus.value = true;
+    const riskCriteria = getSelectedRiskCriteria();
+
+    if (!riskCriteria.length) {
+        statuses.value = [];
+        setTimeout(() => {
+            loadingStatus.value = false;
+            return;
+        }, 100);
+    }
+
+    axios
+        .get(route("pds.detail.status", props.id), {
+            params: {
+                risk_criteria: riskCriteria,
+            },
+        })
+        .then((res) => {
+            statuses.value = res.data.data;
+        })
+        .finally(() => {
+            loadingStatus.value = false;
+        });
+};
+
+const handleClickOutsideRiskCriteria = (event: MouseEvent) => {
+    if (
+        riskCriteriaRef.value &&
+        !riskCriteriaRef.value.contains(event.target as Node)
+    ) {
+        closeRiskDropdown();
+    }
+};
+
 const submit = () => {
     if (!form.processing) {
         form.post(route("pds.detail.assign", props.id), {
@@ -272,4 +631,12 @@ const submit = () => {
         });
     }
 };
+
+onMounted(() => {
+    document.addEventListener("mousedown", handleClickOutsideRiskCriteria);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener("mousedown", handleClickOutsideRiskCriteria);
+});
 </script>
