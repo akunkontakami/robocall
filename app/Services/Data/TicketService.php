@@ -85,22 +85,41 @@ class TicketService
                 $risk = "COALESCE(JSON_VALUE(bucket, '$.DR_RISK'), '')";
                 $odDays = "COALESCE(JSON_VALUE(bucket, '$.OVERDUE_DAYS'), '')";
 
-                $q->whereRaw("$customerName <> ?", ['-'])
-                    ->whereRaw("$categoryDistribution <> ?", ['KP'])
-                    ->when(count($riskCriteria), function ($q) use ($riskCriteria, $risk, $odDays) {
-                        $q->where(function ($w) use ($riskCriteria, $risk, $odDays) {
+                $q->where(function ($w) use ($customerName, $categoryDistribution, $riskCriteria, $risk, $odDays) {
+                    $w->whereRaw("$customerName <> ?", ['-'])
+                    ->orWhereRaw("$categoryDistribution <> ?", ['KP']);
+
+                    if (count($riskCriteria)) {
+                        $w->orWhere(function ($r) use ($riskCriteria, $risk, $odDays) {
                             foreach ($riskCriteria as $criteria) {
-                                $w->orWhere(function ($x) use ($criteria, $risk, $odDays) {
+                                $r->orWhere(function ($x) use ($criteria, $risk, $odDays) {
                                     $x->whereRaw("$risk = ?", [$criteria['risk']])
-                                        ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
+                                    ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
                                 });
                             }
                         });
-                    })
-                    ->where(function ($w) {
-                        $w->whereNull('is_blocked')
-                            ->orWhere('is_blocked', '<>', 1);
-                    });
+                    }
+                })
+                ->orWhere(function ($w) {
+                    $w->whereNull('is_blocked')
+                    ->orWhere('is_blocked', '<>', 1);
+                })
+                ->orWhereIn('status', [
+                    'Paid in Confins',
+                    'Visit Request',
+                    'Visit Request BP(2x)',
+                    'Visit Request BP 2X',
+                    'VISIT REQUEST BP(2x)',
+                    'Auto Visit Request',
+                    'AUTO VISIT REQUEST',
+                    'KP',
+                    'VISIT REQUEST (UNCONTACT)',
+                    'VISIT REQUEST (CONTACT)',
+                    'VISIT REQUEST (UNCONTACTED)',
+                    'VISIT REQUEST (CONTACTED)',
+                    'CASE REQUEST',
+                    'Case Request',
+                ]);
             })
             ->groupBy('status')
             ->get()
@@ -183,22 +202,41 @@ class TicketService
                 $risk = "COALESCE(JSON_VALUE(bucket, '$.DR_RISK'), '')";
                 $odDays = "COALESCE(JSON_VALUE(bucket, '$.OVERDUE_DAYS'), '')";
 
-                $q->whereRaw("$customerName <> ?", ['-'])
-                    ->whereRaw("$categoryDistribution <> ?", ['KP'])
-                    ->when(count($riskCriteria), function ($q) use ($riskCriteria, $risk, $odDays) {
-                        $q->where(function ($w) use ($riskCriteria, $risk, $odDays) {
+                $q->where(function ($w) use ($customerName, $categoryDistribution, $riskCriteria, $risk, $odDays) {
+                    $w->whereRaw("$customerName <> ?", ['-'])
+                    ->orWhereRaw("$categoryDistribution <> ?", ['KP']);
+
+                    if (count($riskCriteria)) {
+                        $w->orWhere(function ($r) use ($riskCriteria, $risk, $odDays) {
                             foreach ($riskCriteria as $criteria) {
-                                $w->orWhere(function ($x) use ($criteria, $risk, $odDays) {
+                                $r->orWhere(function ($x) use ($criteria, $risk, $odDays) {
                                     $x->whereRaw("$risk = ?", [$criteria['risk']])
-                                        ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
+                                    ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
                                 });
                             }
                         });
-                    })
-                    ->where(function ($w) {
-                        $w->whereNull('is_blocked')
-                            ->orWhere('is_blocked', '<>', 1);
-                    });
+                    }
+                })
+                ->orWhere(function ($w) {
+                    $w->whereNull('is_blocked')
+                    ->orWhere('is_blocked', '<>', 1);
+                })
+                ->orWhereIn('status', [
+                    'Paid in Confins',
+                    'Visit Request',
+                    'Visit Request BP(2x)',
+                    'Visit Request BP 2X',
+                    'VISIT REQUEST BP(2x)',
+                    'Auto Visit Request',
+                    'AUTO VISIT REQUEST',
+                    'KP',
+                    'VISIT REQUEST (UNCONTACT)',
+                    'VISIT REQUEST (CONTACT)',
+                    'VISIT REQUEST (UNCONTACTED)',
+                    'VISIT REQUEST (CONTACTED)',
+                    'CASE REQUEST',
+                    'Case Request',
+                ]);
             })
             ->get();
 
