@@ -47,7 +47,7 @@ class Dialer
         $token = self::token();
 
         $url = config('services.dialer.api')
-            ."/uploadCsvCallblast/{$tenantId}/{$campaignId}";
+            ."/campaign-dialer/uploadCsvCallblast/{$tenantId}/{$campaignId}";
 
         $response = Http::withToken($token)
             ->attach(
