@@ -119,7 +119,7 @@ class SetupRobocallAction
                     'company_id' => $user->company_id,
                     'robocall_id' => $robocall->id,
                     'customer_id' => $value['customer_id'],
-                    'customer_name' => $value['customer_name'],
+                    'name' => $value['customer_name'],
                     'phone' => $value['phone'],
                 ]);
 
@@ -178,6 +178,7 @@ class SetupRobocallAction
 
                 $customerId = $data['customer_number'] ?? '';
                 $phone = $data['phone_number'];
+                $name = $data['name'] ?? '';
 
                 $phone = preg_replace('/[^0-9]/', '', trim($phone));
                 if (str_starts_with($phone, '62')) {
@@ -202,6 +203,7 @@ class SetupRobocallAction
                     'robocall_file_id' => $robocallFile->id,
                     'customer_id' => $customerId,
                     'phone' => $phone,
+                    'name' => $name,
                 ]);
 
                 $customers[] = [
