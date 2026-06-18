@@ -36,7 +36,8 @@ class ReportRobocallController extends Controller
         $dataCollection = ReportRobocallResource::collection(
             (new SetupRobocallService())->callLogsReportExport(
                 companyId: user()->company_id,
-                search: request('search', '')
+                search: request('search', ''),
+                filter: request('filter', [])
             )
         );
 

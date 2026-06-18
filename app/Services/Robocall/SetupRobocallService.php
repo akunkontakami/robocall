@@ -215,6 +215,9 @@ class SetupRobocallService
         $perPage = $limit;
         $tenantId = $companyId;
 
+        $campaigns = $filter['campaigns'] ?? [];
+
+
         $start = request()->created_start;
         $end = request()->created_end;
 
@@ -231,8 +234,11 @@ class SetupRobocallService
             'per_page' => $perPage,
             'tenant_id' => $tenantId,
             'search' => $search,
-            // 'campaign_id' => $campaignId,
         ];
+
+        if (!empty($campaigns)) {
+            $query['campaign_id'] = implode(', ', $campaigns);
+        }
 
         if ($startDate && $endDate) {
             $query['start_date'] = $startDate;
@@ -246,10 +252,12 @@ class SetupRobocallService
         return $data;
     }
 
-    public function callLogsReportExport($companyId, $search = null)
+    public function callLogsReportExport($companyId, $search = null, $filter = [])
     {
         $urlPath = '/report/call-log';
         $tenantId = $companyId;
+
+        $campaigns = $filter['campaigns'] ?? [];
 
         $start = request()->created_start;
         $end = request()->created_end;
@@ -266,6 +274,10 @@ class SetupRobocallService
                 'tenant_id' => $tenantId,
                 'search' => $search,
             ];
+
+            if (!empty($campaigns)) {
+                $query['campaign_id'] = implode(',', $campaigns);
+            }
 
             if ($start && $end) {
                 $query['start_date'] = $start;

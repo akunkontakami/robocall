@@ -176,9 +176,19 @@ class SetupRobocallAction
                     continue;
                 }
 
-                $customerId = $data['customer_number'] ?? '';
-                $phone = $data['phone_number'];
-                $name = $data['name'] ?? '';
+                $customerId = $data['customer_number']
+                    ?? $data['Customer_Number']
+                    ?? $data['CustomerNumber']
+                    ?? '';
+
+                $phone = $data['phone_number']
+                    ?? $data['Phone_Number']
+                    ?? $data['PhoneNumber']
+                    ?? '';
+
+                $name = $data['name']
+                    ?? $data['Name']
+                    ?? '';
 
                 $phone = preg_replace('/[^0-9]/', '', trim($phone));
                 if (str_starts_with($phone, '62')) {
