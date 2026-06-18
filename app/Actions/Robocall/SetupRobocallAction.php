@@ -343,15 +343,7 @@ class SetupRobocallAction
                 'campaign_id' => $robocall->robocall_name,
                 'CallLimit' => $request->call_limit,
                 'route_id' => $request->trunk,
-                'vdn' => $request->vdn,
-            ]);
-
-            \Log::info("LOG START", [
-                'tenant_id' => $robocall->company_id,
-                'campaign_id' => $robocall->robocall_name,
-                'CallLimit' => $request->call_limit,
-                'route_id' => $request->trunk,
-                'vdn' => $request->vdn,
+                'vdn' => $request->ivr,
             ]);
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
