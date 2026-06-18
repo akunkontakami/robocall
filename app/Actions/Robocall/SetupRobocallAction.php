@@ -70,7 +70,7 @@ class SetupRobocallAction
             $robocall->delete();
 
             $dialer = Dialer::post('/customerCallblasterJson/releaseCustomer', [
-                'tenant_id' => $robocall->tenant_id,
+                'tenant_id' => $robocall->company_id,
                 'campaign_id' => $robocall->robocall_name,
             ]);
 
@@ -83,7 +83,7 @@ class SetupRobocallAction
             }
 
             $dialer = Dialer::post('/campaign-dialer/unsetup-callblaster', [
-                'tenant_id' => $robocall->tenant_id,
+                'tenant_id' => $robocall->company_id,
                 'campaign_id' => $robocall->robocall_name,
             ]);
 
@@ -119,11 +119,12 @@ class SetupRobocallAction
                     'company_id' => $user->company_id,
                     'robocall_id' => $robocall->id,
                     'customer_id' => $value['customer_id'],
+                    'customer_name' => $value['customer_name'],
                     'phone' => $value['phone'],
                 ]);
 
                 $dialer = Dialer::post('/customerCallblasterJson/uploadJsonPDS', [
-                    'tenant_id' => $robocall->tenant_id,
+                    'tenant_id' => $robocall->company_id,
                     'campaign_id' => $robocall->robocall_name,
                     'data' => $customers,
                 ]);
@@ -209,15 +210,15 @@ class SetupRobocallAction
                 ];
             }
 
-            if (count($customers) > 0) {
-                $dialer = Dialer::post('/customerCallblasterJson/uploadJsonPDS', [
-                    'tenant_id' => $robocall->tenant_id,
-                    'campaign_id' => $robocall->robocall_name,
-                    'data' => $customers,
-                ]);
-            }
-
             fclose($file);
+
+            if (count($customers) > 0) {
+                Dialer::uploadCsvCallblast(
+                    $robocall->company_id,
+                    $robocall->robocall_name,
+                    $request->file('file')->getRealPath()
+                );
+            }
 
             $robocall->update([
                 'data_type' => 'upload',
@@ -242,7 +243,7 @@ class SetupRobocallAction
             ]);
 
             $dialer = Dialer::post('/customerCallblasterJson/releaseCustomer', [
-                'tenant_id' => $robocall->tenant_id,
+                'tenant_id' => $robocall->company_id,
                 'campaign_id' => $robocall->robocall_name,
             ]);
         });
@@ -273,7 +274,7 @@ class SetupRobocallAction
             }
 
             $dialer = Dialer::post('/customerCallblasterJson/releaseCustomer', [
-                'tenant_id' => $robocall->tenant_id,
+                'tenant_id' => $robocall->company_id,
                 'campaign_id' => $robocall->robocall_name,
             ]);
         });
@@ -359,6 +360,49 @@ class SetupRobocallAction
             ]);
 
             $dialer = Dialer::post('/callblaster-stop', [
+                'tenant_id' => $robocall->company_id,
+                'campaign_id' => $robocall->robocall_name,
+            ]);
+
+            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                $errorMessage = $dialer['errors'];
+
+                throw new \Exception($errorMessage);
+
+                return;
+            }
+
+            return [
+                'robocall' => $robocall,
+                // 'dialer_response' => $dialer,
+            ];
+        });
+    }
+
+    public function pause(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:robocalls,id',
+        ]);
+
+        $robocallStatus = Robocall::where('id', $request->id)->where('is_running', 2)->first();
+
+        if ($robocallStatus) {
+            throw new \Exception('Robocall already pause');
+
+            return;
+        }
+
+        $user = user();
+
+        return DB::transaction(function () use ($request) {
+            $robocall = Robocall::where('id', $request->id)->first();
+
+            $robocall->update([
+                'is_running' => 2,
+            ]);
+
+            $dialer = Dialer::post('/callblaster-pause', [
                 'tenant_id' => $robocall->company_id,
                 'campaign_id' => $robocall->robocall_name,
             ]);

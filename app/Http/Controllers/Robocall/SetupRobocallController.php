@@ -76,6 +76,17 @@ class SetupRobocallController extends Controller
         }
     }
 
+    public function pause(Request $request, SetupRobocallAction $action)
+    {
+        try {
+            $action->pause($request);
+
+            return to_route('robocall.setup')->with('success', 'Successfully pause Robocall');
+        } catch (BadRequestException $e) {
+            return back()->with(['error' => $e->getMessage()]);
+        }
+    }
+
     public function release(Request $request, SetupRobocallAction $action)
     {
         try {

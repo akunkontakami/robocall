@@ -18,9 +18,17 @@
                 >
                 <span
                     class="text-green text-[13px] font-krub-semibold"
-                    v-if="row.is_running"
-                    >Running</span
+                    v-if="row.is_running === 1"
                 >
+                    Running
+                </span>
+
+                <span
+                    class="text-green text-[13px] font-krub-semibold"
+                    v-if="row.is_running === 2"
+                >
+                    Pause
+                </span>
             </Td>
             <Td> - </Td>
             <Td>
@@ -98,6 +106,37 @@
                             <IconPowerOff />
                             <span class="text-xs">Stop</span>
                         </li>
+
+                        <!-- <li
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                            @click="showPause(row)"
+                        >
+                            <IconPowerOff />
+                            <span class="text-xs">Pause</span>
+                        </li> -->
+                    </ul>
+
+                    <ul
+                        class="text-sm text-dark flex flex-col gap-2"
+                        v-if="row.is_running === 2"
+                    >
+                        <li
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                            @click="showStart(row)"
+                            :class="{
+                                '!text-[#DDD] !cursor-default':
+                                    row.campaign_status == 'non_active',
+                            }"
+                        >
+                            <i
+                                class="text-base isax-b icon-play-circle text-green"
+                                :class="{
+                                    '!text-[#DDD]':
+                                        row.campaign_status == 'non_active',
+                                }"
+                            ></i>
+                            <span class="text-xs">Start Robocall</span>
+                        </li>
                     </ul>
                 </div>
             </Td>
@@ -127,6 +166,14 @@
             @action="actionStop"
         />
     </div>
+
+    <div x-data="{confirmation:false}" v-if="showPopupPause">
+        <a hidden id="show-pause" x-on:click="confirmation=true"></a>
+        <ConfirmationSubmit
+            confirmation="Are you sure you want to pause this Robocall?"
+            @action="actionPause"
+        />
+    </div>
 </template>
 <script setup lang="ts">
 import IconPowerOff from "@/Components/Icon/Etc/IconPowerOff.vue";
@@ -153,6 +200,7 @@ const columns = ref([
 const showPopupRelease = ref(true);
 const showPopupDelete = ref(true);
 const showPopupStop = ref(true);
+const showPopupPause = ref(true);
 
 const form = useForm({
     id: "",
@@ -228,6 +276,28 @@ const actionStop = () => {
     }
 };
 
+const actionPause = () => {
+    if (!form.processing) {
+        form.post(route("robocall.setup.pause"), {
+            onError: () => {
+                showPopupPause.value = false;
+
+                setTimeout(() => {
+                    showPopupPause.value = true;
+                }, 100);
+            },
+            onSuccess: () => {
+                paginate.fetchData();
+                showPopupPause.value = false;
+
+                setTimeout(() => {
+                    showPopupPause.value = true;
+                }, 100);
+            },
+        });
+    }
+};
+
 const showStart = (row: any) => {
     if (row.campaign_status == "active") {
         if (row.total_data == 0) {
@@ -258,6 +328,12 @@ const showStop = (row: any) => {
     form.id = row.id;
 
     clickId("show-stop");
+};
+
+const showPause = (row: any) => {
+    form.id = row.id;
+
+    clickId("show-pause");
 };
 
 const manage = (row: any) => {

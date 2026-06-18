@@ -23,7 +23,31 @@
                     </ButtonOutlineGreen>
                 </div>
             </div>
-            <Table :columns="columns" :paginate="paginate"></Table>
+            <Table :columns="columns" :paginate="paginate">
+                <tr v-for="(row, i) in paginate.data.value">
+                    <Td>
+                        {{ row.campaign_id }}
+                    </Td>
+                    <Td>
+                        {{ row.customer_number }}
+                    </Td>
+                    <Td>
+                        {{ row.customer_name }}
+                    </Td>
+                    <Td>
+                        {{ row.dialed_number }}
+                    </Td>
+                    <Td>
+                        {{ row.dial_time }}
+                    </Td>
+                    <Td>
+                        {{ row.dial_status }}
+                    </Td>
+                    <Td>
+                        {{ row.call_status }}
+                    </Td>
+                </tr>
+            </Table>
         </div>
     </AppLayout>
 </template>
@@ -36,6 +60,7 @@ import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { ref } from "vue";
 import TabMenu from "../Robocall/components/TabMenu.vue";
 import TableSearch from "@/Components/Table/TableSearch.vue";
+import Td from "@/Components/Table/Td.vue";
 
 const columns = ref([
     "Marketing Campaign",
@@ -43,13 +68,12 @@ const columns = ref([
     "Name",
     "Phone Number",
     "Call Date",
+    "Dial Status",
     "Call Status",
-    "CH Response",
-    "Input",
 ]);
 
 const paginate = usePaginate({
-    route: "",
+    route: route("robocall.report.datatable"),
 });
 
 const exportData = () => {};

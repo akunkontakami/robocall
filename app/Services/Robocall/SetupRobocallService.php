@@ -207,4 +207,42 @@ class SetupRobocallService
             'sessions' => $sessions,
         ];
     }
+
+    public function callLogsReport($companyId, $search, $filter, $limit = 10)
+    {
+        $urlPath = '/report/call-log';
+        $page = request()->page ?? 1;
+        $perPage = $limit;
+        $tenantId = $companyId;
+
+        $start = request()->created_start;
+        $end = request()->created_end;
+
+        if ($start && $end) {
+            $startDate = $start;
+            $endDate = $end;
+        } else {
+            $startDate = null;
+            $endDate = null;
+        }
+
+        $query = [
+            'page' => $page,
+            'per_page' => $perPage,
+            'tenant_id' => $tenantId,
+            'search' => $search,
+            // 'campaign_id' => $campaignId,
+        ];
+
+        if ($startDate && $endDate) {
+            $query['start_date'] = $startDate;
+            $query['end_date'] = $endDate;
+        }
+
+        $result = Dialer::get($urlPath.'?'.http_build_query($query));
+
+        $data = collect($result['data']);
+
+        return $data;
+    }
 }

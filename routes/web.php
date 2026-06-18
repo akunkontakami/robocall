@@ -70,9 +70,11 @@ Route::middleware(['app-auth'])
         Route::get('/robocall/setup/datatable', [SetupRobocallController::class, 'datatable'])->name('robocall.setup.datatable');
         Route::post('/robocall/setup/delete', [SetupRobocallController::class, 'delete'])->name('robocall.setup.delete');
         Route::post('/robocall/setup/stop', [SetupRobocallController::class, 'stop'])->name('robocall.setup.stop');
+        Route::post('/robocall/setup/pause', [SetupRobocallController::class, 'pause'])->name('robocall.setup.pause');
         Route::post('/robocall/setup/release', [SetupRobocallController::class, 'release'])->name('robocall.setup.release');
 
         Route::get('/robocall/report', [ReportRobocallController::class, 'report'])->name('robocall.report');
+        Route::get('/robocall/report/datatable', [ReportRobocallController::class, 'datatable'])->name('robocall.report.datatable');
 
         Route::get('/robocall/detail/{id}', [RobocallDetailController::class, 'index'])->name('robocall.detail');
         Route::post('/robocall/detail/{id}/update', [RobocallDetailController::class, 'update'])->name('robocall.detail.update');
