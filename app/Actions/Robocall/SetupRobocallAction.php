@@ -165,18 +165,31 @@ class SetupRobocallAction
 
             $file = fopen($request->file('file')->getRealPath(), 'r');
 
-            $header = fgetcsv($file);
+            $firstLine = fgets($file);
+
+            rewind($file);
+
+            $delimiter = substr_count($firstLine, ';') > substr_count($firstLine, ',')
+                ? ';'
+                : ',';
+
+            $header = array_map(function ($item) {
+                $item = preg_replace('/^\xEF\xBB\xBF/', '', $item);
+                return strtolower(trim($item));
+            }, fgetcsv($file, 0, $delimiter));
+
 
             $customers = [];
 
-            while (($row = fgetcsv($file)) !== false) {
-                $data = array_combine($header, $row);
-
-                if (empty($data['phone_number']) || empty($data['customer_number'])) {
+            while (($row = fgetcsv($file, 0, $delimiter)) !== false) {
+                if (count($header) !== count($row)) {
                     continue;
                 }
 
+                $data = array_combine($header, $row);
+
                 $customerId = $data['customer_number']
+                    ?? $data['customer_id']
                     ?? $data['Customer_Number']
                     ?? $data['CustomerNumber']
                     ?? '';
@@ -189,6 +202,10 @@ class SetupRobocallAction
                 $name = $data['name']
                     ?? $data['Name']
                     ?? '';
+
+                if (!$phone || !$customerId) {
+                    continue;
+                }
 
                 $phone = preg_replace('/[^0-9]/', '', trim($phone));
                 if (str_starts_with($phone, '62')) {
