@@ -245,4 +245,55 @@ class SetupRobocallService
 
         return $data;
     }
+
+    public function callLogsReportExport($companyId, $search = null)
+    {
+        $urlPath = '/report/call-log';
+        $tenantId = $companyId;
+
+        $start = request()->created_start;
+        $end = request()->created_end;
+
+        $allData = collect();
+
+        $page = 1;
+        $lastPage = 1;
+
+        do {
+            $query = [
+                'page' => $page,
+                'per_page' => 10,
+                'tenant_id' => $tenantId,
+                'search' => $search,
+            ];
+
+            if ($start && $end) {
+                $query['start_date'] = $start;
+                $query['end_date'] = $end;
+            }
+
+            $result = Dialer::get($urlPath.'?'.http_build_query($query));
+
+            $allData = $allData->merge($result['data'] ?? []);
+
+            $lastPage = $result['last_page'] ?? 1;
+
+            ++$page;
+        } while ($page <= $lastPage);
+
+        return $allData;
+    }
+
+    public function listItems()
+    {
+        $user = user();
+
+        return Robocall::select([
+            'id',
+            'robocall_name as value',
+            'company_id',
+        ])
+        ->where('company_id', $user->company_id)
+        ->orderBy('robocall_name', 'asc')->get();
+    }
 }
