@@ -23,19 +23,19 @@ const menus = [
     {
         key: "dashboard",
         name: "Dashboard",
-        url: route('robocall.dashboard'),
+        url: route("robocall.dashboard"),
         show: true,
     },
     {
         key: "setup",
         name: "Setup Robocall",
-        url: route('robocall.setup'),
+        url: route("robocall.setup"),
         show: true,
     },
     {
         key: "report",
         name: "Report Robocall",
-        url: "",
+        url: route("robocall.report"),
         show: true,
     },
 ];

@@ -7,6 +7,10 @@ use App\Http\Controllers\Pds\MonitoringPdsController;
 use App\Http\Controllers\Pds\PdsDetailController;
 use App\Http\Controllers\Pds\ReportPdsController;
 use App\Http\Controllers\Pds\SetupPdsController;
+use App\Http\Controllers\Robocall\DashboardRobocallController;
+use App\Http\Controllers\Robocall\ReportRobocallController;
+use App\Http\Controllers\Robocall\RobocallDetailController;
+use App\Http\Controllers\Robocall\SetupRobocallController;
 use Illuminate\Support\Facades\Route;
 
 // Route::inertia('/', 'Welcome');
@@ -28,7 +32,6 @@ Route::middleware(['app-auth'])
 
         Route::get('/pds/setup', [SetupPdsController::class, 'index'])->name('pds.setup');
         Route::post('/pds/setup/store', [SetupPdsController::class, 'store'])->name('pds.setup.store');
-        Route::post('/pds/setup/start', [SetupPdsController::class, 'start'])->name('pds.setup.start');
         Route::post('/pds/setup/start', [SetupPdsController::class, 'start'])->name('pds.setup.start');
         Route::post('/pds/setup/delete', [SetupPdsController::class, 'delete'])->name('pds.setup.delete');
         Route::post('/pds/setup/stop', [SetupPdsController::class, 'stop'])->name('pds.setup.stop');
@@ -56,9 +59,34 @@ Route::middleware(['app-auth'])
         Route::get('/pds/detail/{id}/spv-agent', [PdsDetailController::class, 'spvAgent'])->name('pds.detail.spv-agent');
 
         // robocall
-        Route::inertia('/robocall/dashboard', 'Robocall/Index')->name('robocall.dashboard');
-        Route::inertia('/robocall/setup', 'Robocall/Setup')->name('robocall.setup');
+        Route::get('/robocall/dashboard', [DashboardRobocallController::class, 'index'])->name('robocall.dashboard');
+        Route::get('/robocall/dashboard/export', [DashboardRobocallController::class, 'export'])->name('robocall.dashboard.export');
+        Route::get('/robocall/dashboard/data', [DashboardRobocallController::class, 'data'])->name('robocall.dashboard.data');
 
+        Route::get('/robocall/setup', [SetupRobocallController::class, 'index'])->name('robocall.setup');
+        Route::post('/robocall/setup/store', [SetupRobocallController::class, 'store'])->name('robocall.setup.store');
+        Route::post('/robocall/setup/start', [SetupRobocallController::class, 'start'])->name('robocall.setup.start');
+        Route::post('/robocall/setup/delete', [SetupRobocallController::class, 'delete'])->name('robocall.setup.delete');
+        Route::get('/robocall/setup/datatable', [SetupRobocallController::class, 'datatable'])->name('robocall.setup.datatable');
+        Route::post('/robocall/setup/delete', [SetupRobocallController::class, 'delete'])->name('robocall.setup.delete');
+        Route::post('/robocall/setup/stop', [SetupRobocallController::class, 'stop'])->name('robocall.setup.stop');
+        Route::post('/robocall/setup/pause', [SetupRobocallController::class, 'pause'])->name('robocall.setup.pause');
+        Route::post('/robocall/setup/release', [SetupRobocallController::class, 'release'])->name('robocall.setup.release');
 
-        Route::get("dummy", [DummyController::class, 'dummy'])->name('dummy');
+        Route::get('/robocall/report', [ReportRobocallController::class, 'report'])->name('robocall.report');
+        Route::get('/robocall/report/datatable', [ReportRobocallController::class, 'datatable'])->name('robocall.report.datatable');
+
+        Route::get('/robocall/detail/{id}', [RobocallDetailController::class, 'index'])->name('robocall.detail');
+        Route::post('/robocall/detail/{id}/update', [RobocallDetailController::class, 'update'])->name('robocall.detail.update');
+        Route::get('/robocall/detail/{id}/campaign', [RobocallDetailController::class, 'campaign'])->name('robocall.detail.campaign');
+        Route::post('/robocall/detail/{id}/assign-campaign', [RobocallDetailController::class, 'assignCampaign'])->name('robocall.detail.assign-campaign');
+
+        Route::get('/robocall/detail/{id}/upload', [RobocallDetailController::class, 'upload'])->name('robocall.detail.upload');
+        Route::get('/robocall/detail/{id}/upload-datatable', [RobocallDetailController::class, 'uploadDatatable'])->name('robocall.detail.upload-datatable');
+        Route::post('/robocall/detail/{id}/assign-upload', [RobocallDetailController::class, 'assignUpload'])->name('robocall.detail.assign-upload');
+        Route::post('/robocall/detail/{id}/upload/delete', [RobocallDetailController::class, 'deleteUpload'])->name('robocall.detail.delete-upload');
+
+        Route::get('/robocall/detail/{id}/status/{campaignId}', [RobocallDetailController::class, 'status'])->name('robocall.detail.status');
+
+        Route::get('dummy', [DummyController::class, 'dummy'])->name('dummy');
     });

@@ -70,6 +70,7 @@ class TicketService
 
                 return [
                     "customer_id" => $ticket->id,
+                    "customer_name" => $ticket->customer_name,
                     "phone" => $phone,
                 ];
             })
