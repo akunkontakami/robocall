@@ -23,6 +23,12 @@
                     </ButtonOutlineGreen>
                 </div>
             </div>
+            <FilterReportRobocall
+                :filter="filter"
+                @filterData="filterData"
+                :campaigns="campaigns"
+            />
+
             <Table :columns="columns" :paginate="paginate">
                 <tr v-for="(row, i) in paginate.data.value">
                     <Td>
@@ -61,6 +67,18 @@ import { ref } from "vue";
 import TabMenu from "../Robocall/components/TabMenu.vue";
 import TableSearch from "@/Components/Table/TableSearch.vue";
 import Td from "@/Components/Table/Td.vue";
+import FilterReportRobocall from "./FilterReportRobocall.vue";
+import {
+    closeFilter,
+    getArrayParamsFromUrl,
+    getQueryParam,
+    removeAllUrlParameter,
+    routeAppendParam,
+    showAlert,
+    validateGreaterDateRange,
+} from "@/Plugins/Function/global-function.js";
+
+defineProps(["campaigns"]);
 
 const columns = ref([
     "Marketing Campaign",
@@ -76,5 +94,46 @@ const paginate = usePaginate({
     route: route("robocall.report.datatable"),
 });
 
-const exportData = () => {};
+const filter = ref({
+    created_start: getQueryParam("created_start") || "",
+    created_end: getQueryParam("created_end") || "",
+    campaigns: getArrayParamsFromUrl("filter[campaigns]") || [],
+});
+
+const filterData = () => {
+    const param = filter.value;
+    if (!param.created_start || !param.created_end) {
+        showAlert("Please select date");
+        return;
+    }
+
+    if (validateGreaterDateRange(param.created_start, param.created_end)) {
+        var filterParam: any = {
+            created_start: param.created_start || "",
+            created_end: param.created_end || "",
+            tab: "tracking",
+        };
+
+        param.campaigns.forEach((id, index) => {
+            filterParam[`filter[campaigns][${index}]`] = id;
+        });
+
+        removeAllUrlParameter();
+        routeAppendParam(filterParam, false);
+        closeFilter();
+    }
+};
+
+const exportData = () => {
+    const params = new URLSearchParams();
+
+    params.append("created_start", filter.value.created_start);
+    params.append("created_end", filter.value.created_end);
+
+    filter.value.campaigns.forEach((id, index) => {
+        params.append(`filter[campaigns][${index}]`, id);
+    });
+
+    window.open(`${route("robocall.report.export")}?${params.toString()}`);
+};
 </script>
