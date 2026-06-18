@@ -34,16 +34,10 @@ class DashboardRobocallController extends Controller
         $sessions = $data->sessions;
 
         $collection['data_size'] = number_format($sessions->DataSize ?? 0);
-        $collection['total_call'] = number_format($sessions->DataDialed ?? 0);
-        $collection['redial'] = number_format($sessions->DialCount ?? 0);
-        $collection['answer'] = number_format($sessions->DialAgentAnswered);
-        $collection['no_answer'] = number_format($sessions->DialFailed);
-        $collection['abandon'] = number_format($sessions->DialAbandoned);
-        $collection['answer_rate'] = number_format($sessions->DialCount > 0 ? $sessions->DialAbandoned / $sessions->DialCount * 100 : 0).'%';
-        $collection['no_answer_rate'] = number_format($sessions->DialCount > 0 ? $sessions->DialFailed / $sessions->DialCount * 100 : 0).'%';
-        $collection['abandon_rate'] = number_format($sessions->DialCount > 0 ? $sessions->DialAbandoned / $sessions->DialCount * 100 : 0).'%';
-        $collection['avg'] = $sessions->AverageHandling;
-        $collection['total_duration'] = $sessions->DurationCall;
+        $collection['count'] = number_format($sessions->DialCount ?? 0);
+        $collection['contacted'] = number_format($sessions->DialContacted);
+        $collection['failed'] = number_format($sessions->DialFailed);
+        $collection['dialed'] = number_format($sessions->DataDialed);
 
         $data = [
             $collection,
