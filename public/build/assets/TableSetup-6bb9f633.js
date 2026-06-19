@@ -1,1 +1,0 @@
-import{_ as o}from"./TableSetup.vue_vue_type_script_setup_true_lang-c6280b76.js";import"./usePaginate-b0435282.js";import"./_plugin-vue_export-helper-c27b6911.js";import"./app-1e297d9f.js";import"./global-function-f1ae54f0.js";export{o as default};
