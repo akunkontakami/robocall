@@ -116,6 +116,7 @@ const emit = defineEmits([
     "update:modelValue",
     "updateMaxMobile",
     "updateMaxAdditional",
+    "updateSelectedValue",
 ]);
 const props = defineProps<{
     label?: string;
@@ -154,6 +155,11 @@ const emitChanges = () => {
         : 0;
 
     emit("updateMaxAdditional", maxAdditionals);
+
+    emit(
+        "updateSelectedValue",
+        selected.value.map((row: any) => row.id),
+    );
 };
 
 const addItem = (row: any) => {

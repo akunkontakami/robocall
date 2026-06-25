@@ -29,7 +29,8 @@ class PdsDetailController extends Controller
 
         return Inertia::render('PdsDetail/Campaign', [
             'data' => $data,
-            'id' => $id
+            'id' => $id,
+            'offices' => (new TicketService())->getOffices(user()->company_id, $data->marketing_campaign_id, $data->id),
         ]);
     }
 

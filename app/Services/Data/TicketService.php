@@ -6,6 +6,7 @@ use App\Models\Data\OutboundStatus;
 use App\Models\Data\Ticket;
 use App\Models\Pds\PdsAgent;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TicketService
 {
@@ -21,6 +22,9 @@ class TicketService
         if (!$pdsId || !$campaignId) {
             return [];
         }
+
+        $offices = request('offices', []);
+        $type = Str::upper(request('type'));
 
         $riskMap = [
             'low_risk' => 'LOW',
@@ -46,7 +50,7 @@ class TicketService
 
         return Ticket::query()
             ->select([
-                'status',
+                'tickets.status',
                 DB::raw('COUNT(*) as total'),
                 DB::raw("
                     MAX(
@@ -70,15 +74,25 @@ class TicketService
                     ) as max_additional_phone
                 '),
             ])
+            ->leftJoin('company_users', function ($join) {
+                $join->on('company_users.user_id', '=', 'tickets.current_agent_id');
+            })
             ->withWhereHas('dataBucket')
-            ->where('company_id', $companyId)
+            ->where('tickets.company_id', $companyId)
             ->whereNotNull('outbound_data_upload_id')
-            ->where('type', 'outbound')
+            ->where('tickets.type', 'outbound')
             ->where('marketing_campaign_id', $campaignId)
             ->where(function ($q) use ($agents) {
                 $q->whereIn('current_agent_id', $agents)
                 ->orWhereNull('current_agent_id');
             })
+            ->when($type === 'BRANCH', function ($q) use ($offices) {
+                $q->whereIn(
+                    DB::raw("JSON_VALUE(bucket, '$.OFFICE_NAME')"),
+                    $offices
+                );
+            })
+            ->where('company_users.type', $type)
             ->where(function ($q) use ($riskCriteria) {
                 $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
                 $categoryDistribution = "COALESCE(JSON_VALUE(bucket, '$.category_distribution'), '')";
@@ -104,7 +118,7 @@ class TicketService
                     $w->whereNull('is_blocked')
                     ->orWhere('is_blocked', '<>', 1);
                 })
-                ->orWhereIn('status', [
+                ->orWhereIn('tickets.status', [
                     'Paid in Confins',
                     'Visit Request',
                     'Visit Request BP(2x)',
@@ -121,7 +135,7 @@ class TicketService
                     'Case Request',
                 ]);
             })
-            ->groupBy('status')
+            ->groupBy('tickets.status')
             ->get()
             ->each(function ($row) {
                 $row->id = $row->status;
@@ -138,6 +152,9 @@ class TicketService
         if (!$pdsId || !$campaignId) {
             return [];
         }
+
+        $offices = request('offices', []);
+        $type = Str::upper(request('type'));
 
         $riskMap = [
             'low_risk' => 'LOW',
@@ -187,15 +204,25 @@ class TicketService
 
         $data = Ticket::withWhereHas('dataBucket')
             ->with('additionalPhones')
-            ->where('company_id', $companyId)
+            ->leftJoin('company_users', function ($join) {
+                $join->on('company_users.user_id', '=', 'tickets.current_agent_id');
+            })
+            ->where('tickets.company_id', $companyId)
             ->whereNotNull('outbound_data_upload_id')
-            ->where('type', 'outbound')
-            ->whereIn('status', $status)
+            ->where('tickets.type', 'outbound')
+            ->whereIn('tickets.status', $status)
             ->where('marketing_campaign_id', $campaignId)
             ->where(function ($q) use ($agents) {
                 $q->whereIn('current_agent_id', $agents)
                 ->orWhereNull('current_agent_id');
             })
+            ->when($type === 'BRANCH', function ($q) use ($offices) {
+                $q->whereIn(
+                    DB::raw("JSON_VALUE(bucket, '$.OFFICE_NAME')"),
+                    $offices
+                );
+            })
+            ->where('company_users.type', $type)
             ->where(function ($q) use ($riskCriteria) {
                 $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
                 $categoryDistribution = "COALESCE(JSON_VALUE(bucket, '$.category_distribution'), '')";
@@ -221,7 +248,7 @@ class TicketService
                     $w->whereNull('is_blocked')
                     ->orWhere('is_blocked', '<>', 1);
                 })
-                ->orWhereIn('status', [
+                ->orWhereIn('tickets.status', [
                     'Paid in Confins',
                     'Visit Request',
                     'Visit Request BP(2x)',
@@ -238,6 +265,7 @@ class TicketService
                     'Case Request',
                 ]);
             })
+            ->select('tickets.*')
             ->get();
 
         return $data
@@ -321,5 +349,41 @@ class TicketService
                 $this->collectStatusNames($item->sub, $status);
             }
         }
+    }
+
+    public function getOffices($companyId, $campaignId = '', $pdsId = '')
+    {
+        if (!$pdsId || !$campaignId) {
+            return [];
+        }
+
+        $agents = PdsAgent::query()
+            ->where('pds_id', $pdsId)
+            ->pluck('user_id')
+            ->toArray();
+
+        return Ticket::query()
+            ->selectRaw("
+                DISTINCT JSON_VALUE(bucket, '$.OFFICE_NAME') as office_name
+            ")
+            ->withWhereHas('dataBucket')
+            ->where('company_id', $companyId)
+            ->whereNotNull('outbound_data_upload_id')
+            ->where('type', 'outbound')
+            ->where('marketing_campaign_id', $campaignId)
+            ->where(function ($q) use ($agents) {
+                $q->whereIn('current_agent_id', $agents)
+                ->orWhereNull('current_agent_id');
+            })
+            ->whereNotNull(DB::raw("JSON_VALUE(bucket, '$.OFFICE_NAME')"))
+            ->whereRaw("JSON_VALUE(bucket, '$.OFFICE_NAME') <> ''")
+            ->orderBy('office_name')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'id' => $row->office_name,
+                    'value' => $row->office_name,
+                ];
+            });
     }
 }

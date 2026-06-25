@@ -204,6 +204,31 @@
                     </div>
                 </div>
 
+                <Select
+                    label="Type"
+                    id="type"
+                    v-model="form.type"
+                    :error="form.errors.type"
+                    placeholder="Select Type"
+                    @change="updateTypeSelectedValue"
+                    v-if="!data.customers.length && data.campaign"
+                >
+                    <option value="" disabled selected>Select Type</option>
+                    <option value="HO">HO</option>
+                    <option value="Branch">Branch</option>
+                </Select>
+
+                <MultipleSelect
+                    label="Office"
+                    id="offices"
+                    v-model="form.offices"
+                    :items="offices"
+                    :error="form.errors.offices"
+                    placeholder="Select Office"
+                    @updateSelectedValue="updateOfficeSelectedValue"
+                    v-if="!data.customers.length && data.campaign && showOffice"
+                />
+
                 <MultipleSelect
                     label="Status"
                     id="status"
@@ -372,16 +397,20 @@ import MultipleSelect from "@/Components/Input/Select/MultipleSelect.vue";
 import TabMenu from "./components/TabMenu.vue";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import axios from "axios";
+import Select from "@/Components/Input/Select.vue";
 
-const props = defineProps(["id", "data"]);
+const props = defineProps(["id", "data", "offices"]);
 
 const statuses = ref<any>([]);
 const loadingStatus = ref(false);
+const showOffice = ref(false);
 const riskCriteriaRef = ref<HTMLElement | null>(null);
 
 const form = useForm({
     campaign: "",
+    type: "",
     status: [],
+    offices: [],
     mobile: [] as any,
     additional: [] as any,
     risk_criteria: {
@@ -587,11 +616,25 @@ const resetStatusAndPhoneOptions = () => {
     additionalOptions.value = [];
 };
 
+const updateTypeSelectedValue = () => {
+    if (form.type == "Branch") {
+        showOffice.value = true;
+    } else {
+        showOffice.value = false;
+    }
+
+    fetchStatuses();
+};
+
+const updateOfficeSelectedValue = (row: any) => {
+    fetchStatuses();
+};
+
 const fetchStatuses = () => {
     loadingStatus.value = true;
     const riskCriteria = getSelectedRiskCriteria();
 
-    if (!riskCriteria.length) {
+    if (!riskCriteria.length || !form.type) {
         statuses.value = [];
         setTimeout(() => {
             loadingStatus.value = false;
@@ -603,6 +646,8 @@ const fetchStatuses = () => {
         .get(route("pds.detail.status", props.id), {
             params: {
                 risk_criteria: riskCriteria,
+                offices: form.offices,
+                type: form.type,
             },
         })
         .then((res) => {
