@@ -28,6 +28,20 @@
                     class="!bg-[#F3F3F3]"
                 />
 
+                <Select
+                    label="Type"
+                    id="type"
+                    v-model="form.type"
+                    :error="form.errors.type"
+                    placeholder="Select Type"
+                    @change="updateTypeSelectedValue"
+                    v-if="!data.customers.length && data.campaign"
+                >
+                    <option value="" disabled selected>Select Type</option>
+                    <option value="HO">HO</option>
+                    <option value="Branch">Branch</option>
+                </Select>
+
                 <!-- Risk Criteria -->
                 <div
                     ref="riskCriteriaRef"
@@ -203,20 +217,6 @@
                         </div>
                     </div>
                 </div>
-
-                <Select
-                    label="Type"
-                    id="type"
-                    v-model="form.type"
-                    :error="form.errors.type"
-                    placeholder="Select Type"
-                    @change="updateTypeSelectedValue"
-                    v-if="!data.customers.length && data.campaign"
-                >
-                    <option value="" disabled selected>Select Type</option>
-                    <option value="HO">HO</option>
-                    <option value="Branch">Branch</option>
-                </Select>
 
                 <MultipleSelect
                     label="Office"
@@ -395,7 +395,7 @@ import ButtonOutlineGrey from "@/Components/Button/ButtonOutlineGrey.vue";
 import { useForm } from "@inertiajs/vue3";
 import MultipleSelect from "@/Components/Input/Select/MultipleSelect.vue";
 import TabMenu from "./components/TabMenu.vue";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import axios from "axios";
 import Select from "@/Components/Input/Select.vue";
 
@@ -423,26 +423,52 @@ const form = useForm({
 const activeRiskDropdown = ref<string | null>(null);
 const riskDropdownSnapshot = ref<string>("");
 
-const riskCriteriaOptions = [
-    {
-        label: "Low Risk",
-        value: "low_risk",
-        days: Array.from({ length: 14 }, (_, i) => i + 1),
-        rangeLabel: "(1-14)",
-    },
-    {
-        label: "Medium Risk",
-        value: "medium_risk",
-        days: Array.from({ length: 7 }, (_, i) => i + 1),
-        rangeLabel: "(1-7)",
-    },
-    {
-        label: "High Risk",
-        value: "high_risk",
-        days: Array.from({ length: 3 }, (_, i) => i + 1),
-        rangeLabel: "(1-3)",
-    },
-];
+const riskCriteriaOptions = computed(() => {
+    if (form.type === "Branch") {
+        return [
+            {
+                label: "Low Risk",
+                value: "low_risk",
+                days: Array.from({ length: 7 }, (_, i) => i + 15), // 15-21
+                rangeLabel: "(15-21)",
+            },
+            {
+                label: "Medium Risk",
+                value: "medium_risk",
+                days: Array.from({ length: 7 }, (_, i) => i + 8), // 8-14
+                rangeLabel: "(8-14)",
+            },
+            {
+                label: "High Risk",
+                value: "high_risk",
+                days: Array.from({ length: 4 }, (_, i) => i + 4), // 4-7
+                rangeLabel: "(4-7)",
+            },
+        ];
+    }
+
+    // HO
+    return [
+        {
+            label: "Low Risk",
+            value: "low_risk",
+            days: Array.from({ length: 14 }, (_, i) => i + 1), // 1-14
+            rangeLabel: "(1-14)",
+        },
+        {
+            label: "Medium Risk",
+            value: "medium_risk",
+            days: Array.from({ length: 7 }, (_, i) => i + 1), // 1-7
+            rangeLabel: "(1-7)",
+        },
+        {
+            label: "High Risk",
+            value: "high_risk",
+            days: Array.from({ length: 3 }, (_, i) => i + 1), // 1-3
+            rangeLabel: "(1-3)",
+        },
+    ];
+});
 
 const mobileOptions = ref<number[]>([]);
 const additionalOptions = ref<number[]>([]);
@@ -496,7 +522,7 @@ const toggleRisk = (risk: any) => {
     if (currentValue.length > 0) {
         form.risk_criteria[risk] = [];
     } else {
-        const selectedRisk = riskCriteriaOptions.find(
+        const selectedRisk = riskCriteriaOptions.value.find(
             (item) => item.value === risk,
         );
 
@@ -524,7 +550,7 @@ const toggleRiskDay = (risk: any, day: number) => {
 };
 
 const selectAllRiskDays = (risk: any) => {
-    const selectedRisk = riskCriteriaOptions.find(
+    const selectedRisk = riskCriteriaOptions.value.find(
         (item) => item.value === risk,
     );
 
@@ -617,11 +643,20 @@ const resetStatusAndPhoneOptions = () => {
 };
 
 const updateTypeSelectedValue = () => {
-    if (form.type == "Branch") {
-        showOffice.value = true;
-    } else {
-        showOffice.value = false;
-    }
+    showOffice.value = form.type === "Branch";
+
+    form.risk_criteria = {
+        low_risk: [],
+        medium_risk: [],
+        high_risk: [],
+    };
+
+    form.offices = [];
+
+    activeRiskDropdown.value = null;
+    riskDropdownSnapshot.value = "";
+
+    resetStatusAndPhoneOptions();
 
     fetchStatuses();
 };
