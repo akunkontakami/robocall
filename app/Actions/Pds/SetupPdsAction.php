@@ -3,6 +3,10 @@
 namespace App\Actions\Pds;
 
 use App\Helpers\Dialer;
+use App\Models\Data\ProductSubject;
+use App\Models\Data\Ticket;
+use App\Models\Data\TicketForm;
+use App\Models\Data\TicketHistory;
 use App\Models\Pds\Pds;
 use App\Models\Pds\PdsAgent;
 use App\Models\Pds\PdsCustomer;
@@ -339,6 +343,61 @@ class SetupPdsAction
 
         return DB::transaction(function () use ($user, $id) {
             $pds = Pds::where('id', $id)->first();
+            $customers = PdsCustomer::where('pds_id', $pds->id)->where('company_id', $user->company_id)->get();
+
+            $agentIds = PdsAgent::where('pds_id', $pds->id)
+                ->where('company_id', $user->company_id)
+                ->pluck('user_id')
+                ->toArray();
+
+            if (!empty($agentIds)) {
+                $totalAgents = count($agentIds);
+                $agentIndex = 0;
+
+                foreach ($customers as $cust) {
+                    $ticket = Ticket::where('id', $cust->ticket_id)
+                        ->whereNull('current_agent_id')
+                        ->first();
+
+                    if ($ticket) {
+                        $assignedAgentId = $agentIds[$agentIndex % $totalAgents];
+                        $ticket->update([
+                            'current_agent_id' => $assignedAgentId,
+                            'status' => 'Uncontacted PDS',
+                            'status_id' => null,
+                        ]);
+
+                        $subject = ProductSubject::where('id', $ticket->subject_id)->first();
+
+                        $lastHistory = TicketHistory::where('ticket_id', $ticket->id)
+                            ->orderBy('id', 'desc')
+                            ->first();
+
+                        $newHistory = TicketHistory::create([
+                            'company_id' => $ticket->company_id,
+                            'ticket_id' => $ticket->id,
+                            'bucket_data' => $ticket->bucket,
+                            'note' => '',
+                            'remark' => '',
+                            'status' => 'Uncontacted PDS',
+                            'sla_priority' => $subject?->priority,
+                        ]);
+
+                        if ($lastHistory) {
+                            $oldTicketForms = TicketForm::where('ticket_history_id', $lastHistory->id)->get();
+
+                            foreach ($oldTicketForms as $oldForm) {
+                                $newForm = $oldForm->replicate();
+                                $newForm->ticket_history_id = $newHistory->id;
+                                $newForm->save();
+                            }
+                        }
+
+                        ++$agentIndex;
+                    }
+                }
+            }
+
             PdsCustomer::where('pds_id', $pds->id)->where('company_id', $user->company_id)->delete();
 
             $dialer = Dialer::post('/campaign-dialer/releaseCustomerPDS', [
