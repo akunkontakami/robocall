@@ -350,51 +350,56 @@ class SetupPdsAction
                 ->pluck('user_id')
                 ->toArray();
 
-            if (!empty($agentIds)) {
-                $totalAgents = count($agentIds);
-                $agentIndex = 0;
+            $totalAgents = count($agentIds);
+            $agentIndex = 0;
 
-                foreach ($customers as $cust) {
-                    $ticket = Ticket::where('id', $cust->ticket_id)
-                        ->whereNull('current_agent_id')
-                        ->first();
+            foreach ($customers as $cust) {
+                $ticket = Ticket::where('id', $cust->ticket_id)
+                    ->whereNull('current_agent_id')
+                    ->first();
 
-                    if ($ticket) {
+                if ($ticket) {
+                    if (!empty($agentIds)) {
                         $assignedAgentId = $agentIds[$agentIndex % $totalAgents];
                         $ticket->update([
                             'current_agent_id' => $assignedAgentId,
                             'status' => 'Uncontacted PDS',
                             'status_id' => null,
                         ]);
-
-                        $subject = ProductSubject::where('id', $ticket->subject_id)->first();
-
-                        $lastHistory = TicketHistory::where('ticket_id', $ticket->id)
-                            ->orderBy('id', 'desc')
-                            ->first();
-
-                        $newHistory = TicketHistory::create([
-                            'company_id' => $ticket->company_id,
-                            'ticket_id' => $ticket->id,
-                            'bucket_data' => $ticket->bucket,
-                            'note' => '',
-                            'remark' => '',
+                    } else {
+                        $ticket->update([
                             'status' => 'Uncontacted PDS',
-                            'sla_priority' => $subject?->priority,
+                            'status_id' => null,
                         ]);
-
-                        if ($lastHistory) {
-                            $oldTicketForms = TicketForm::where('ticket_history_id', $lastHistory->id)->get();
-
-                            foreach ($oldTicketForms as $oldForm) {
-                                $newForm = $oldForm->replicate();
-                                $newForm->ticket_history_id = $newHistory->id;
-                                $newForm->save();
-                            }
-                        }
-
-                        ++$agentIndex;
                     }
+
+                    $subject = ProductSubject::where('id', $ticket->subject_id)->first();
+
+                    $lastHistory = TicketHistory::where('ticket_id', $ticket->id)
+                        ->orderBy('id', 'desc')
+                        ->first();
+
+                    $newHistory = TicketHistory::create([
+                        'company_id' => $ticket->company_id,
+                        'ticket_id' => $ticket->id,
+                        'bucket_data' => $ticket->bucket,
+                        'note' => '',
+                        'remark' => '',
+                        'status' => 'Uncontacted PDS',
+                        'sla_priority' => $subject?->priority,
+                    ]);
+
+                    if ($lastHistory) {
+                        $oldTicketForms = TicketForm::where('ticket_history_id', $lastHistory->id)->get();
+
+                        foreach ($oldTicketForms as $oldForm) {
+                            $newForm = $oldForm->replicate();
+                            $newForm->ticket_history_id = $newHistory->id;
+                            $newForm->save();
+                        }
+                    }
+
+                    ++$agentIndex;
                 }
             }
 
