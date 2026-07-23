@@ -27,14 +27,18 @@ class MonitoringPdsController extends Controller
 
     public function monitoringDatatable()
     {
-        return MonitoringResource::collection(
-            (new SetupPdsService())->get(
+        $start_date = now()->format('Y-m-d');
+        $end_date = now()->format('Y-m-d');
+        $data = MonitoringResource::collection(
+            (new SetupPdsService())->sessionactivity(
                 companyId: user()->company_id,
-                search: request('search', ''),
-                filter: request('filter', []),
+                start_date: $start_date,
+                end_date: $end_date,
                 limit: request('limit', 10),
             )
         );
+       
+        dd($data);
     }
 
     public function pdsHistoryDatatable()
