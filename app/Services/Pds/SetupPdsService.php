@@ -482,17 +482,17 @@ class SetupPdsService
         ->orderBy('pds_name', 'asc')->get();
     }
 
-    public function sessionactivity($companyId, $search, $filter, $limit)
+    public function sessionactivity($companyId, $start_date, $end_date, $limit = 10)
     {
-       $dialer = Dialer::post('/report/sessionactivity', [
-                'campaign_id' => $companyId,
-                'start_date' => $search,
-                'end_date' => $filter,
-                'limit' => $limit,
-            ]);
+        $query = http_build_query([
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'limit' => $limit,
+        ]);
+
+        $dialer = Dialer::get('/report/sessionactivity?' . $query);
 
         return $dialer;
-        
     }
     
 }

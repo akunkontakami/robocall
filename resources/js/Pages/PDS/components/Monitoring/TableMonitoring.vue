@@ -2,52 +2,37 @@
     <Table :columns="columns" :paginate="paginate">
         <tr
             v-for="(row, i) in paginate.data.value"
-            :class="{
-                'bg-[#FDBFB7]': row.abandoned_rate_num >= row.max_abandoned
-            }"
+            :key="row.SessionId || i"
         >
             <Td>
-                {{ row.name }}
+                {{ row.SessionId }}
             </Td>
             <Td>
-                <span v-if="!row.is_running">Stop</span>
-                <span v-if="row.is_running">Running</span>
+                {{ row.SessionStatus }}
             </Td>
             <Td>
-                {{ row.spv }}
+                {{ row.SessionStart }}
             </Td>
             <Td>
-                {{ row.total_agent }}
+                {{ row.campaign_id }}
             </Td>
             <Td>
-                {{ row.data_size }}
+                {{ row.tenant_id }}
             </Td>
             <Td>
-                {{ row.retry }}
+                {{ row.DataSize }}
             </Td>
             <Td>
-                {{ row.data_dialed }}
+                {{ row.DataDialed }}
             </Td>
             <Td>
-                {{ row.calls }}
+                {{ row.DialInProgress }}
             </Td>
             <Td>
-                {{ row.call_in_progress }}
+                {{ row.DialFailed }}
             </Td>
             <Td>
-                {{ row.contacted }}
-            </Td>
-            <Td>
-                {{ row.failed }}
-            </Td>
-            <Td>
-                {{ row.answered }}
-            </Td>
-            <Td>
-                {{ row.abandoned }}
-            </Td>
-            <Td>
-                {{ row.abandoned_rate }}
+                {{ row.DialContacted }}
             </Td>
         </tr>
     </Table>
@@ -56,23 +41,19 @@
 import Table from "@/Components/Table/Table.vue";
 import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
-import { ref, onBeforeUnmount, onMounted } from "vue";
+import { ref } from "vue";
 
 const columns = ref([
-    "PDS Name",
+    "Session ID",
     "Status",
-    "SPV",
-    "Agent Ready",
+    "Session Start",
+    "Campaign ID",
+    "Tenant ID",
     "Data Size",
-    "Retry",
     "Data Dial",
-    "Calls",
     "Calls In Progress",
-    "Contacted",
     "Failed",
-    "Answered",
-    "Abandon",
-    "Abandon Rate"
+    "Contacted"
 ]);
 
 const paginate = usePaginate({
