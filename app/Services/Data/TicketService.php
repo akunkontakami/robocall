@@ -93,27 +93,12 @@ class TicketService
                 );
             })
             ->where('company_users.type', $type)
-            ->where(function ($q) use ($riskCriteria) {
+            ->whereRaw("COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '') <> ?", ['-'])
+            ->where(function ($q) {
                 $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
                 $categoryDistribution = "COALESCE(JSON_VALUE(bucket, '$.category_distribution'), '')";
-                $risk = "COALESCE(JSON_VALUE(bucket, '$.DR_RISK'), '')";
-                $odDays = "COALESCE(JSON_VALUE(bucket, '$.OVERDUE_DAYS'), '')";
 
-                $q->where(function ($w) use ($customerName, $categoryDistribution, $riskCriteria, $risk, $odDays) {
-                    $w->whereRaw("$customerName <> ?", ['-'])
-                    ->orWhereRaw("$categoryDistribution <> ?", ['KP']);
-
-                    if (count($riskCriteria)) {
-                        $w->orWhere(function ($r) use ($riskCriteria, $risk, $odDays) {
-                            foreach ($riskCriteria as $criteria) {
-                                $r->orWhere(function ($x) use ($criteria, $risk, $odDays) {
-                                    $x->whereRaw("$risk = ?", [$criteria['risk']])
-                                    ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
-                                });
-                            }
-                        });
-                    }
-                })
+                $q->whereRaw("$categoryDistribution <> ?", ['KP'])
                 ->orWhere(function ($w) {
                     $w->whereNull('is_blocked')
                     ->orWhere('is_blocked', '<>', 1);
@@ -134,6 +119,21 @@ class TicketService
                     'CASE REQUEST',
                     'Case Request',
                 ]);
+            })
+            ->where(function ($q) use ($riskCriteria) {
+                $risk = "COALESCE(JSON_VALUE(bucket, '$.DR_RISK'), '')";
+                $odDays = "COALESCE(JSON_VALUE(bucket, '$.OVERDUE_DAYS'), '')";
+
+                if (count($riskCriteria) > 0) {
+                    $q->where(function ($r) use ($riskCriteria, $risk, $odDays) {
+                        foreach ($riskCriteria as $criteria) {
+                            $r->orWhere(function ($x) use ($criteria, $risk, $odDays) {
+                                $x->whereRaw("$risk = ?", [$criteria['risk']])
+                                ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
+                            });
+                        }
+                    });
+                }
             })
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
@@ -229,27 +229,16 @@ class TicketService
                 );
             })
             ->where('company_users.type', $type)
-            ->where(function ($q) use ($riskCriteria) {
+            ->whereRaw("COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '') <> ?", ['-'])
+            ->where(function ($q) {
                 $customerName = "COALESCE(JSON_VALUE(bucket, '$.CUSTOMER_NAME'), '')";
                 $categoryDistribution = "COALESCE(JSON_VALUE(bucket, '$.category_distribution'), '')";
-                $risk = "COALESCE(JSON_VALUE(bucket, '$.DR_RISK'), '')";
-                $odDays = "COALESCE(JSON_VALUE(bucket, '$.OVERDUE_DAYS'), '')";
 
-                $q->where(function ($w) use ($customerName, $categoryDistribution, $riskCriteria, $risk, $odDays) {
-                    $w->whereRaw("$customerName <> ?", ['-'])
-                    ->orWhereRaw("$categoryDistribution <> ?", ['KP']);
+                // $q->where(function ($w) use ($customerName, $categoryDistribution) {
+                //     $w->whereRaw("$customerName <> ?", ['-'])
+                // })
 
-                    if (count($riskCriteria)) {
-                        $w->orWhere(function ($r) use ($riskCriteria, $risk, $odDays) {
-                            foreach ($riskCriteria as $criteria) {
-                                $r->orWhere(function ($x) use ($criteria, $risk, $odDays) {
-                                    $x->whereRaw("$risk = ?", [$criteria['risk']])
-                                    ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
-                                });
-                            }
-                        });
-                    }
-                })
+                $q->whereRaw("$categoryDistribution <> ?", ['KP'])
                 ->orWhere(function ($w) {
                     $w->whereNull('is_blocked')
                     ->orWhere('is_blocked', '<>', 1);
@@ -270,6 +259,21 @@ class TicketService
                     'CASE REQUEST',
                     'Case Request',
                 ]);
+            })
+            ->where(function ($q) use ($riskCriteria) {
+                $risk = "COALESCE(JSON_VALUE(bucket, '$.DR_RISK'), '')";
+                $odDays = "COALESCE(JSON_VALUE(bucket, '$.OVERDUE_DAYS'), '')";
+
+                if (count($riskCriteria) > 0) {
+                    $q->where(function ($r) use ($riskCriteria, $risk, $odDays) {
+                        foreach ($riskCriteria as $criteria) {
+                            $r->orWhere(function ($x) use ($criteria, $risk, $odDays) {
+                                $x->whereRaw("$risk = ?", [$criteria['risk']])
+                                ->whereRaw("CAST($odDays AS UNSIGNED) = ?", [$criteria['number']]);
+                            });
+                        }
+                    });
+                }
             })
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
