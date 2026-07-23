@@ -490,7 +490,7 @@ class SetupPdsService
             'limit' => $limit,
         ]);
 
-        $dialer = Dialer::get('/report/sessionactivity?' . $query);
+        $dialer = Dialer::get('/report/sessionlog?' . $query);
 
         return $dialer;
     }
