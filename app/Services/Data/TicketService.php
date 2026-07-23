@@ -135,6 +135,12 @@ class TicketService
                     'Case Request',
                 ]);
             })
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('ticket_histories')
+                    ->whereColumn('ticket_histories.ticket_id', 'tickets.id')
+                    ->where('ticket_histories.status', 'Promised to Pay (PTP)');
+            })
             ->groupBy('tickets.status')
             ->get()
             ->each(function ($row) {
@@ -264,6 +270,12 @@ class TicketService
                     'CASE REQUEST',
                     'Case Request',
                 ]);
+            })
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('ticket_histories')
+                    ->whereColumn('ticket_histories.ticket_id', 'tickets.id')
+                    ->where('ticket_histories.status', 'Promised to Pay (PTP)');
             })
             ->select('tickets.*')
             ->get();
