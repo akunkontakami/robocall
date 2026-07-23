@@ -22,6 +22,50 @@
                 {{ row.total_agent ?? '-' }}
             </Td>
             <Td>
+                <div class="border border-[#D9D9D9] rounded-[4px] overflow-hidden text-[11px] min-w-[420px]">
+                    <div class="grid grid-cols-4 bg-[#F9D423] text-[#181C32] font-krub-semibold text-center">
+                        <div class="p-1 border-r border-[#D9D9D9]">ANSWERED</div>
+                        <div class="p-1 border-r border-[#D9D9D9]">BUSY</div>
+                        <div class="p-1 border-r border-[#D9D9D9]">NOANSWER</div>
+                        <div class="p-1">ABANDONED</div>
+                    </div>
+                    <div class="grid grid-cols-4 bg-white text-center text-[#181C32]">
+                        <div class="border-r border-[#D9D9D9]">
+                            <div class="grid grid-cols-2">
+                                <div class="p-1 border-r border-[#D9D9D9] font-krub-semibold">call</div>
+                                <div class="p-1 font-krub-semibold">customer</div>
+                                <div class="p-1 border-r border-t border-[#D9D9D9]">{{ row.detail?.answered?.call ?? 0 }}</div>
+                                <div class="p-1 border-t border-[#D9D9D9]">{{ row.detail?.answered?.customer ?? 0 }}</div>
+                            </div>
+                        </div>
+                        <div class="border-r border-[#D9D9D9]">
+                            <div class="grid grid-cols-2">
+                                <div class="p-1 border-r border-[#D9D9D9] font-krub-semibold">call</div>
+                                <div class="p-1 font-krub-semibold">customer</div>
+                                <div class="p-1 border-r border-t border-[#D9D9D9]">{{ row.detail?.busy?.call ?? 0 }}</div>
+                                <div class="p-1 border-t border-[#D9D9D9]">{{ row.detail?.busy?.customer ?? 0 }}</div>
+                            </div>
+                        </div>
+                        <div class="border-r border-[#D9D9D9]">
+                            <div class="grid grid-cols-2">
+                                <div class="p-1 border-r border-[#D9D9D9] font-krub-semibold">call</div>
+                                <div class="p-1 font-krub-semibold">customer</div>
+                                <div class="p-1 border-r border-t border-[#D9D9D9]">{{ row.detail?.noanswer?.call ?? 0 }}</div>
+                                <div class="p-1 border-t border-[#D9D9D9]">{{ row.detail?.noanswer?.customer ?? 0 }}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="grid grid-cols-2">
+                                <div class="p-1 border-r border-[#D9D9D9] font-krub-semibold">call</div>
+                                <div class="p-1 font-krub-semibold">customer</div>
+                                <div class="p-1 border-r border-t border-[#D9D9D9]">{{ row.detail?.abandoned?.call ?? 0 }}</div>
+                                <div class="p-1 border-t border-[#D9D9D9]">{{ row.detail?.abandoned?.customer ?? 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Td>
+            <Td>
                 {{ row.total_data ?? '-' }}
             </Td>
             <Td>
@@ -55,8 +99,7 @@
                             class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showStart(row)"
                             :class="{
                                 '!text-[#DDD] !cursor-default': row.campaign_status == 'non_active'
-                            }"
-                        >
+                            }">
                             <i
                                 class="text-base isax-b icon-play-circle text-green"
                                 :class="{
@@ -109,19 +152,16 @@
                 @click="openSub('sub-'+spv?.id)"
                 :class="{
                     'cursor-pointer': agents.length
-                }"
-            >
+                }">
                 {{ spv?.company_user?.name }} <i class="isax icon-arrow-down-1 text-base" v-if="agents.length"></i>
             </div>
             <div
                 class="ms-5 hidden"
                 :id="'sub-'+spv?.id"
-                v-if="agents.length"
-            >
+                v-if="agents.length">
                 <div
                     v-for="agent in agents"
-                    class="text-[13px] text-[#181C32] font-opensauceone-medium pt-3 flex items-center relative timeline"
-                >
+                    class="text-[13px] text-[#181C32] font-opensauceone-medium pt-3 flex items-center relative timeline">
                     <span class="timeline-line-v"></span>
                     <span class="h-[1px] w-3 bg-[#181C32]"></span>
                     <span class="h-[5px] w-[5px] rounded-full bg-[#181C32]"></span>
@@ -145,11 +185,9 @@ import { router, useForm } from "@inertiajs/vue3";
 import { ref, onBeforeUnmount, onMounted } from "vue";
 
 const emits = defineEmits(['showStartPds'])
-
 const showPopupRelease = ref(true)
 const showPopupDelete = ref(true)
 const showPopupStop = ref(true)
-
 const columns = ref([
     "Date",
     "PDS Name",
@@ -157,13 +195,13 @@ const columns = ref([
     "Campaign PDS",
     "Status PDS",
     "Total Agent",
+    'Detail', 
     "Total Data",
     "Action"
 ]);
 
 const spv = ref<any>(null)
 const agents = ref<any>([])
-
 const form = useForm({
     id: ''
 })
@@ -184,13 +222,11 @@ const showStart = (row: any) => {
     }
 }
 
-
 const actionDelete = () => {
     if (!form.processing) {
         form.post(route('pds.setup.delete'), {
             onError: () => {
                 showPopupDelete.value = false
-
                 setTimeout(() => {
                     showPopupDelete.value = true
                 }, 100);
@@ -212,7 +248,6 @@ const actionRelease = () => {
         form.post(route('pds.setup.release'), {
             onError: () => {
                 showPopupRelease.value = false
-
                 setTimeout(() => {
                     showPopupRelease.value = true
                 }, 100);
@@ -220,7 +255,6 @@ const actionRelease = () => {
             onSuccess: () => {
                 paginate.fetchData()
                 showPopupRelease.value = false
-
                 setTimeout(() => {
                     showPopupRelease.value = true
                 }, 100);

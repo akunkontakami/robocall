@@ -9,6 +9,7 @@ use App\Models\Pds\PdsAgent;
 use App\Services\Data\TicketService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\AbstractPaginator;
 
 class SetupPdsService
 {
@@ -27,10 +28,39 @@ class SetupPdsService
         ->orderBy('created_at', 'desc');
 
         if ($limit == null) {
-            return $data->get();
+            return $this->withCallSummary($companyId, $data->get());
         } else {
-            return $data->paginate($limit ?: 10);
+            return $this->withCallSummary($companyId, $data->paginate($limit ?: 10));
         }
+    }
+
+    private function withCallSummary(int $companyId, mixed $data): mixed
+    {
+        $collection = $data instanceof AbstractPaginator ? $data->getCollection() : $data;
+        $pdsIds = $collection->pluck('id')->all();
+
+        $summary = (new PdsCustomerCallSummaryService())->getByPdsIds($companyId, $pdsIds);
+        $empty = $this->emptyCallDetail();
+
+        $collection->each(function ($item) use ($summary, $empty) {
+            $item->call_detail = $summary[$item->id] ?? $empty;
+        });
+
+        if ($data instanceof AbstractPaginator) {
+            $data->setCollection($collection);
+        }
+
+        return $data;
+    }
+
+    private function emptyCallDetail(): array
+    {
+        return [
+            'answered' => ['call' => 0, 'customer' => 0],
+            'busy' => ['call' => 0, 'customer' => 0],
+            'noanswer' => ['call' => 0, 'customer' => 0],
+            'abandoned' => ['call' => 0, 'customer' => 0],
+        ];
     }
 
     public function getByCampaign($companyId, $search, $filter, $limit)

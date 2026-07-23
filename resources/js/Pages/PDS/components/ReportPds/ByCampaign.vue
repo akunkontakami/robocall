@@ -18,7 +18,7 @@
                 <tr class="bg-[#F4F6FA]">
                     <Th rowspan="2">PDS Name</Th>
                     <Th rowspan="2">Marketing Campaign</Th>
-                    <Th rowspan="2">Agent Ready</Th>
+                    <!-- <Th rowspan="2">Agent Ready</Th> -->
                     <Th rowspan="2">Data Size</Th>
                     <Th rowspan="2">Data Utilize</Th>
                     <Th :colspan="outbounds.length" class="text-center border-x">Data Contacted</Th>
@@ -49,9 +49,9 @@
                 <Td>
                     {{ row.campaign }}
                 </Td>
-                <Td>
+                <!-- <Td>
                     {{ row.total_agent }}
-                </Td>
+                </Td> -->
                 <Td>
                     {{ row.data_size }}
                 </Td>

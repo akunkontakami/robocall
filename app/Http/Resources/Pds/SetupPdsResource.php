@@ -25,6 +25,12 @@ class SetupPdsResource extends JsonResource
             'is_running' => $this->is_running,
             'total_agent' => count($this->agents),
             'total_data' => count($this->customers),
+            'detail' => $this->call_detail ?? [
+                'answered' => ['call' => 0, 'customer' => 0],
+                'busy' => ['call' => 0, 'customer' => 0],
+                'noanswer' => ['call' => 0, 'customer' => 0],
+                'abandoned' => ['call' => 0, 'customer' => 0],
+            ],
             'campaign' => $this->campaign?->name ?? '-',
             'campaign_status' => $this->campaign?->status ?? 'non_active',
         ];
