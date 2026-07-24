@@ -25,9 +25,9 @@
             <Td>
                 {{ row.DataDialed }}
             </Td>
-            <Td>
+            <!-- <Td>
                 {{ row.DialInProgress }}
-            </Td>
+            </Td> -->
             <Td>
                 {{ row.DialFailed }}
             </Td>
@@ -51,7 +51,7 @@ const columns = ref([
     // "Tenant ID",
     "Data Size",
     "Data Dial",
-    "Calls In Progress",
+    // "Calls In Progress",
     "Failed",
     "Contacted"
 ]);
