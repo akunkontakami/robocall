@@ -39,14 +39,17 @@ class MonitoringPdsController extends Controller
 
     public function pdsHistoryDatatable()
     {
-        $start_date = request('start_date', now()->format('Y-m-23'));
-        $end_date = request('end_date', now()->format('Y-m-23'));
+        $start_date = request('start_date', now()->toDateString());
+        $end_date = request('end_date', now()->toDateString());
+        $search = request('search');
 
         $data = (new SetupPdsService())->sessionlog(
             companyId: user()->company_id,
             start_date: $start_date,
             end_date: $end_date,
             limit: request('limit', 10),
+            page: request('page', 1),
+            search: $search,
         );
 
         return response()->json($data);

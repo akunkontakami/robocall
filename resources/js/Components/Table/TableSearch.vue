@@ -6,7 +6,7 @@
         <input
             type="text"
             :placeholder="placeholder || 'Search'"
-            id="search"
+            id="table-search"
             title="Enter to search"
             @keyup.enter="search"
             v-model="searchText"
@@ -36,8 +36,8 @@ import ButtonYellow from "../Button/ButtonYellow.vue";
 defineProps(["placeholder"]);
 
 const searchText = ref<any>(getQueryParam('search') || '')
-const search = (event: any) => {
-    routeAppendParam({ search: event.target.value }, false);
+const search = () => {
+    routeAppendParam({ search: searchText.value }, false);
 };
 
 const closeSearch = () => {

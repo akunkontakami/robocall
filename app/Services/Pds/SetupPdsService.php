@@ -495,15 +495,21 @@ class SetupPdsService
         return $dialer;
     }
     
-    public function sessionlog($companyId, $start_date, $end_date, $limit = 10)
+    public function sessionlog($companyId, $start_date, $end_date, $limit = 10, $page = 1, $search = null)
     {
-        $query = http_build_query([
+        $query = [
+            'page' => $page,
+            'per_page' => $limit,
+            'tenant_id' => user()->tenant_id,
             'start_date' => $start_date,
             'end_date' => $end_date,
-            'limit' => $limit,
-        ]);
+        ];
 
-        $dialer = Dialer::get('/report/sessionlog?' . $query);
+        if ($search) {
+            $query['campaign_id'] = $search;
+        }
+
+        $dialer = Dialer::get('/report/sessionlog?' . http_build_query($query));
 
         return $dialer;
     }

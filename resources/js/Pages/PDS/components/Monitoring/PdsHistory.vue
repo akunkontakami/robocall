@@ -67,7 +67,7 @@ import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { ref } from "vue";
 import FilterPds from "./FilterPds.vue";
-import { closeFilter, numberFormat, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
+import { closeFilter, getQueryParam, numberFormat, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 
 const columns = ref([
     "Campaign ID",
@@ -84,8 +84,8 @@ const columns = ref([
 ]);
 
 const filter = ref({
-    created_start: "",
-    created_end: ""
+    created_start: getQueryParam("start_date", ""),
+    created_end: getQueryParam("end_date", "")
 });
 
 const paginate = usePaginate({
