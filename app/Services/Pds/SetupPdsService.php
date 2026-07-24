@@ -495,4 +495,17 @@ class SetupPdsService
         return $dialer;
     }
     
+    public function sessionlog($companyId, $start_date, $end_date, $limit = 10)
+    {
+        $query = http_build_query([
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'limit' => $limit,
+        ]);
+
+        $dialer = Dialer::get('/report/sessionlog?' . $query);
+
+        return $dialer;
+    }
+    
 }

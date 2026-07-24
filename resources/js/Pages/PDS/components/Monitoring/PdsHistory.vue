@@ -27,17 +27,13 @@
                     {{ row.total_agent }}
                 </Td>
                 <Td>
-                    {{ row.start_date }}
-                    <br>
-                    {{ row.start_time }}
+                    {{ row.SessionStart }}
                 </Td>
                 <Td>
-                    {{ row.end_date }}
-                    <br>
-                    {{ row.end_time }}
+                    {{ row.SessionEnd }}
                 </Td>
                 <Td>
-                    {{ row.data_size }}
+                    {{ row.DataSize }}
                 </Td>
                 <Td>
                     {{ row.data_utilize }}
@@ -46,16 +42,16 @@
                     {{ row.calls }}
                 </Td>
                 <Td>
-                    {{ row.contacted }}
+                    {{ row.DialContacted }}
                 </Td>
                 <Td>
-                    {{ row.uncontacted }}
+                    {{ row.DialUnContacted }}
                 </Td>
                 <Td>
-                    {{ row.abandoned }}
+                    {{ row.DialAbandon }}
                 </Td>
                 <Td>
-                    {{ row.abandoned_rate }}
+                    {{ row.DialAbandonRate }}
                 </Td>
             </tr>
         </Table>
