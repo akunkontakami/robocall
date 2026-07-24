@@ -52,7 +52,7 @@ const columns = ref([
     "Data Size",
     "Data Dial",
     // "Calls In Progress",
-    "Failed",
+    "No Answer",
     "Contacted"
 ]);
 

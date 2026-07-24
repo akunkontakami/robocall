@@ -75,10 +75,10 @@ const columns = ref([
     "Start Time",
     "End Time",
     "Data Size PDS",
-    "No Answer",
+    "Data Dialed",
     "Calls",
     "Call Contacted",
-    "Call Failed",
+    "No Answer",
     "Call Abandoned",
     "Abandon Rate",
 ]);
