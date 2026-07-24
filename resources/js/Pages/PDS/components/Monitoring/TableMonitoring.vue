@@ -2,52 +2,34 @@
     <Table :columns="columns" :paginate="paginate">
         <tr
             v-for="(row, i) in paginate.data.value"
-            :class="{
-                'bg-[#FDBFB7]': row.abandoned_rate_num >= row.max_abandoned
-            }"
+            :key="row.SessionId || i"
         >
             <Td>
-                {{ row.name }}
+                {{ row.SessionStatus }}
             </Td>
             <Td>
-                <span v-if="!row.is_running">Stop</span>
-                <span v-if="row.is_running">Running</span>
+                {{ row.SessionStart }}
             </Td>
             <Td>
-                {{ row.spv }}
+                {{ row.campaign_id }}
+            </Td>
+            <!-- <Td>
+                {{ row.tenant_id }}
+            </Td> -->
+            <Td>
+                {{ row.DataSize }}
             </Td>
             <Td>
-                {{ row.total_agent }}
+                {{ row.DataDialed }}
             </Td>
             <Td>
-                {{ row.data_size }}
+                {{ row.DialAbandoned }}
             </Td>
             <Td>
-                {{ row.retry }}
+                {{ row.DialFailed }}
             </Td>
             <Td>
-                {{ row.data_dialed }}
-            </Td>
-            <Td>
-                {{ row.calls }}
-            </Td>
-            <Td>
-                {{ row.call_in_progress }}
-            </Td>
-            <Td>
-                {{ row.contacted }}
-            </Td>
-            <Td>
-                {{ row.failed }}
-            </Td>
-            <Td>
-                {{ row.answered }}
-            </Td>
-            <Td>
-                {{ row.abandoned }}
-            </Td>
-            <Td>
-                {{ row.abandoned_rate }}
+                {{ row.DialContacted }}
             </Td>
         </tr>
     </Table>
@@ -56,26 +38,35 @@
 import Table from "@/Components/Table/Table.vue";
 import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
-import { ref, onBeforeUnmount, onMounted } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const columns = ref([
-    "PDS Name",
     "Status",
-    "SPV",
-    "Agent Ready",
+    "Session Start",
+    "Campaign ID",
+    // "Tenant ID",
     "Data Size",
-    "Retry",
     "Data Dial",
-    "Calls",
-    "Calls In Progress",
-    "Contacted",
-    "Failed",
-    "Answered",
-    "Abandon",
-    "Abandon Rate"
+    "Call Abandoned",
+    "No Answer",
+    "Contacted"
 ]);
 
 const paginate = usePaginate({
     route: route('pds.monitoring.datatable'),
+});
+
+let refreshInterval: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+    refreshInterval = setInterval(() => {
+        paginate.fetchData();
+    }, 120000);
+});
+
+onBeforeUnmount(() => {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
 });
 </script>

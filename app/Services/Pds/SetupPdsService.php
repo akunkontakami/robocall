@@ -481,4 +481,37 @@ class SetupPdsService
         ->where('company_id', $user->company_id)
         ->orderBy('pds_name', 'asc')->get();
     }
+
+    public function sessionactivity($companyId, $start_date, $end_date, $limit = 10)
+    {
+        $query = http_build_query([
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'limit' => $limit,
+        ]);
+
+        $dialer = Dialer::get('/report/sessionactivity?' . $query);
+
+        return $dialer;
+    }
+    
+    public function sessionlog($companyId, $start_date, $end_date, $limit = 10, $page = 1, $search = null)
+    {
+        $query = [
+            'page' => $page,
+            'per_page' => $limit,
+            'tenant_id' => user()->tenant_id,
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+        ];
+
+        if ($search) {
+            $query['campaign_id'] = $search;
+        }
+
+        $dialer = Dialer::get('/report/sessionlog?' . http_build_query($query));
+
+        return $dialer;
+    }
+    
 }
