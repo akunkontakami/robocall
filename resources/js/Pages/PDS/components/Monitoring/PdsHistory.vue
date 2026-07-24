@@ -19,39 +19,40 @@
         <Table :columns="columns" :paginate="paginate">
             <tr
                 v-for="(row, i) in paginate.data.value"
+                :key="row.SessionId || i"
             >
                 <Td>
-                    {{ row.name }}
+                    {{ row.campaign_id || '-' }}
                 </Td>
                 <Td>
-                    {{ row.total_agent }}
+                    {{ numberFormat(row.DialAgentAnswered ?? 0) }}
                 </Td>
                 <Td>
-                    {{ row.SessionStart }}
+                    {{ row.SessionStart || '-' }}
                 </Td>
                 <Td>
-                    {{ row.SessionEnd }}
+                    {{ row.SessionEnd || '-' }}
                 </Td>
                 <Td>
-                    {{ row.DataSize }}
+                    {{ numberFormat(row.DataSize ?? 0) }}
                 </Td>
                 <Td>
-                    {{ row.data_utilize }}
+                    {{ numberFormat(row.DataDialed ?? 0) }}
                 </Td>
                 <Td>
-                    {{ row.calls }}
+                    {{ numberFormat(row.DialCount ?? 0) }}
                 </Td>
                 <Td>
-                    {{ row.DialContacted }}
+                    {{ numberFormat(row.DialContacted ?? 0) }}
                 </Td>
                 <Td>
-                    {{ row.DialUnContacted }}
+                    {{ numberFormat(row.DialFailed ?? 0) }}
                 </Td>
                 <Td>
-                    {{ row.DialAbandon }}
+                    {{ numberFormat(row.DialAbandoned ?? 0) }}
                 </Td>
                 <Td>
-                    {{ row.DialAbandonRate }}
+                    {{ getAbandonRate(row) }}
                 </Td>
             </tr>
         </Table>
@@ -64,21 +65,21 @@ import Table from "@/Components/Table/Table.vue";
 import TableSearch from "@/Components/Table/TableSearch.vue";
 import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
-import { ref, onBeforeUnmount, onMounted } from "vue";
+import { ref } from "vue";
 import FilterPds from "./FilterPds.vue";
-import { closeFilter, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
+import { closeFilter, numberFormat, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 
 const columns = ref([
-    "PDS Name",
-    "Agent Ready",
+    "Campaign ID",
+    "Agent Answered",
     "Start Time",
     "End Time",
     "Data Size PDS",
-    "Data Utilize",
+    "Data Dialed",
     "Calls",
     "Call Contacted",
-    "Call UnContacted",
-    "Call Abandon",
+    "Call Failed",
+    "Call Abandoned",
     "Abandon Rate",
 ]);
 
@@ -91,6 +92,17 @@ const paginate = usePaginate({
     route: route('pds.monitoring.history-datatable'),
 });
 
+const getAbandonRate = (row: any) => {
+    const dialCount = Number(row?.DialCount || 0);
+    const dialAbandoned = Number(row?.DialAbandoned || 0);
+
+    if (!dialCount) {
+        return "0%";
+    }
+
+    return `${((dialAbandoned / dialCount) * 100).toFixed(2)}%`;
+};
+
 const filterData = () => {
     const param = filter.value;
     if (
@@ -102,8 +114,8 @@ const filterData = () => {
 
     if (validateGreaterDateRange(param.created_start, param.created_end)) {
         var filterParam: any = {
-            "filter[created_start]": param.created_start || "",
-            "filter[created_end]": param.created_end || "",
+            start_date: param.created_start || "",
+            end_date: param.created_end || "",
             "tab": 'pds-history'
         };
 
@@ -114,6 +126,6 @@ const filterData = () => {
 }
 
 const exportData = () => {
-    window.open(route('pds.monitoring.history-export'))
+    window.open(`${route('pds.monitoring.history-export')}${window.location.search}`)
 }
 </script>
