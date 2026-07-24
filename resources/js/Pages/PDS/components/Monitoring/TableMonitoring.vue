@@ -4,9 +4,6 @@
             v-for="(row, i) in paginate.data.value"
             :key="row.SessionId || i"
         >
-            <!-- <Td>
-                {{ row.SessionId }}
-            </Td> -->
             <Td>
                 {{ row.SessionStatus }}
             </Td>
@@ -44,7 +41,6 @@ import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const columns = ref([
-    // "Session ID",
     "Status",
     "Session Start",
     "Campaign ID",
