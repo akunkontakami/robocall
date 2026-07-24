@@ -41,7 +41,7 @@
 import Table from "@/Components/Table/Table.vue";
 import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
-import { ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const columns = ref([
     // "Session ID",
@@ -58,5 +58,19 @@ const columns = ref([
 
 const paginate = usePaginate({
     route: route('pds.monitoring.datatable'),
+});
+
+let refreshInterval: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+    refreshInterval = setInterval(() => {
+        paginate.fetchData();
+    }, 120000);
+});
+
+onBeforeUnmount(() => {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
 });
 </script>
