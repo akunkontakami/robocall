@@ -75,7 +75,7 @@ const columns = ref([
     "Start Time",
     "End Time",
     "Data Size PDS",
-    "Data Dialed",
+    "No Answer",
     "Calls",
     "Call Contacted",
     "Call Failed",

@@ -24,8 +24,8 @@ class MonitoringPdsController extends Controller
 
     public function monitoringDatatable()
     {
-        $start_date = request('start_date', now()->format('Y-m-23'));
-        $end_date = request('end_date', now()->format('Y-m-23'));
+        $start_date = request('start_date', now()->format('Y-m-d'));
+        $end_date = request('end_date', now()->format('Y-m-d'));
 
         $data = (new SetupPdsService())->sessionactivity(
             companyId: user()->company_id,
