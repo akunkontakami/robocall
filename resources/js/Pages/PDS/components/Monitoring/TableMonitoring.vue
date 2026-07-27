@@ -61,7 +61,7 @@ let refreshInterval: ReturnType<typeof setInterval> | null = null;
 onMounted(() => {
     refreshInterval = setInterval(() => {
         paginate.fetchData();
-    }, 120000);
+    }, 60000);
 });
 
 onBeforeUnmount(() => {
