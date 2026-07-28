@@ -513,5 +513,38 @@ class SetupPdsService
 
         return $dialer;
     }
+
+    public function sessionlogAll($companyId, $start_date, $end_date, $search = null)
+    {
+        $page = 1;
+        $perPage = 100;
+        $allData = collect();
+
+        do {
+            $query = [
+                'page' => $page,
+                'per_page' => $perPage,
+                'tenant_id' => user()->tenant_id,
+                'start_date' => $start_date,
+                'end_date' => $end_date,
+            ];
+
+            if ($search) {
+                $query['campaign_id'] = $search;
+            }
+
+            $result = Dialer::get('/report/sessionlog?' . http_build_query($query));
+            $data = collect($result['data'] ?? []);
+            $allData = $allData->merge($data);
+
+            $total = $result['total'] ?? $data->count();
+            $perPage = $result['per_page'] ?? $perPage;
+            $currentPage = $result['current_page'] ?? $page;
+
+            ++$page;
+        } while ($currentPage * $perPage < $total);
+
+        return $allData;
+    }
     
 }

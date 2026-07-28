@@ -6,7 +6,6 @@ use Inertia\Inertia;
 use App\Http\Controllers\Controller;
 use Rap2hpoutre\FastExcel\FastExcel;
 use App\Services\Pds\SetupPdsService;
-use App\Http\Resources\Pds\PdsHistoryResource;
 
 class MonitoringPdsController extends Controller
 {
@@ -57,33 +56,39 @@ class MonitoringPdsController extends Controller
 
     public function pdsHistoryExport()
     {
-        $data = PdsHistoryResource::collection(
-            (new SetupPdsService())->get(
-                companyId: user()->company_id,
-                search: request('search', ''),
-                filter: request('filter', []),
-                limit: null
-            )
+        $start_date = request('start_date', now()->toDateString());
+        $end_date = request('end_date', now()->toDateString());
+        $search = request('search');
+
+        $data = (new SetupPdsService())->sessionlogAll(
+            companyId: user()->company_id,
+            start_date: $start_date,
+            end_date: $end_date,
+            search: $search,
         );
 
-        $arrayData = $data->toArray(request());
         $name = 'pds_history_' . now()->format('Ymd_His') . '.xlsx';
 
-        return (new FastExcel(collect($arrayData)))
+        return (new FastExcel($data))
             ->download($name, function ($row) {
                 $row = (object) $row;
+
+                $dialCount = Number($row->DialCount ?? 0);
+                $dialAbandoned = Number($row->DialAbandoned ?? 0);
+                $abandonRate = $dialCount ? (($dialAbandoned / $dialCount) * 100) : 0;
+
                 return [
-                    'PDS' => $row->name,
-                    'Agent Ready' => $row->total_agent,
-                    'Start Time' => $row->session_start,
-                    'End Time' => $row->session_end,
-                    'Data Size PDS' => $row->data_size,
-                    'Data Utilize' => $row->data_utilize,
-                    'Calls' => $row->calls,
-                    'Call Contacted' => $row->contacted,
-                    'Call UnContacted' => $row->uncontacted,
-                    'Call Abandon' => $row->abandoned,
-                    'Abandon Rate' => $row->abandoned_rate
+                    'Campaign ID' => $row->campaign_id ?? '-',
+                    'Agent Answered' => $row->DialAgentAnswered ?? 0,
+                    'Start Time' => $row->SessionStart ?? '-',
+                    'End Time' => $row->SessionEnd ?? '-',
+                    'Data Size PDS' => $row->DataSize ?? 0,
+                    'Data Dialed' => $row->DataDialed ?? 0,
+                    'Calls' => $row->DialCount ?? 0,
+                    'Call Contacted' => $row->DialContacted ?? 0,
+                    'No Answer' => $row->DialFailed ?? 0,
+                    'Call Abandoned' => $row->DialAbandoned ?? 0,
+                    'Abandon Rate' => number_format($abandonRate, 2) . '%',
                 ];
             });
     }
