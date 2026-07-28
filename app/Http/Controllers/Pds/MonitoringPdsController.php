@@ -73,8 +73,8 @@ class MonitoringPdsController extends Controller
             ->download($name, function ($row) {
                 $row = (object) $row;
 
-                $dialCount = Number($row->DialCount ?? 0);
-                $dialAbandoned = Number($row->DialAbandoned ?? 0);
+                $dialCount = (int) ($row->DialCount ?? 0);
+                $dialAbandoned = (int) ($row->DialAbandoned ?? 0);
                 $abandonRate = $dialCount ? (($dialAbandoned / $dialCount) * 100) : 0;
 
                 return [
