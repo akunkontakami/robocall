@@ -43,18 +43,14 @@
         </div> -->
     </div>
 
-    <TableMonitoring />
+    <TableMonitoring :paginate="paginate" />
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 import CardDashboard from '../CardDashboard.vue';
 import TableMonitoring from './TableMonitoring.vue';
-import axios from 'axios';
 import { numberFormat } from '@/Plugins/Function/global-function';
-
-
-
-const callInProgress = ref<string | number>(0)
+import { usePaginate } from '@/Plugins/Hooks/usePaginate';
 
 const calls = ref([
     {
@@ -98,32 +94,61 @@ const activities = ref([
     }
 ])
 
-const loading = ref(false)
+const toNumber = (value: unknown) => {
+    const parsed = Number(value ?? 0);
 
-const fetchData = () => {
-    loading.value = true
-    axios.get(route('pds.monitoring.data'))
-    .then((res: any) => {
-        const sessions = res.data.sessions
-        const progress = res.data.progress
-        const dialer = res.data.dialer
-
-        calls.value[0].count = numberFormat(sessions.DataDialed)
-        calls.value[1].count = numberFormat(sessions.DialAgentAnswered)
-        calls.value[2].count = sessions.AnsweredRate
-        callInProgress.value = numberFormat(progress.DataInProgress)
-
-        activities.value[0].count = numberFormat(dialer.Active)
-        activities.value[1].count = numberFormat(dialer.Paused)
-        activities.value[2].count = numberFormat(dialer.Finished)
-    })
-    .finally(() => {
-        loading.value = false
-    })
+    return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-onMounted(() => {
-    fetchData()
+const formatRate = (answered: number, total: number) => {
+    if (!total) {
+        return '0%';
+    }
+
+    return `${((answered / total) * 100).toFixed(2)}%`;
+}
+
+const countUniqueCampaigns = (rows: any[], matcher?: (status: string) => boolean) => {
+    const campaigns = rows.reduce((items: Set<string>, row: any) => {
+        const campaignId = row.campaign_id;
+        const status = String(row.SessionStatus ?? '').toLowerCase();
+
+        if (campaignId === null || campaignId === undefined || campaignId === '') {
+            return items;
+        }
+
+        if (!matcher || matcher(status)) {
+            items.add(String(campaignId));
+        }
+
+        return items;
+    }, new Set<string>());
+
+    return campaigns.size;
+}
+
+const updateSummary = (result: any) => {
+    const rows = result?.data ?? [];
+
+    const totalDialed = rows.reduce((total: number, row: any) => total + toNumber(row.DataDialed), 0);
+    const totalContacted = rows.reduce((total: number, row: any) => total + toNumber(row.DialContacted), 0);
+    const activeCount = countUniqueCampaigns(rows);
+    const pausedCount = countUniqueCampaigns(rows, (status) => status.includes('pause'));
+    const finishedCount = countUniqueCampaigns(rows, (status) => status.includes('finish') || status.includes('completed'));
+
+    calls.value[0].count = numberFormat(totalDialed);
+    calls.value[1].count = numberFormat(totalContacted);
+    calls.value[2].count = formatRate(totalContacted, totalDialed);
+
+    activities.value[0].count = numberFormat(activeCount);
+    activities.value[1].count = numberFormat(pausedCount);
+    activities.value[2].count = numberFormat(finishedCount);
+}
+
+const paginate = usePaginate({
+    route: route('pds.monitoring.datatable'),
+    callback: updateSummary,
 })
 
+const loading = paginate.loading
 </script>
