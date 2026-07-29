@@ -13,14 +13,14 @@
             <Td>
                 {{ row.campaign_id }}
             </Td>
-            <!-- <Td>
-                {{ row.tenant_id }}
-            </Td> -->
             <Td>
                 {{ row.DataSize }}
             </Td>
             <Td>
                 {{ row.DataDialed }}
+            </Td>
+            <Td>
+                {{ row.DialInProgress }}
             </Td>
             <Td>
                 {{ row.DialAbandoned }}
@@ -40,19 +40,23 @@ import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
+const props = defineProps<{
+    paginate?: any;
+}>();
+
 const columns = ref([
     "Status",
     "Session Start",
     "Campaign ID",
-    // "Tenant ID",
     "Data Size",
     "Data Dial",
+    "Dial In Progress",
     "Call Abandoned",
     "No Answer",
     "Contacted"
 ]);
 
-const paginate = usePaginate({
+const paginate = props.paginate ?? usePaginate({
     route: route('pds.monitoring.datatable'),
 });
 
