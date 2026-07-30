@@ -547,9 +547,11 @@ class SetupPdsService
         return $allData;
     }
 
-    public function sessionByCampaign($companyId, $start_date, $end_date, $campaignId = null, $pdsId = null)
+    public function sessionByCampaign($companyId, $start_date, $end_date, $campaignId = null, $pdsId = null, $limit = 10, $page = 1)
     {
         $query = [
+            'page'       => $page,
+            'per_page'   => $limit,
             'start_date' => $start_date,
             'end_date'   => $end_date,
         ];
@@ -560,6 +562,8 @@ class SetupPdsService
         dd($response);
 
         $query = [
+            'page'       => $page,
+            'per_page'   => $limit,
             'tenant_id'  => user()->tenant_id,
             'start_date' => $start_date,
             'end_date'   => $end_date,
