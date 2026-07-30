@@ -17,19 +17,23 @@
             <template #thead>
                 <tr class="bg-[#F4F6FA]">
                     <Th rowspan="2">PDS Name</Th>
-                    <Th rowspan="2">Marketing Campaign</Th>
+                    <Th rowspan="2">SessionStart</Th>
+                    <Th rowspan="2">SessionEnd</Th>
                     <Th rowspan="2">Agent Ready</Th>
                     <Th rowspan="2">Data Size</Th>
                     <Th rowspan="2">Data Utilize</Th>
-                    <Th :colspan="outbounds.length" class="text-center border-x">Data Contacted</Th>
+                    <Th rowspan="2">Data Unutilize</Th>
+                    <Th rowspan="2">Attempt</Th>
+                    <Th rowspan="2">Contacted</Th>
                     <Th rowspan="2">Uncontacted</Th>
                     <Th rowspan="2">Abandon</Th>
-                    <Th rowspan="2">Unutilize PDS</Th>
+                    <Th :colspan="outbounds.length" class="text-center border-x">Call Status</Th>
                     <Th rowspan="2">Duration PDS</Th>
                 </tr>
                 <tr class="bg-[#F4F6FA]">
                     <Th
                         v-for="(outbound, i) in outbounds"
+                        :key="outbound"
                         :class="{
                             'border-l': i == 0,
                             'border-r': i + 1 == outbounds.length
@@ -42,12 +46,16 @@
 
             <tr
                 v-for="(row, i) in paginate.data.value"
+                :key="i"
             >
                 <Td>
                     {{ row.name }}
                 </Td>
                 <Td>
-                    {{ row.campaign }}
+                    {{ row.session_start }}
+                </Td>
+                <Td>
+                    {{ row.session_end }}
                 </Td>
                 <Td>
                     {{ row.total_agent }}
@@ -58,8 +66,14 @@
                 <Td>
                     {{ row.data_utilize }}
                 </Td>
-                <Td v-for="(outbound, i) in outbounds">
-                    {{ row.ticket_status?.[outbound] ?? 0 }}
+                <Td>
+                    {{ row.data_unutilize }}
+                </Td>
+                <Td>
+                    {{ row.attempt }}
+                </Td>
+                <Td>
+                    {{ row.contacted }}
                 </Td>
                 <Td>
                     {{ row.uncontacted }}
@@ -67,8 +81,8 @@
                 <Td>
                     {{ row.abandoned }}
                 </Td>
-                <Td>
-                    {{ row.unutilize }}
+                <Td v-for="(outbound, i) in outbounds" :key="outbound">
+                    {{ row.ticket_status?.[outbound] ?? 0 }}
                 </Td>
                 <Td>
                     {{ row.duration_pds }}
@@ -84,7 +98,7 @@ import Table from "@/Components/Table/Table.vue";
 import TableSearch from "@/Components/Table/TableSearch.vue";
 import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
-import { ref, onBeforeUnmount, onMounted, onBeforeMount } from "vue";
+import { ref, onBeforeMount } from "vue";
 import FilterByCampaign from "./FilterByCampaign.vue";
 import { closeFilter, getArrayParamsFromUrl, getQueryParam, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 import Th from "@/Components/Table/Th.vue";
@@ -106,9 +120,7 @@ const paginate = usePaginate({
 
 const filterData = () => {
     const param = filter.value;
-    if (
-        !param.created_start || !param.created_end
-    ) {
+    if (!param.created_start || !param.created_end) {
         showAlert("Please select date");
         return;
     }
@@ -132,7 +144,6 @@ const filterData = () => {
         routeAppendParam(filterParam, false);
         closeFilter();
     }
-
 };
 
 const exportData = () => {
@@ -144,14 +155,17 @@ const exportData = () => {
 onBeforeMount(() => {
     (columns.value as any) = [
         "PDS Name",
-        "Marketing Campaign",
+        "SessionStart",
+        "SessionEnd",
         "Agent Ready",
         "Data Size",
         "Data Utilize",
-        ...props.outbounds,
+        "Data Unutilize",
+        "Attempt",
+        "Contacted",
         "Uncontacted",
         "Abandon",
-        "Unutilize PDS",
+        ...props.outbounds,
         "Duration PDS",
     ]
 })
