@@ -557,16 +557,38 @@ class SetupPdsService
             'end_date'   => $end_date,
         ];
 
-        if ($campaignId) {
-            $query['campaign_id'] = $campaignId;
-        }
+        if ($campaignId) $query['campaign_id'] = $campaignId;
+        if ($pdsId) $query['pds_id'] = $pdsId;
 
-        if ($pdsId) {
-            $query['pds_id'] = $pdsId;
-        }
+        $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
 
-        $dialer = Dialer::get('/report/sessionlog?' . http_build_query($query));
+        $grouped = collect($response['data'])
 
-        return $dialer;
+            ->groupBy('campaign_id')
+            ->map(function ($sessions, $campaignId) {
+                $duration = $sessions->sum(function ($s) {
+                    return Carbon::parse($s['SessionEnd'])
+                        ->diffInSeconds(\Carbon\Carbon::parse($s['SessionStart']));
+                });
+
+                return [
+                    'campaign'     => $campaignId,
+                    'data_size'    => $sessions->max('DataSize'),
+                    'data_utilize' => $sessions->sum('DataDialed'),
+                    'uncontacted'  => $sessions->sum('DialFailed'),
+                    'abandoned'    => $sessions->sum('DialAbandoned'),
+                    'duration_pds' => $duration,
+                    // name (PDS), total_agent, unutilize, ticket_status
+                    // -> belum ada sumber datanya di response ini
+                ];
+            })
+            ->values();
+
+        return [
+            'data' => $grouped,
+            'current_page' => $response['current_page'],
+            'last_page' => $response['last_page'],
+            'total' => $response['total'],
+        ];
     }
 }
