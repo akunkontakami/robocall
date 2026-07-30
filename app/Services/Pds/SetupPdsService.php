@@ -551,13 +551,16 @@ class SetupPdsService
     {
         $page = max((int) ($page ?: 1), 1);
         $limit = (int) ($limit ?: 10);
-
+        $id = $companyId ?: '';
+        
         $selectedPds = null;
         if ($pdsId) {
             $selectedPds = Pds::query()
-                ->select(['id', 'pds_name', 'marketing_campaign_id'])
-                ->where('company_id', $companyId)
-                ->find($pdsId);
+                ->select(['id', 'pds_name', 'marketing_campaign_id']);
+                if ($id) {
+                    $selectedPds->where('id', $id);
+                }                   
+                $selectedPds = $selectedPds->find($pdsId);
         }
 
         $resolvedCampaignId = $campaignId ?: $selectedPds?->marketing_campaign_id;
@@ -621,7 +624,6 @@ class SetupPdsService
                 ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status');
-                dump($ticketStatus->toSql(), $ticketStatus->getBindings());
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
             
