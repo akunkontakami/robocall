@@ -561,6 +561,7 @@ class SetupPdsService
         if ($pdsId) $query['pds_id'] = $pdsId;
 
         $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
+        dd($response);
 
         $data = collect($response['data'])->map(function ($row) {
             $dataSize    = $row['DataSize'] ?? 0;
