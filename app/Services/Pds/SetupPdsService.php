@@ -631,12 +631,12 @@ class SetupPdsService
                 ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
                 ->whereNotNull('calls.pstn_id')
                 ->where('calls.company_id', $companyId)
-                ->when($resolvedCampaignIds->isNotEmpty(), fn($q) => $q->whereIn('calls.marketing_campaign_id', $resolvedCampaignIds->all()))
+                ->when($resolvedCampaignIds->isNotEmpty(), fn($q) => $q->whereIn('calls.company_id', $resolvedCampaignIds->all()))
                 ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
-                ->selectRaw('calls.marketing_campaign_id, th.status, COUNT(*) as total')
-                ->groupBy('calls.marketing_campaign_id', 'th.status')
+                ->selectRaw('calls.company_id, th.status, COUNT(*) as total')
+                ->groupBy('calls.company_id', 'th.status')
                 ->get()
-                ->groupBy('marketing_campaign_id');
+                ->groupBy('company_id');
 
             $duration = 0;
             if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
