@@ -48,45 +48,21 @@
                 v-for="(row, i) in paginate.data.value"
                 :key="i"
             >
-                <Td>
-                    {{ row.name }}
-                </Td>
-                <Td>
-                    {{ row.session_start }}
-                </Td>
-                <Td>
-                    {{ row.session_end }}
-                </Td>
-                <Td>
-                    {{ row.total_agent }}
-                </Td>
-                <Td>
-                    {{ row.data_size }}
-                </Td>
-                <Td>
-                    {{ row.data_utilize }}
-                </Td>
-                <Td>
-                    {{ row.data_unutilize }}
-                </Td>
-                <Td>
-                    {{ row.attempt }}
-                </Td>
-                <Td>
-                    {{ row.contacted }}
-                </Td>
-                <Td>
-                    {{ row.uncontacted }}
-                </Td>
-                <Td>
-                    {{ row.abandoned }}
-                </Td>
+                <Td>{{ row.name }}</Td>
+                <Td>{{ row.session_start }}</Td>
+                <Td>{{ row.session_end }}</Td>
+                <Td>{{ row.total_agent }}</Td>
+                <Td>{{ row.data_size }}</Td>
+                <Td>{{ row.data_utilize }}</Td>
+                <Td>{{ row.data_unutilize }}</Td>
+                <Td>{{ row.attempt }}</Td>
+                <Td>{{ row.contacted }}</Td>
+                <Td>{{ row.uncontacted }}</Td>
+                <Td>{{ row.abandoned }}</Td>
                 <Td v-for="(outbound, i) in outbounds" :key="outbound">
                     {{ row.ticket_status?.[outbound] ?? 0 }}
                 </Td>
-                <Td>
-                    {{ row.duration_pds }}
-                </Td>
+                <Td>{{ row.duration_pds }}</Td>
             </tr>
         </Table>
     </div>
