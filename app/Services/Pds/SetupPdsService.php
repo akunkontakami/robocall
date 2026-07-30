@@ -609,7 +609,7 @@ class SetupPdsService
             $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
             $dialerRows = collect($response['data'] ?? []);
         }
-
+        dd($dialerRows);
         $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
