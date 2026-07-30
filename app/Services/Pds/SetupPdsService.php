@@ -556,8 +556,12 @@ class SetupPdsService
             'end_date'   => $end_date,
         ];
 
+        if ($campaignId) {
+            $query['campaign_id'] = $campaignId;
+        }
+
         $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
-        $data = collect($response['data'] ?? [])->map(function ($row) use ($companyId, $start_date, $end_date) {
+        $data = collect($response['data'] ?? [])->map(function ($row) use ($companyId, $start_date, $end_date, $campaignId) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
             $contacted    = $row['DialContacted'] ?? 0;
@@ -569,6 +573,7 @@ class SetupPdsService
                 ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
                 ->whereNotNull('calls.pstn_id')
                 ->where('calls.company_id', $companyId)
+                ->when($campaignId, fn($q) => $q->where('calls.marketing_campaign_id', $campaignId))
                 ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status')
@@ -579,7 +584,7 @@ class SetupPdsService
                 $duration = Carbon::parse($row['SessionEnd'])
                     ->diffInSeconds(Carbon::parse($row['SessionStart']));
             }
-
+           
             return [
                 'campaign'       => $row['campaign_id'] ?? null,
                 'name'           => $row['campaign_id'] ?? null,
