@@ -16,27 +16,33 @@
         <Table :columns="columns" :paginate="paginate" :hide-th="true">
             <template #thead>
                 <tr class="bg-[#F4F6FA]">
-                    <Th rowspan="2">PDS Name</Th>
-                    <Th rowspan="2">SessionStart</Th>
-                    <Th rowspan="2">SessionEnd</Th>
-                    <Th rowspan="2">Agent Ready</Th>
-                    <Th rowspan="2">Data Size</Th>
-                    <Th rowspan="2">Data Utilize</Th>
-                    <Th rowspan="2">Data Unutilize</Th>
-                    <Th rowspan="2">Attempt</Th>
-                    <Th rowspan="2">Contacted</Th>
-                    <Th rowspan="2">Uncontacted</Th>
-                    <Th rowspan="2">Abandon</Th>
-                    <Th :colspan="outbounds.length" class="text-center border-x">Call Status</Th>
-                    <Th rowspan="2">Duration PDS</Th>
-                </tr>
-                <tr class="bg-[#F4F6FA]">
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">PDS Name</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">SessionStart</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">SessionEnd</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Agent Ready</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Data Size</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Data Utilize</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Data Unutilize</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Attempt</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Contacted</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Uncontacted</Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Abandon</Th>
                     <Th
-                        v-for="(outbound, i) in outbounds"
+                        v-if="visibleOutbounds.length"
+                        :colspan="visibleOutbounds.length"
+                        class="text-center border-x"
+                    >
+                        Call Status
+                    </Th>
+                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Duration PDS</Th>
+                </tr>
+                <tr v-if="visibleOutbounds.length" class="bg-[#F4F6FA]">
+                    <Th
+                        v-for="(outbound, i) in visibleOutbounds"
                         :key="outbound"
                         :class="{
                             'border-l': i == 0,
-                            'border-r': i + 1 == outbounds.length
+                            'border-r': i + 1 == visibleOutbounds.length
                         }"
                     >
                         {{ outbound }}
@@ -59,7 +65,7 @@
                 <Td>{{ row.contacted }}</Td>
                 <Td>{{ row.uncontacted }}</Td>
                 <Td>{{ row.abandoned }}</Td>
-                <Td v-for="(outbound, i) in outbounds" :key="outbound">
+                <Td v-for="(outbound, i) in visibleOutbounds" :key="outbound">
                     {{ row.ticket_status?.[outbound] ?? 0 }}
                 </Td>
                 <Td>{{ row.duration_pds }}</Td>
@@ -74,14 +80,12 @@ import Table from "@/Components/Table/Table.vue";
 import TableSearch from "@/Components/Table/TableSearch.vue";
 import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
-import { ref, onBeforeMount } from "vue";
+import { computed, ref } from "vue";
 import FilterByCampaign from "./FilterByCampaign.vue";
 import { closeFilter, getArrayParamsFromUrl, getQueryParam, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 import Th from "@/Components/Table/Th.vue";
 
 const props = defineProps(["campaigns", "spv", "agents", "pds", "outbounds"])
-
-const columns = ref([]);
 
 const filter = ref({
     created_start: getQueryParam("created_start"),
@@ -93,6 +97,30 @@ const filter = ref({
 const paginate = usePaginate({
     route: route('pds.report.campaign-datatable'),
 });
+
+const visibleOutbounds = computed(() => {
+    const rows = paginate.data.value ?? [];
+
+    return (props.outbounds ?? []).filter((outbound: string) =>
+        rows.some((row: any) => Number(row.ticket_status?.[outbound] ?? 0) !== 0)
+    );
+});
+
+const columns = computed(() => [
+    "PDS Name",
+    "SessionStart",
+    "SessionEnd",
+    "Agent Ready",
+    "Data Size",
+    "Data Utilize",
+    "Data Unutilize",
+    "Attempt",
+    "Contacted",
+    "Uncontacted",
+    "Abandon",
+    ...visibleOutbounds.value,
+    "Duration PDS",
+]);
 
 const filterData = () => {
     const param = filter.value;
@@ -127,22 +155,4 @@ const exportData = () => {
         route('pds.report.campaign-export') + window.location.search
     )
 }
-
-onBeforeMount(() => {
-    (columns.value as any) = [
-        "PDS Name",
-        "SessionStart",
-        "SessionEnd",
-        "Agent Ready",
-        "Data Size",
-        "Data Utilize",
-        "Data Unutilize",
-        "Attempt",
-        "Contacted",
-        "Uncontacted",
-        "Abandon",
-        ...props.outbounds,
-        "Duration PDS",
-    ]
-})
 </script>
