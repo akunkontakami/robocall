@@ -617,7 +617,7 @@ class SetupPdsService
                 ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
                 ->whereNotNull('calls.pstn_id')
                 ->where('calls.company_id', $companyId)
-                ->when($resolvedCampaignId, fn($q) => $q->where('calls.marketing_campaign_id', $resolvedCampaignId))
+                ->when($resolvedCampaignId, fn($q) => $q->where('calls.company_id', $resolvedCampaignId))
                 ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status')
