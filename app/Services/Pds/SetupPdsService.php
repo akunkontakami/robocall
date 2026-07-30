@@ -547,16 +547,15 @@ class SetupPdsService
         return $allData;
     }
 
-    public function sessionByCampaign($companyId, $search, $limit)
+    public function sessionByCampaign($companyId, $campaignId, $pdsId, $limit)
     {
         $urlPath = '/report/sessionlog';
-        $campaignId = $search;
-        dd($search);
-        
+
         $query = http_build_query([
-            'company_id' => $companyId,
+            'company_id'  => $companyId,
             'campaign_id' => $campaignId,
-            'limit' => $limit,
+            'pds_id'      => $pdsId,
+            'limit'       => $limit,
         ]);
 
         $dialer = Dialer::get($urlPath . '?' . $query);
