@@ -620,9 +620,9 @@ class SetupPdsService
                 ->when($resolvedCampaignId, fn($q) => $q->where('calls.company_id', $resolvedCampaignId))
                 ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
                 ->selectRaw('th.status, COUNT(*) as total')
-                ->groupBy('th.status')
-                ->pluck('total', 'th.status');
+                ->groupBy('th.status');
                 dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+                $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
             
             $duration = 0;
