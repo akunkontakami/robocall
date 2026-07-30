@@ -552,65 +552,86 @@ class SetupPdsService
         $page = max((int) ($page ?: 1), 1);
         $limit = (int) ($limit ?: 10);
         $id = $companyId ?: '';
-        
-        $selectedPds = null;
-        if ($pdsId) {
-            $selectedPds = Pds::query()
-                ->select(['id', 'pds_name', 'marketing_campaign_id']);
-            if ($companyId) {
-                $selectedPds->where('company_id', $companyId);
-            }
-            $selectedPds = $selectedPds->find($pdsId);
+
+        // Normalize campaignId to single value (take first if array)
+        if (is_array($campaignId)) {
+            $campaignId = $campaignId[0] ?? null;
         }
-        
+
+        // Support multiple PDS IDs from filter
+        $pdsIds = is_array($pdsId) ? array_filter($pdsId) : array_filter([$pdsId]);
+        $multiplePds = count($pdsIds) > 1;
+
+        $selectedPdsList = collect();
+        if (!empty($pdsIds)) {
+            $selectedPdsList = Pds::query()
+                ->select(['id', 'pds_name', 'marketing_campaign_id'])
+                ->whereIn('id', $pdsIds)
+                ->when($companyId, fn($q) => $q->where('company_id', $companyId))
+                ->get();
+        }
+
+        $selectedPds = $selectedPdsList->first();
         $resolvedCampaignId = $campaignId ?: $selectedPds?->marketing_campaign_id;
         $shouldFilterFromLocalQuery = (bool) $resolvedCampaignId;
         $response = [];
         $dialerRows = collect();
 
-        if ($shouldFilterFromLocalQuery) {
-            $dialerPage = 1;
-            $dialerPerPage = 100;
+        $pdsNames = $selectedPdsList->pluck('pds_name')->filter()->all();
+        if (empty($pdsNames)) {
+            $pdsNames = [null];
+        }
 
-            do {
+        foreach ($pdsNames as $pdsName) {
+            // With multiple PDSes, always do full pagination to aggregate all data
+            if ($shouldFilterFromLocalQuery || $multiplePds) {
+                $dialerPage = 1;
+                $dialerPerPage = 100;
+
+                do {
+                    $query = [
+                        'page'       => $dialerPage,
+                        'per_page'   => $dialerPerPage,
+                        'tenant_id'  => user()->tenant_id,
+                        'start_date' => $start_date,
+                        'end_date'   => $end_date,
+                        'pds_name'   => $pdsName,
+                    ];
+
+                    $result = Dialer::get('/report/sessionlog?' . http_build_query($query));
+                    $rows = collect($result['data'] ?? []);
+                    $dialerRows = $dialerRows->merge($rows);
+
+                    $total = $result['total'] ?? $rows->count();
+                    $dialerPerPage = $result['per_page'] ?? $dialerPerPage;
+                    $currentPage = $result['current_page'] ?? $dialerPage;
+
+                    ++$dialerPage;
+                } while ($currentPage * $dialerPerPage < $total);
+            } else {
                 $query = [
-                    'page'       => $dialerPage,
-                    'per_page'   => $dialerPerPage,
+                    'page'       => $page,
+                    'per_page'   => $limit,
                     'tenant_id'  => user()->tenant_id,
                     'start_date' => $start_date,
                     'end_date'   => $end_date,
-                    'pds_name'   => $selectedPds?->pds_name,
+                    'pds_name'   => $pdsName,
                 ];
 
+                if ($search) {
+                    $query['campaign_id'] = $search;
+                }
+
                 $result = Dialer::get('/report/sessionlog?' . http_build_query($query));
-                $rows = collect($result['data'] ?? []);
-                $dialerRows = $dialerRows->merge($rows);
-
-                $total = $result['total'] ?? $rows->count();
-                $dialerPerPage = $result['per_page'] ?? $dialerPerPage;
-                $currentPage = $result['current_page'] ?? $dialerPage;
-
-                ++$dialerPage;
-            } while ($currentPage * $dialerPerPage < $total);
-        } else {
-            $query = [
-                'page'       => $page,
-                'per_page'   => $limit,
-                'tenant_id'  => user()->tenant_id,
-                'start_date' => $start_date,
-                'end_date'   => $end_date,
-                'pds_name'   => $selectedPds?->pds_name,
-            ];
-
-            if ($search) {
-                $query['campaign_id'] = $search;
+                $dialerRows = $dialerRows->merge(collect($result['data'] ?? []));
+                $response = $result;
             }
-
-            $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
-            $dialerRows = collect($response['data'] ?? []);
         }
-        dd($dialerRows);
-        $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds) {
+
+        // Build PDS name lookup for multi-PDS rows
+        $pdsNameLookup = $selectedPdsList->pluck('pds_name', 'marketing_campaign_id')->filter();
+
+        $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
             $contacted    = $row['DialContacted'] ?? 0;
@@ -633,10 +654,17 @@ class SetupPdsService
                 $duration = Carbon::parse($row['SessionEnd'])
                     ->diffInSeconds(Carbon::parse($row['SessionStart']));
             }
+
+            // When multiple PDS selected, use row's campaign_id from API instead of single PDS name
+            if ($multiplePds) {
+                $campaignName = $pdsNameLookup[$row['campaign_id'] ?? ''] ?? ($row['campaign_id'] ?? null);
+            } else {
+                $campaignName = $selectedPds?->pds_name ?? ($row['campaign_id'] ?? null);
+            }
            
             return [
-                'campaign'       => $selectedPds?->pds_name ?? ($row['campaign_id'] ?? null),
-                'name'           => $selectedPds?->pds_name ?? ($row['campaign_id'] ?? null),
+                'campaign'       => $campaignName,
+                'name'           => $campaignName,
                 'session_start'  => $row['SessionStart'] ?? null,
                 'session_end'    => $row['SessionEnd'] ?? null,
                 'total_agent'    => null, // belum ada sumber data
@@ -653,7 +681,9 @@ class SetupPdsService
             ];
         });
 
-        if ($shouldFilterFromLocalQuery) {
+        $needLocalPagination = $shouldFilterFromLocalQuery || $multiplePds;
+
+        if ($needLocalPagination) {
             $data = $data->filter(fn($row) => (int) ($row['_matched_call_total'] ?? 0) > 0)->values();
             $total = $data->count();
             $lastPage = max((int) ceil($total / $limit), 1);
