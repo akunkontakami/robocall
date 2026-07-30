@@ -561,7 +561,7 @@ class SetupPdsService
         if ($pdsId) $query['pds_id'] = $pdsId;
 
         $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
-        dd($response);
+        dd($query);
         $data = collect($response['data'] ?? [])->map(function ($row) use ($companyId, $start_date, $end_date) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
