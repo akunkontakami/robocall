@@ -622,6 +622,7 @@ class SetupPdsService
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status')
                 ->pluck('total', 'th.status');
+                dump($ticketStatus->toSql(), $ticketStatus->getBindings());
             $matchedCallTotal = (int) $ticketStatus->sum();
             
             $duration = 0;
