@@ -562,7 +562,7 @@ class SetupPdsService
                 }                   
                 $selectedPds = $selectedPds->find($pdsId);
         }
-
+        
         $resolvedCampaignId = $campaignId ?: $selectedPds?->marketing_campaign_id;
         $shouldFilterFromLocalQuery = (bool) $resolvedCampaignId;
         $response = [];
@@ -579,6 +579,7 @@ class SetupPdsService
                     'tenant_id'  => user()->tenant_id,
                     'start_date' => $start_date,
                     'end_date'   => $end_date,
+                    'pds_name'   => $selectedPds?->pds_name,
                 ];
 
                 $result = Dialer::get('/report/sessionlog?' . http_build_query($query));
@@ -598,6 +599,7 @@ class SetupPdsService
                 'tenant_id'  => user()->tenant_id,
                 'start_date' => $start_date,
                 'end_date'   => $end_date,
+                'pds_name'   => $selectedPds?->pds_name,
             ];
 
             if ($search) {
@@ -607,7 +609,7 @@ class SetupPdsService
             $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
             $dialerRows = collect($response['data'] ?? []);
         }
-
+        
         $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
