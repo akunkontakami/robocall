@@ -547,18 +547,25 @@ class SetupPdsService
         return $allData;
     }
 
-    public function sessionByCampaign($companyId, $campaignId, $pdsId, $limit)
+    public function sessionByCampaign($companyId, $start_date, $end_date, $campaignId = null, $pdsId = null, $limit = 10, $page = 1)
     {
-        $urlPath = '/report/sessionlog';
+        $query = [
+            'page'       => $page,
+            'per_page'   => $limit,
+            'tenant_id'  => user()->tenant_id,
+            'start_date' => $start_date,
+            'end_date'   => $end_date,
+        ];
 
-        $query = http_build_query([
-            'company_id'  => $companyId,
-            'campaign_id' => $campaignId,
-            'pds_id'      => $pdsId,
-            'limit'       => $limit,
-        ]);
+        if ($campaignId) {
+            $query['campaign_id'] = $campaignId;
+        }
 
-        $dialer = Dialer::get($urlPath . '?' . $query);
+        if ($pdsId) {
+            $query['pds_id'] = $pdsId;
+        }
+
+        $dialer = Dialer::get('/report/sessionlog?' . http_build_query($query));
 
         return $dialer;
     }

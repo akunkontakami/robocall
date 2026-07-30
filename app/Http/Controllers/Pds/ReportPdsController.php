@@ -39,11 +39,15 @@ class ReportPdsController extends Controller
     {
         $data = (new SetupPdsService())->sessionByCampaign(
             companyId: user()->company_id,
-            campaignId: request('filter.campaigns.0', ''),
-            pdsId: request('filter.pds.0', ''),
+            start_date: request('created_start', now()->toDateString()),
+            end_date: request('created_end', now()->toDateString()),
+            campaignId: request('filter.campaigns.0'),
+            pdsId: request('filter.pds.0'),
             limit: request('limit', 10),
+            page: request('page', 1),
         );
-        return $data;
+
+        return response()->json($data);
     }
 
     public function agentDatatable()
