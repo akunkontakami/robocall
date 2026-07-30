@@ -547,8 +547,19 @@ class SetupPdsService
         return $allData;
     }
 
-    public function sessionByCampaign($companyId, $start_date, $end_date, $campaignId = null,  $search = null, $limit = null, $page = null)
+    public function sessionByCampaign($companyId, $start_date, $end_date, $campaignId = null, $pdsId = null, $search = null, $limit = null, $page = null)
     {
+        $selectedPds = null;
+        if ($pdsId) {
+            $selectedPds = Pds::query()
+                ->select(['id', 'pds_name', 'marketing_campaign_id'])
+                ->where('company_id', $companyId)
+                ->find($pdsId);
+        }
+
+        $dialerCampaignId = $selectedPds?->pds_name ?: $search;
+        $resolvedCampaignId = $campaignId ?: $selectedPds?->marketing_campaign_id;
+
         $query = [
             'page'       => $page,
             'per_page'   => $limit,
@@ -556,12 +567,12 @@ class SetupPdsService
             'end_date'   => $end_date,
         ];
 
-        if ($campaignId) {
-            $query['campaign_id'] = $campaignId;
+        if ($dialerCampaignId) {
+            $query['campaign_id'] = $dialerCampaignId;
         }
 
         $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
-        $data = collect($response['data'] ?? [])->map(function ($row) use ($companyId, $start_date, $end_date, $campaignId) {
+        $data = collect($response['data'] ?? [])->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
             $contacted    = $row['DialContacted'] ?? 0;
@@ -573,7 +584,7 @@ class SetupPdsService
                 ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
                 ->whereNotNull('calls.pstn_id')
                 ->where('calls.company_id', $companyId)
-                ->when($campaignId, fn($q) => $q->where('calls.marketing_campaign_id', $campaignId))
+                ->when($resolvedCampaignId, fn($q) => $q->where('calls.marketing_campaign_id', $resolvedCampaignId))
                 ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status')
