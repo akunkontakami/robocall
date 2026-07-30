@@ -557,10 +557,10 @@ class SetupPdsService
         if ($pdsId) {
             $selectedPds = Pds::query()
                 ->select(['id', 'pds_name', 'marketing_campaign_id']);
-                if ($id) {
-                    $selectedPds->whereIn('id', $id);
-                }                   
-                $selectedPds = $selectedPds->find($pdsId);
+            if ($companyId) {
+                $selectedPds->where('company_id', $companyId);
+            }
+            $selectedPds = $selectedPds->find($pdsId);
         }
         
         $resolvedCampaignId = $campaignId ?: $selectedPds?->marketing_campaign_id;
@@ -609,7 +609,7 @@ class SetupPdsService
             $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
             $dialerRows = collect($response['data'] ?? []);
         }
-        
+
         $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
@@ -621,7 +621,7 @@ class SetupPdsService
             $ticketStatus = DB::table('calls')
                 ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
                 ->whereNotNull('calls.pstn_id')
-                ->when($resolvedCampaignId, fn($q) => $q->where('calls.company_id', $resolvedCampaignId))
+                // ->when($resolvedCampaignId, fn($q) => $q->where('calls.company_id', $resolvedCampaignId))
                 ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status');
