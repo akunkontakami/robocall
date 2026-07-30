@@ -578,7 +578,7 @@ class SetupPdsService
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status')
                 ->pluck('total', 'th.status');
-
+            dd($ticketStatus);
             $duration = 0;
             if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
                 $duration = Carbon::parse($row['SessionEnd'])
