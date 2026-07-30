@@ -15,16 +15,14 @@ class SetupPdsService
     /**
      * Create a new class instance.
      */
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     public function get($companyId, $search, $filter, $limit)
     {
         $data = Pds::with(['campaign', 'agents', 'customers', 'agents.companyUser', 'agents.ext', 'spv', 'spv.companyUser'])
-        ->where('company_id', $companyId)
-        ->when($search, fn ($q) => $q->where('pds_name', 'LIKE', "%$search%"))
-        ->orderBy('created_at', 'desc');
+            ->where('company_id', $companyId)
+            ->when($search, fn($q) => $q->where('pds_name', 'LIKE', "%$search%"))
+            ->orderBy('created_at', 'desc');
 
         if ($limit == null) {
             return $data->get();
@@ -42,14 +40,14 @@ class SetupPdsService
         $campaigns = @$filter['campaigns'];
 
         $data = Pds::with(['campaign', 'agents', 'customers', 'agents.companyUser', 'agents.ext', 'spv', 'spv.companyUser'])
-        ->withCount(['tickets as ticket_count' => function ($q) use ($statuses) {
-            $q->whereIn('status', $statuses)->where('is_bucket', 1);
-        }])
-        ->where('company_id', $companyId)
-        ->when($campaigns, fn ($q) => $q->whereIn('marketing_campaign_id', $campaigns))
-        ->when($pds, fn ($q) => $q->whereIn('id', $pds))
-        ->when($search, fn ($q) => $q->where('pds_name', 'LIKE', "%$search%"))
-        ->orderBy('created_at', 'desc');
+            ->withCount(['tickets as ticket_count' => function ($q) use ($statuses) {
+                $q->whereIn('status', $statuses)->where('is_bucket', 1);
+            }])
+            ->where('company_id', $companyId)
+            ->when($campaigns, fn($q) => $q->whereIn('marketing_campaign_id', $campaigns))
+            ->when($pds, fn($q) => $q->whereIn('id', $pds))
+            ->when($search, fn($q) => $q->where('pds_name', 'LIKE', "%$search%"))
+            ->orderBy('created_at', 'desc');
 
         if ($limit === null) {
             $data = $data->get();
@@ -84,23 +82,25 @@ class SetupPdsService
             'pds.spv',
             'pds.spv.companyUser',
         ])
-        ->withCount(['tickets as ticket_count' => function ($q) use ($statuses) {
-            $q->whereIn('status', $statuses)
-            ->where('is_bucket', 1)
-            ->whereColumn('current_agent_id', 'pds_agents.user_id');
-        }])
-        ->whereHas(
-            'pds', fn ($q) => $q->where('company_id', $companyId)
-                                ->when($campaigns, fn ($q) => $q->whereIn('marketing_campaign_id', $campaigns))
-                                ->when($spv, fn ($q) => $q->whereIn('spv_id', $spv))
-                                ->when($pds, fn ($q) => $q->whereIn('id', $pds))
-        )
-        ->whereHas(
-            'companyUser', fn ($q) => $q->where('status', 'active')
-                                        ->when($agent, fn ($q) => $q->whereIn('id', $agent))
-        )
-        ->when($search, fn ($q) => $q->whereHas('pds', fn ($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
-        ->orderBy('created_at', 'desc');
+            ->withCount(['tickets as ticket_count' => function ($q) use ($statuses) {
+                $q->whereIn('status', $statuses)
+                    ->where('is_bucket', 1)
+                    ->whereColumn('current_agent_id', 'pds_agents.user_id');
+            }])
+            ->whereHas(
+                'pds',
+                fn($q) => $q->where('company_id', $companyId)
+                    ->when($campaigns, fn($q) => $q->whereIn('marketing_campaign_id', $campaigns))
+                    ->when($spv, fn($q) => $q->whereIn('spv_id', $spv))
+                    ->when($pds, fn($q) => $q->whereIn('id', $pds))
+            )
+            ->whereHas(
+                'companyUser',
+                fn($q) => $q->where('status', 'active')
+                    ->when($agent, fn($q) => $q->whereIn('id', $agent))
+            )
+            ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
+            ->orderBy('created_at', 'desc');
 
         if ($limit === null) {
             $data = $data->get();
@@ -120,18 +120,18 @@ class SetupPdsService
     public function getAll($companyId)
     {
         return Pds::with(['campaign', 'agents', 'customers', 'agents.companyUser', 'spv', 'spv.companyUser'])
-        ->where('company_id', $companyId)
-        ->orderBy('created_at', 'desc')
-        ->get();
+            ->where('company_id', $companyId)
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 
     public function find($companyId, $id, $all = [0, 1])
     {
         return Pds::with(['campaign', 'spv', 'spv.companyUser', 'agents', 'agents.companyUser', 'customers'])
-        ->where('company_id', $companyId)
-        ->whereIn('is_running', $all)
-        ->where('id', $id)
-        ->firstOrFail();
+            ->where('company_id', $companyId)
+            ->whereIn('is_running', $all)
+            ->where('id', $id)
+            ->firstOrFail();
     }
 
     public function getAllIvr()
@@ -142,7 +142,7 @@ class SetupPdsService
         $perPage = 10;
 
         do {
-            $result = Dialer::get($urlPath."?page={$page}&per_page={$perPage}");
+            $result = Dialer::get($urlPath . "?page={$page}&per_page={$perPage}");
 
             $data = collect($result['data'])->map(function ($item) {
                 return [
@@ -171,7 +171,7 @@ class SetupPdsService
         $perPage = 10;
 
         do {
-            $result = Dialer::get($urlPath."?page={$page}&per_page={$perPage}");
+            $result = Dialer::get($urlPath . "?page={$page}&per_page={$perPage}");
 
             $data = collect($result['data'])->map(function ($item) {
                 return [
@@ -303,7 +303,7 @@ class SetupPdsService
                 $query['end_date'] = $endDate;
             }
 
-            $result = Dialer::get($urlPath.'?'.http_build_query($query));
+            $result = Dialer::get($urlPath . '?' . http_build_query($query));
             $data = collect($result['data']);
 
             foreach ($data as $item) {
@@ -330,8 +330,8 @@ class SetupPdsService
 
         $summary['TotalDurationFormatted'] = gmdate('H:i:s', $summary['TotalDuration']);
         $summary['AverageHandling'] = $summary['DataDialed'] > 0
-                                    ? gmdate('H:i:s', $summary['TotalDuration'] / $summary['DataDialed'])
-                                    : '00:00:00';
+            ? gmdate('H:i:s', $summary['TotalDuration'] / $summary['DataDialed'])
+            : '00:00:00';
 
         // $summary['DurationCall'] = $summary['DialContacted'] > 0
         //                             ? gmdate("H:i:s", $summary['TotalDuration'] / $summary['DialContacted'])
@@ -385,7 +385,7 @@ class SetupPdsService
                     $query['end_date'] = $endDate;
                 }
 
-                $result = Dialer::get($urlPath.'?'.http_build_query($query));
+                $result = Dialer::get($urlPath . '?' . http_build_query($query));
                 $data = collect($result['data']);
 
                 foreach ($data as $item) {
@@ -478,8 +478,8 @@ class SetupPdsService
             'pds_name as value',
             'company_id',
         ])
-        ->where('company_id', $user->company_id)
-        ->orderBy('pds_name', 'asc')->get();
+            ->where('company_id', $user->company_id)
+            ->orderBy('pds_name', 'asc')->get();
     }
 
     public function sessionactivity($companyId, $start_date, $end_date, $limit = 10)
@@ -494,7 +494,7 @@ class SetupPdsService
 
         return $dialer;
     }
-    
+
     public function sessionlog($companyId, $start_date, $end_date, $limit = 10, $page = 1, $search = null)
     {
         $query = [
@@ -546,5 +546,21 @@ class SetupPdsService
 
         return $allData;
     }
-    
+
+    public function sessionByCampaign($companyId, $search, $limit)
+    {
+        $urlPath = '/report/sessionlog';
+        $campaignId = $search;
+        dd($search);
+        
+        $query = http_build_query([
+            'company_id' => $companyId,
+            'campaign_id' => $campaignId,
+            'limit' => $limit,
+        ]);
+
+        $dialer = Dialer::get($urlPath . '?' . $query);
+
+        return $dialer;
+    }
 }

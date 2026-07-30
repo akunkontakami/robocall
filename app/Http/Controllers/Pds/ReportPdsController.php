@@ -37,14 +37,12 @@ class ReportPdsController extends Controller
 
     public function campaignDatatable()
     {
-        return ReportCampaignResource::collection(
-            (new SetupPdsService())->getByCampaign(
+        $data = (new SetupPdsService())->sessionByCampaign(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter', []),
                 limit: request('limit', 10),
-            )
         );
+        return $data;
     }
 
     public function agentDatatable()
