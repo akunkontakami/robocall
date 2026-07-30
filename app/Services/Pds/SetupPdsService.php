@@ -547,11 +547,19 @@ class SetupPdsService
         return $allData;
     }
 
-    public function sessionByCampaign($companyId, $start_date, $end_date, $campaignId = null, $pdsId = null, $limit = 10, $page = 1)
+    public function sessionByCampaign($companyId, $start_date, $end_date, $campaignId = null, $pdsId = null)
     {
         $query = [
-            'page'       => $page,
-            'per_page'   => $limit,
+            'start_date' => $start_date,
+            'end_date'   => $end_date,
+        ];
+
+        if ($campaignId) $query['campaign_id'] = $campaignId;
+       
+        $response = Dialer::get('/report/dialercalllog?' . http_build_query($query));
+        dd($response);
+
+        $query = [
             'tenant_id'  => user()->tenant_id,
             'start_date' => $start_date,
             'end_date'   => $end_date,
@@ -561,7 +569,7 @@ class SetupPdsService
         if ($pdsId) $query['pds_id'] = $pdsId;
 
         $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
-        dd($response);
+       
 
         $data = collect($response['data'])->map(function ($row) {
             $dataSize    = $row['DataSize'] ?? 0;
