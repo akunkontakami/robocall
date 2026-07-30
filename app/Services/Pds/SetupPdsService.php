@@ -552,18 +552,6 @@ class SetupPdsService
         $query = [
             'page'       => $page,
             'per_page'   => $limit,
-            'start_date' => $start_date,
-            'end_date'   => $end_date,
-        ];
-
-        if ($campaignId) $query['campaign_id'] = $campaignId;
-       
-        $response = Dialer::get('/report/dialercalllog?' . http_build_query($query));
-        dd($response);
-
-        $query = [
-            'page'       => $page,
-            'per_page'   => $limit,
             'tenant_id'  => user()->tenant_id,
             'start_date' => $start_date,
             'end_date'   => $end_date,
@@ -573,18 +561,32 @@ class SetupPdsService
         if ($pdsId) $query['pds_id'] = $pdsId;
 
         $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
-       
 
-        $data = collect($response['data'])->map(function ($row) {
-            $dataSize    = $row['DataSize'] ?? 0;
-            $dataUtilize = $row['DataDialed'] ?? 0;
-            $contacted   = $row['DialContacted'] ?? 0;
-            $abandoned   = $row['DialAbandoned'] ?? 0;
+        $data = collect($response['data'] ?? [])->map(function ($row) use ($companyId, $start_date, $end_date) {
+            $dataSize     = $row['DataSize'] ?? 0;
+            $dataUtilize  = $row['DataDialed'] ?? 0;
+            $contacted    = $row['DialContacted'] ?? 0;
+            $abandoned    = $row['DialAbandoned'] ?? 0;
+            $sessionStart = $row['SessionStart'] ?? $start_date;
+            $sessionEnd   = $row['SessionEnd'] ?? $end_date;
 
-            $duration = Carbon::parse($row['SessionEnd'])
-                ->diffInSeconds(Carbon::parse($row['SessionStart']));
+            $ticketStatus = DB::table('calls')
+                ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
+                ->whereNotNull('calls.pstn_id')
+                ->where('calls.company_id', $companyId)
+                ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
+                ->selectRaw('th.status, COUNT(*) as total')
+                ->groupBy('th.status')
+                ->pluck('total', 'th.status');
+
+            $duration = 0;
+            if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
+                $duration = Carbon::parse($row['SessionEnd'])
+                    ->diffInSeconds(Carbon::parse($row['SessionStart']));
+            }
 
             return [
+                'campaign'       => $row['campaign_id'] ?? null,
                 'name'           => $row['campaign_id'] ?? null,
                 'session_start'  => $row['SessionStart'] ?? null,
                 'session_end'    => $row['SessionEnd'] ?? null,
@@ -596,17 +598,17 @@ class SetupPdsService
                 'contacted'      => $contacted,
                 'uncontacted'    => max($dataUtilize - $contacted - $abandoned, 0),
                 'abandoned'      => $abandoned,
-                'ticket_status'  => [], // belum ada sumber data (butuh join dialer_call_log/calls/ticket_history)
+                'ticket_status'  => $ticketStatus,
                 'duration_pds'   => gmdate('H:i:s', $duration),
             ];
         })->values();
 
         return [
             'data'          => $data,
-            'current_page'  => $response['current_page'],
-            'last_page'     => $response['last_page'],
-            'total'         => $response['total'],
-            'per_page'      => $response['per_page'],
+            'current_page'  => $response['current_page'] ?? $page,
+            'last_page'     => $response['last_page'] ?? 1,
+            'total'         => $response['total'] ?? $data->count(),
+            'per_page'      => $response['per_page'] ?? $limit,
         ];
     }
 }
