@@ -48,7 +48,7 @@
                 v-for="(row, i) in paginate.data.value"
                 :key="i"
             >
-                <Td>{{ row.name }}</Td>
+                <Td>{{ row.campaign }}</Td>
                 <Td>{{ row.session_start }}</Td>
                 <Td>{{ row.session_end }}</Td>
                 <Td>{{ row.total_agent }}</Td>

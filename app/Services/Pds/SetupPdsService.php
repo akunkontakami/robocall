@@ -561,7 +561,7 @@ class SetupPdsService
         if ($pdsId) $query['pds_id'] = $pdsId;
 
         $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
-
+        dd($response);
         $grouped = collect($response['data'])
 
             ->groupBy('campaign_id')
