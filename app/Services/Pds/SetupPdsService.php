@@ -562,7 +562,6 @@ class SetupPdsService
                 }                   
                 $selectedPds = $selectedPds->find($pdsId);
         }
-        dd($selectedPds);
         $resolvedCampaignId = $campaignId ?: $selectedPds?->marketing_campaign_id;
         $shouldFilterFromLocalQuery = (bool) $resolvedCampaignId;
         $response = [];
