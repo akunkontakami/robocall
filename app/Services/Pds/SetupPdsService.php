@@ -561,34 +561,39 @@ class SetupPdsService
         if ($pdsId) $query['pds_id'] = $pdsId;
 
         $response = Dialer::get('/report/sessionlog?' . http_build_query($query));
-        dd($response);
-        $grouped = collect($response['data'])
 
-            ->groupBy('campaign_id')
-            ->map(function ($sessions, $campaignId) {
-                $duration = $sessions->sum(function ($s) {
-                    return Carbon::parse($s['SessionEnd'])
-                        ->diffInSeconds(\Carbon\Carbon::parse($s['SessionStart']));
-                });
+        $data = collect($response['data'])->map(function ($row) {
+            $dataSize    = $row['DataSize'] ?? 0;
+            $dataUtilize = $row['DataDialed'] ?? 0;
+            $contacted   = $row['DialContacted'] ?? 0;
+            $abandoned   = $row['DialAbandoned'] ?? 0;
 
-                return [
-                    'campaign'     => $campaignId,
-                    'data_size'    => $sessions->max('DataSize'),
-                    'data_utilize' => $sessions->sum('DataDialed'),
-                    'uncontacted'  => $sessions->sum('DialFailed'),
-                    'abandoned'    => $sessions->sum('DialAbandoned'),
-                    'duration_pds' => $duration,
-                    // name (PDS), total_agent, unutilize, ticket_status
-                    // -> belum ada sumber datanya di response ini
-                ];
-            })
-            ->values();
+            $duration = Carbon::parse($row['SessionEnd'])
+                ->diffInSeconds(Carbon::parse($row['SessionStart']));
+
+            return [
+                'name'           => $row['campaign_id'] ?? null,
+                'session_start'  => $row['SessionStart'] ?? null,
+                'session_end'    => $row['SessionEnd'] ?? null,
+                'total_agent'    => null, // belum ada sumber data
+                'data_size'      => $dataSize,
+                'data_utilize'   => $dataUtilize,
+                'data_unutilize' => max($dataSize - $dataUtilize, 0),
+                'attempt'        => $row['DialCount'] ?? 0,
+                'contacted'      => $contacted,
+                'uncontacted'    => max($dataUtilize - $contacted - $abandoned, 0),
+                'abandoned'      => $abandoned,
+                'ticket_status'  => [], // belum ada sumber data (butuh join dialer_call_log/calls/ticket_history)
+                'duration_pds'   => gmdate('H:i:s', $duration),
+            ];
+        })->values();
 
         return [
-            'data' => $grouped,
-            'current_page' => $response['current_page'],
-            'last_page' => $response['last_page'],
-            'total' => $response['total'],
+            'data'          => $data,
+            'current_page'  => $response['current_page'],
+            'last_page'     => $response['last_page'],
+            'total'         => $response['total'],
+            'per_page'      => $response['per_page'],
         ];
     }
 }
