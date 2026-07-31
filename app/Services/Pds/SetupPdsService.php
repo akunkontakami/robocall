@@ -603,6 +603,7 @@ class SetupPdsService
                         'tenant_id'  => user()->tenant_id,
                         'start_date' => $start_date,
                         'end_date'   => $end_date,
+                        'limit'      => $limit,
                     ];
 
                     if ($pdsName) {
@@ -626,6 +627,7 @@ class SetupPdsService
                     'tenant_id'  => user()->tenant_id,
                     'start_date' => $start_date,
                     'end_date'   => $end_date,
+                    'limit'      => $limit,
                 ];
 
                 if ($pdsName) {
