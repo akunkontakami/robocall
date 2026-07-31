@@ -662,7 +662,8 @@ class SetupPdsService
                     $q->join('tickets', 'tickets.id', '=', 'th.ticket_id')
                         ->where('tickets.marketing_campaign_id', $resolvedCampaignId);
                 })
-                ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
+                ->where('th.created_at', '>=', $sessionStart)
+                ->where('th.created_at', '<=', $sessionEnd)
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status');
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
