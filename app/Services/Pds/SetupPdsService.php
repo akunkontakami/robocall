@@ -644,7 +644,7 @@ class SetupPdsService
 
         // Build PDS name lookup for multi-PDS rows (pds_name == campaign_id on dialer)
         $pdsNameLookup = $selectedPdsList->pluck('pds_name', 'pds_name')->filter();
-
+        dd($pdsNameLookup);
         $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
