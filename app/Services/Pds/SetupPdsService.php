@@ -609,7 +609,7 @@ class SetupPdsService
                         $query['campaign_id'] = $pdsName;
                     }
 
-                    $result = Dialer::get('/report/sessionlog?' . http_build_query($query));
+                    $result = Dialer::get('/report/dialercalllog?' . http_build_query($query));
                     $rows = collect($result['data'] ?? []);
                     $dialerRows = $dialerRows->merge($rows);
 
