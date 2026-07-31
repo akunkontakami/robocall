@@ -569,6 +569,13 @@ class SetupPdsService
                 ->whereIn('id', $pdsIds)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId))
                 ->get();
+        } elseif ($campaignId) {
+            // Filter by campaign (marketing_campaign_id) -> resolve matching PDS names
+            $selectedPdsList = Pds::query()
+                ->select(['id', 'pds_name', 'marketing_campaign_id'])
+                ->where('marketing_campaign_id', $campaignId)
+                ->when($companyId, fn($q) => $q->where('company_id', $companyId))
+                ->get();
         }
 
         $selectedPds = $selectedPdsList->first();
@@ -577,6 +584,7 @@ class SetupPdsService
         $response = [];
         $dialerRows = collect();
 
+        // pds_name (PDS) == campaign_id on the dialer side
         $pdsNames = $selectedPdsList->pluck('pds_name')->filter()->all();
         if (empty($pdsNames)) {
             $pdsNames = [null];
@@ -595,8 +603,11 @@ class SetupPdsService
                         'tenant_id'  => user()->tenant_id,
                         'start_date' => $start_date,
                         'end_date'   => $end_date,
-                        'pds_name'   => $pdsName,
                     ];
+
+                    if ($pdsName) {
+                        $query['campaign_id'] = $pdsName;
+                    }
 
                     $result = Dialer::get('/report/sessionlog?' . http_build_query($query));
                     $rows = collect($result['data'] ?? []);
@@ -615,8 +626,11 @@ class SetupPdsService
                     'tenant_id'  => user()->tenant_id,
                     'start_date' => $start_date,
                     'end_date'   => $end_date,
-                    'pds_name'   => $pdsName,
                 ];
+
+                if ($pdsName) {
+                    $query['campaign_id'] = $pdsName;
+                }
 
                 if ($search) {
                     $query['campaign_id'] = $search;
@@ -628,8 +642,8 @@ class SetupPdsService
             }
         }
 
-        // Build PDS name lookup for multi-PDS rows
-        $pdsNameLookup = $selectedPdsList->pluck('pds_name', 'marketing_campaign_id')->filter();
+        // Build PDS name lookup for multi-PDS rows (pds_name == campaign_id on dialer)
+        $pdsNameLookup = $selectedPdsList->pluck('pds_name', 'pds_name')->filter();
 
         $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup) {
             $dataSize     = $row['DataSize'] ?? 0;
@@ -642,7 +656,10 @@ class SetupPdsService
             $ticketStatus = DB::table('calls')
                 ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
                 ->whereNotNull('calls.pstn_id')
-                // ->when($resolvedCampaignId, fn($q) => $q->where('calls.company_id', $resolvedCampaignId))
+                ->when($resolvedCampaignId, function ($q) use ($resolvedCampaignId) {
+                    $q->join('tickets', 'tickets.id', '=', 'th.ticket_id')
+                        ->where('tickets.marketing_campaign_id', $resolvedCampaignId);
+                })
                 ->whereBetween('th.created_at', [$sessionStart, $sessionEnd])
                 ->selectRaw('th.status, COUNT(*) as total')
                 ->groupBy('th.status');
