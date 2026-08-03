@@ -21,7 +21,7 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
     public function array(): array
     {
         return array_map(function ($row) {
-            $ticketCounts = $row['ticket_status_count'] ?? [];
+            $ticketCounts = $row['ticket_status'] ?? [];
             $statusColumns = [];
             foreach ($this->outbounds as $status) {
                 $name = is_array($status) ? $status['name'] : $status;

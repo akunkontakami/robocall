@@ -655,24 +655,34 @@ class SetupPdsService
             $sessionStart = $row['SessionStart'] ?? $start_date;
             $sessionEnd   = $row['SessionEnd'] ?? $end_date;
 
-            $ticketStatus = DB::table('calls')
-                ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
-                ->whereNotNull('calls.pstn_id')
+            $ticketStatus = DB::table('ticket_histories as th')
+                ->where('th.company_id', $companyId)
+                ->joinSub(
+                    DB::table('ticket_histories')
+                        ->select('ticket_id', DB::raw('MAX(created_at) as last_created'))
+                        ->where('company_id', $companyId)
+                        ->where('created_at', '>=', $sessionStart)
+                        ->where('created_at', '<=', $sessionEnd)
+                        ->groupBy('ticket_id'),
+                    'last',
+                    fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
+                        ->on('last.last_created', '=', 'th.created_at')
+                )
                 ->when($resolvedCampaignId, function ($q) use ($resolvedCampaignId) {
                     $q->join('tickets', 'tickets.id', '=', 'th.ticket_id')
                         ->where('tickets.marketing_campaign_id', $resolvedCampaignId);
                 })
                 ->where('th.created_at', '>=', $sessionStart)
                 ->where('th.created_at', '<=', $sessionEnd)
-                ->selectRaw('th.status, COUNT(*) as total')
+                ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total')
                 ->groupBy('th.status');
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
             
             $duration = 0;
             if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
-                $duration = Carbon::parse($row['SessionEnd'])
-                    ->diffInSeconds(Carbon::parse($row['SessionStart']));
+                $duration = max(0, Carbon::parse($row['SessionEnd'])
+                    ->diffInSeconds(Carbon::parse($row['SessionStart'])));
             }
 
             // When multiple PDS selected, use row's campaign_id from API instead of single PDS name
