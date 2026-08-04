@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -12,6 +13,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PdsCampaignExport
 {
+    private array $data;
+    private array $outbounds;
+
     private const CONTACTED_STATUSES = [
         'Promised to Pay (PTP)',
         'Call Back',
@@ -23,10 +27,10 @@ class PdsCampaignExport
         'Paid in Confins',
     ];
 
-    public function __construct(
-        private readonly array $data,
-        private readonly array $outbounds,
-    ) {
+    public function __construct(array|Collection $data, array|Collection $outbounds)
+    {
+        $this->data = $data instanceof Collection ? $data->values()->all() : array_values($data);
+        $this->outbounds = $outbounds instanceof Collection ? $outbounds->values()->all() : array_values($outbounds);
     }
 
     public function download(string $filename): StreamedResponse
