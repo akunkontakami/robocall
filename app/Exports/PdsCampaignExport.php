@@ -4,17 +4,18 @@ namespace App\Exports;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Writer\Csv;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class PdsCampaignExport
+class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
 {
     private array $data;
     private array $outbounds;
+    private ?array $visibleOutbounds = null;
 
     private const CONTACTED_STATUSES = [
         'Promised to Pay (PTP)',
@@ -33,70 +34,12 @@ class PdsCampaignExport
         $this->outbounds = $outbounds instanceof Collection ? $outbounds->values()->all() : array_values($outbounds);
     }
 
-    public function download(string $filename): StreamedResponse
+    public function array(): array
     {
-        $spreadsheet = $this->buildSpreadsheet();
-        $writer = new Csv($spreadsheet);
-        $writer->setDelimiter("\t");
-        $writer->setEnclosure('"');
-        $writer->setUseBOM(true);
-        $writer->setSheetIndex(0);
-
-        return response()->streamDownload(function () use ($writer, $spreadsheet) {
-            $writer->save('php://output');
-            $spreadsheet->disconnectWorksheets();
-            unset($spreadsheet);
-        }, $filename, [
-            'Content-Type' => 'text/plain; charset=UTF-8',
-        ]);
+        return $this->rows();
     }
 
-    private function buildSpreadsheet(): Spreadsheet
-    {
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('PDS Campaign');
-
-        $headingRows = $this->headings();
-        foreach ($headingRows as $rowIndex => $headingRow) {
-            $sheetRow = $rowIndex + 1;
-
-            foreach ($headingRow as $columnIndex => $heading) {
-                $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
-                $sheet->setCellValueExplicit(
-                    $column . $sheetRow,
-                    (string) $heading,
-                    DataType::TYPE_STRING
-                );
-            }
-        }
-
-        foreach ($this->rows() as $rowIndex => $row) {
-            $sheetRow = $rowIndex + count($headingRows) + 1;
-
-            foreach ($row as $columnIndex => $value) {
-                $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
-                $sheet->setCellValueExplicit(
-                    $column . $sheetRow,
-                    (string) $value,
-                    DataType::TYPE_STRING
-                );
-            }
-        }
-
-        $lastColumn = Coordinate::stringFromColumnIndex(count($headingRows[0]));
-        $sheet->getStyle("A1:{$lastColumn}2")
-            ->getAlignment()
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle("A1:{$lastColumn}2")
-            ->getFont()
-            ->setBold(true);
-
-        return $spreadsheet;
-    }
-
-    private function headings(): array
+    public function headings(): array
     {
         $visibleOutbounds = $this->visibleOutboundNames();
         $fixedColumns = [
@@ -113,10 +56,17 @@ class PdsCampaignExport
             'Abandon',
         ];
 
+        if (count($visibleOutbounds) === 0) {
+            return [
+                array_merge($fixedColumns, ['Duration PDS']),
+                array_fill(0, count($fixedColumns) + 1, ''),
+            ];
+        }
+
         return [
             array_merge(
                 $fixedColumns,
-                [count($visibleOutbounds) > 0 ? 'Call Status' : ''],
+                ['Call Status'],
                 array_fill(0, max(count($visibleOutbounds) - 1, 0), ''),
                 ['Duration PDS']
             ),
@@ -125,6 +75,48 @@ class PdsCampaignExport
                 $visibleOutbounds,
                 ['']
             ),
+        ];
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                /** @var Worksheet $sheet */
+                $sheet = $event->sheet->getDelegate();
+
+                $fixedColumnCount = 11;
+                $visibleOutbounds = $this->visibleOutboundNames();
+                $visibleOutboundCount = count($visibleOutbounds);
+
+                for ($columnIndex = 1; $columnIndex <= $fixedColumnCount; $columnIndex++) {
+                    $column = $this->excelColumn($columnIndex);
+                    $sheet->mergeCells("{$column}1:{$column}2");
+                }
+
+                if ($visibleOutboundCount > 0) {
+                    $callStatusStartIndex = $fixedColumnCount + 1;
+                    $callStatusEndIndex = $callStatusStartIndex + $visibleOutboundCount - 1;
+
+                    $sheet->mergeCells(
+                        $this->excelColumn($callStatusStartIndex) . '1:' .
+                        $this->excelColumn($callStatusEndIndex) . '1'
+                    );
+                }
+
+                $durationColumnIndex = $fixedColumnCount + $visibleOutboundCount + 1;
+                $durationColumn = $this->excelColumn($durationColumnIndex);
+                $sheet->mergeCells("{$durationColumn}1:{$durationColumn}2");
+
+                $sheet->getStyle("A1:{$durationColumn}2")
+                    ->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                    ->setVertical(Alignment::VERTICAL_CENTER);
+
+                $sheet->getStyle("A1:{$durationColumn}2")
+                    ->getFont()
+                    ->setBold(true);
+            },
         ];
     }
 
@@ -160,6 +152,10 @@ class PdsCampaignExport
 
     private function visibleOutboundNames(): array
     {
+        if ($this->visibleOutbounds !== null) {
+            return $this->visibleOutbounds;
+        }
+
         $visibleOutbounds = [];
 
         foreach ($this->outbounds as $outbound) {
@@ -178,7 +174,7 @@ class PdsCampaignExport
             }
         }
 
-        return $visibleOutbounds;
+        return $this->visibleOutbounds = $visibleOutbounds;
     }
 
     private function contactedValue(array $row): int
@@ -197,8 +193,25 @@ class PdsCampaignExport
             return (string) ($row['duration_pds'] ?? '00:00:00');
         }
 
-        $duration = max(0, Carbon::parse($sessionStart)->diffInSeconds(Carbon::parse($sessionEnd), true));
+        try {
+            $duration = max(0, Carbon::parse($sessionStart)->diffInSeconds(Carbon::parse($sessionEnd), true));
+        } catch (\Throwable) {
+            return (string) ($row['duration_pds'] ?? '00:00:00');
+        }
 
         return gmdate('H:i:s', $duration);
+    }
+
+    private function excelColumn(int $index): string
+    {
+        $column = '';
+
+        while ($index > 0) {
+            $index--;
+            $column = chr($index % 26 + 65) . $column;
+            $index = intdiv($index, 26);
+        }
+
+        return $column;
     }
 }
