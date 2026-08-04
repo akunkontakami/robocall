@@ -63,7 +63,8 @@
                 <Td>{{ row.data_unutilize }}</Td>
                 <Td>{{ row.attempt }}</Td>
                 <Td>{{ row.contacted }}</Td>
-                <Td>{{ row.data_utilize - row.contacted - row.abandoned }}</Td>
+                <Td>{{ getUncontactedValue(row) }}</Td>
+                <Td>{{ row.abandoned }}</Td>
                 <Td v-for="(outbound, i) in visibleOutbounds" :key="outbound">
                     {{ row.ticket_status?.[outbound] ?? 0 }}
                 </Td>
@@ -131,6 +132,14 @@ const getContactedValue = (row: any) => {
     return CONTACTED_STATUSES.reduce((total, status) => {
         return total + Number(row.ticket_status?.[status] ?? 0);
     }, 0);
+};
+
+const getUncontactedValue = (row: any) => {
+    const dataUtilize = Number(row.data_utilize ?? 0);
+    const contacted = Number(row.contacted ?? 0);
+    const abandoned = Number(row.abandoned ?? 0);
+
+    return Math.max(0, dataUtilize - contacted - abandoned);
 };
 
 const getDurationPdsValue = (row: any) => {
