@@ -568,7 +568,6 @@ class SetupPdsService
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->whereIn('id', $pdsIds)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId));
-                dump($selectedPdsList->toSql(),$selectedPdsList->getBindings());
                 $selectedPdsList = $selectedPdsList->get();
         } elseif ($campaignId) {
             // Filter by campaign (marketing_campaign_id) -> resolve matching PDS names
@@ -576,7 +575,6 @@ class SetupPdsService
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->where('marketing_campaign_id', $campaignId)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId));
-                dump($selectedPdsList->toSql(), $selectedPdsList->getBindings());
                 $selectedPdsList = $selectedPdsList->get();
         }
 
@@ -676,8 +674,9 @@ class SetupPdsService
                 })
                 ->where('th.created_at', '>=', $sessionStart)
                 ->where('th.created_at', '<=', $sessionEnd)
-                ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total')
-                ->groupBy('th.status');
+                ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
+                dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+                $ticketStatus->groupBy('th.status');
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
             
