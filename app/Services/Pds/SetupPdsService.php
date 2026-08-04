@@ -668,14 +668,16 @@ class SetupPdsService
                     fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
                         ->on('last.last_created', '=', 'th.created_at')
                 )
+                ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')                
                 ->when($resolvedCampaignId, function ($q) use ($resolvedCampaignId) {
                     $q->join('tickets', 'tickets.id', '=', 'th.ticket_id')
                         ->where('tickets.marketing_campaign_id', $resolvedCampaignId);
                 })
                 ->where('th.created_at', '>=', $sessionStart)
                 ->where('th.created_at', '<=', $sessionEnd)
+                ->where('ca.category', 'Incoming Call')
+                ->where('ca.pstn_id', '!=', null)
                 ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
-                dump($ticketStatus->toSql(), $ticketStatus->getBindings());
                 $ticketStatus->groupBy('th.status');
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
