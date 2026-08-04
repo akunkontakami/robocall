@@ -50,7 +50,7 @@ class SetupPdsController extends Controller
         try {
             $action->start($request);
 
-            return to_route('pds.setup')->with('success', 'Successfully start PDS');
+            return back()->with('success', 'Successfully start PDS');
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }
@@ -61,7 +61,7 @@ class SetupPdsController extends Controller
         try {
             $action->stop($request);
 
-            return to_route('pds.setup')->with('success', 'Successfully stop PDS');
+            return back()->with('success', 'Successfully stop PDS');
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }
@@ -72,7 +72,7 @@ class SetupPdsController extends Controller
         try {
             $action->delete($request);
 
-            return to_route('pds.setup')->with('success', 'Successfully deleted PDS');
+            return back()->with('success', 'Successfully deleted PDS');
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }
@@ -83,7 +83,7 @@ class SetupPdsController extends Controller
         try {
             $action->release($request, $request->id);
 
-            return to_route('pds.setup')->with('success', 'Successfully release customers');
+            return back()->with('success', 'Successfully release customers');
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }
