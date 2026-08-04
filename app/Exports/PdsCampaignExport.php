@@ -2,134 +2,203 @@
 
 namespace App\Exports;
 
-use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Writer\Csv;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
+class PdsCampaignExport
 {
-    private $data, $outbounds;
+    private array $data;
+    private array $outbounds;
 
-    public function __construct(array $data, array $outbounds)
+    private const CONTACTED_STATUSES = [
+        'Promised to Pay (PTP)',
+        'Call Back',
+        'Visit Request - Contacted',
+        'BP Partial',
+        'NBP-A',
+        'NBP-B (Salah Sambung)',
+        'NBP-C (Invalid Number)',
+        'Paid in Confins',
+    ];
+
+    public function __construct(array|Collection $data, array|Collection $outbounds)
     {
-        $this->data = $data;
-        $this->outbounds = $outbounds;
+        $this->data = $data instanceof Collection ? $data->values()->all() : array_values($data);
+        $this->outbounds = $outbounds instanceof Collection ? $outbounds->values()->all() : array_values($outbounds);
     }
 
-    public function array(): array
+    public function download(string $filename): StreamedResponse
     {
-        return array_map(function ($row) {
-            $ticketCounts = $row['ticket_status_count'] ?? [];
+        $spreadsheet = $this->buildSpreadsheet();
+        $writer = new Csv($spreadsheet);
+        $writer->setDelimiter("\t");
+        $writer->setEnclosure('"');
+        $writer->setUseBOM(true);
+        $writer->setSheetIndex(0);
+
+        return response()->streamDownload(function () use ($writer, $spreadsheet) {
+            $writer->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+        }, $filename, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+        ]);
+    }
+
+    private function buildSpreadsheet(): Spreadsheet
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('PDS Campaign');
+
+        $headingRows = $this->headings();
+        foreach ($headingRows as $rowIndex => $headingRow) {
+            $sheetRow = $rowIndex + 1;
+
+            foreach ($headingRow as $columnIndex => $heading) {
+                $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
+                $sheet->setCellValueExplicit(
+                    $column . $sheetRow,
+                    (string) $heading,
+                    DataType::TYPE_STRING
+                );
+            }
+        }
+
+        foreach ($this->rows() as $rowIndex => $row) {
+            $sheetRow = $rowIndex + count($headingRows) + 1;
+
+            foreach ($row as $columnIndex => $value) {
+                $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
+                $sheet->setCellValueExplicit(
+                    $column . $sheetRow,
+                    (string) $value,
+                    DataType::TYPE_STRING
+                );
+            }
+        }
+
+        $lastColumn = Coordinate::stringFromColumnIndex(count($headingRows[0]));
+        $sheet->getStyle("A1:{$lastColumn}2")
+            ->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("A1:{$lastColumn}2")
+            ->getFont()
+            ->setBold(true);
+
+        return $spreadsheet;
+    }
+
+    private function headings(): array
+    {
+        $visibleOutbounds = $this->visibleOutboundNames();
+        $fixedColumns = [
+            'PDS Name',
+            'SessionStart',
+            'SessionEnd',
+            'Agent Ready',
+            'Data Size',
+            'Data Utilize',
+            'Data Unutilize',
+            'Attempt',
+            'Contacted',
+            'Uncontacted',
+            'Abandon',
+        ];
+
+        return [
+            array_merge(
+                $fixedColumns,
+                [count($visibleOutbounds) > 0 ? 'Call Status' : ''],
+                array_fill(0, max(count($visibleOutbounds) - 1, 0), ''),
+                ['Duration PDS']
+            ),
+            array_merge(
+                array_fill(0, count($fixedColumns), ''),
+                $visibleOutbounds,
+                ['']
+            ),
+        ];
+    }
+
+    private function rows(): array
+    {
+        $visibleOutbounds = $this->visibleOutboundNames();
+
+        return array_map(function ($row) use ($visibleOutbounds) {
+            $ticketCounts = $row['ticket_status'] ?? [];
             $statusColumns = [];
-            foreach ($this->outbounds as $status) {
-                $name = is_array($status) ? $status['name'] : $status;
-                $statusColumns[] = (string) ($ticketCounts[$name] ?? '0');
+
+            foreach ($visibleOutbounds as $statusName) {
+                $statusColumns[] = (string) ($ticketCounts[$statusName] ?? 0);
             }
 
             return array_merge([
-                $row['name'],
-                $row['campaign'],
-                $row['total_agent'],
-                (string) $row['data_size'] ?? '0',
-                (string) $row['data_utilize'] ?? '0',
-            ],
-            $statusColumns,
-            [
-                (string) $row['uncontacted'] ?? '0',
-                (string) $row['abandoned'] ?? '0',
-                (string) $row['unutilize'] ?? '0',
-                $row['duration_pds'],
+                $row['campaign'] ?? '-',
+                $row['session_start'] ?? '',
+                $row['session_end'] ?? '',
+                (string) ($row['total_agent'] ?? ''),
+                (string) ($row['data_size'] ?? 0),
+                (string) ($row['data_utilize'] ?? 0),
+                (string) ($row['data_unutilize'] ?? 0),
+                (string) ($row['attempt'] ?? 0),
+                (string) $this->contactedValue($row),
+                (string) ($row['uncontacted'] ?? 0),
+                (string) ($row['abandoned'] ?? 0),
+            ], $statusColumns, [
+                $this->durationPdsValue($row),
             ]);
         }, $this->data);
     }
 
-    public function headings(): array
+    private function visibleOutboundNames(): array
     {
-        $statusNames = [];
+        $visibleOutbounds = [];
 
-        foreach ($this->outbounds as $status) {
-            $statusNames[] = is_array($status) ? $status['name'] : $status;
-        }
+        foreach ($this->outbounds as $outbound) {
+            $statusName = is_array($outbound) ? ($outbound['name'] ?? null) : $outbound;
 
-        return [
-            array_merge(
-                [
-                    'PDS Name','Marketing Campaign','Agent Ready','Data Size','Data Utilize',
-                    'Data Contacted'
-                ],
-                array_fill(0, count($statusNames) - 1, ''),
-                ['Uncontacted','Abandon','Unutilize PDS','Duration PDS']
-            ),
-            array_merge(
-                ['','','','',''],
-                $statusNames,
-                ['','','','']
-            )
-        ];
-    }
-
-
-    public function registerEvents(): array
-    {
-        return [
-            \Maatwebsite\Excel\Events\AfterSheet::class => function($event) {
-                /** @var Worksheet $sheet */
-                $sheet = $event->sheet->getDelegate();
-
-                $fixedLeft = 5;
-                $statusCount = count($this->outbounds);
-                $statusStartIndex = $fixedLeft + 1;
-                $statusEndIndex   = $statusStartIndex + $statusCount - 1;
-
-                $totalColumnCount = 9 + $statusCount;
-                $lastColumnLetter = $this->excelColumn($totalColumnCount);
-
-                // === MERGE KOLOM FIXED (A–E) ===
-                for ($i = 1; $i <= $fixedLeft; $i++) {
-                    $col = $this->excelColumn($i);
-                    $sheet->mergeCells("{$col}1:{$col}2");
-                }
-
-                // === MERGE HEADER STATUS (F1 : ?1) ===
-                if ($statusCount > 0) {
-                    $sheet->mergeCells(
-                        $this->excelColumn($statusStartIndex) . '1:' .
-                        $this->excelColumn($statusEndIndex) . '1'
-                    );
-                }
-
-                // === MERGE KOLOM SETELAH STATUS ===
-                for ($i = $statusEndIndex + 1; $i <= $totalColumnCount; $i++) {
-                    $col = $this->excelColumn($i);
-                    $sheet->mergeCells("{$col}1:{$col}2");
-                }
-
-                // === STYLE HEADER ===
-                $sheet->getStyle("A1:{$lastColumnLetter}2")
-                    ->getAlignment()
-                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-                    ->setVertical(Alignment::VERTICAL_CENTER);
-
-                $sheet->getStyle("A1:{$lastColumnLetter}2")
-                    ->getFont()
-                    ->setBold(true);
+            if (!$statusName) {
+                continue;
             }
-        ];
-    }
 
-    private function excelColumn(int $index): string
-    {
-        $column = '';
+            $hasValue = collect($this->data)->contains(function ($row) use ($statusName) {
+                return (int) ($row['ticket_status'][$statusName] ?? 0) !== 0;
+            });
 
-        while ($index > 0) {
-            $index--;
-            $column = chr($index % 26 + 65) . $column;
-            $index = intdiv($index, 26);
+            if ($hasValue) {
+                $visibleOutbounds[] = $statusName;
+            }
         }
 
-        return $column;
+        return $visibleOutbounds;
     }
 
+    private function contactedValue(array $row): int
+    {
+        return collect(self::CONTACTED_STATUSES)->sum(function ($status) use ($row) {
+            return (int) ($row['ticket_status'][$status] ?? 0);
+        });
+    }
+
+    private function durationPdsValue(array $row): string
+    {
+        $sessionStart = $row['session_start'] ?? null;
+        $sessionEnd = $row['session_end'] ?? null;
+
+        if (!$sessionStart || !$sessionEnd) {
+            return (string) ($row['duration_pds'] ?? '00:00:00');
+        }
+
+        $duration = max(0, Carbon::parse($sessionStart)->diffInSeconds(Carbon::parse($sessionEnd), true));
+
+        return gmdate('H:i:s', $duration);
+    }
 }
