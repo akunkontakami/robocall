@@ -568,7 +568,7 @@ class SetupPdsService
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->whereIn('id', $pdsIds)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId));
-                dump($ $selectedPdsList->toSql(), $ $selectedPdsList->getBindings());
+                dump($selectedPdsList->toSql(), $ $selectedPdsList->getBindings());
                 $selectedPdsList = $selectedPdsList->get();
         } elseif ($campaignId) {
             // Filter by campaign (marketing_campaign_id) -> resolve matching PDS names
@@ -576,7 +576,7 @@ class SetupPdsService
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->where('marketing_campaign_id', $campaignId)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId));
-                dump($ $selectedPdsList->toSql(), $ $selectedPdsList->getBindings());
+                dump($selectedPdsList->toSql(), $ $selectedPdsList->getBindings());
                 $selectedPdsList = $selectedPdsList->get();
         }
 
