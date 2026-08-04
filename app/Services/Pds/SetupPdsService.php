@@ -567,15 +567,17 @@ class SetupPdsService
             $selectedPdsList = Pds::query()
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->whereIn('id', $pdsIds)
-                ->when($companyId, fn($q) => $q->where('company_id', $companyId))
-                ->get();
+                ->when($companyId, fn($q) => $q->where('company_id', $companyId));
+                dump($ $selectedPdsList->toSql(), $ $selectedPdsList->getBindings());
+                $selectedPdsList = $selectedPdsList->get();
         } elseif ($campaignId) {
             // Filter by campaign (marketing_campaign_id) -> resolve matching PDS names
             $selectedPdsList = Pds::query()
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->where('marketing_campaign_id', $campaignId)
-                ->when($companyId, fn($q) => $q->where('company_id', $companyId))
-                ->get();
+                ->when($companyId, fn($q) => $q->where('company_id', $companyId));
+                dump($ $selectedPdsList->toSql(), $ $selectedPdsList->getBindings());
+                $selectedPdsList = $selectedPdsList->get();
         }
 
         $selectedPds = $selectedPdsList->first();
@@ -681,8 +683,10 @@ class SetupPdsService
             
             $duration = 0;
             if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
-                $duration = max(0, Carbon::parse($row['SessionEnd'])
-                    ->diffInSeconds(Carbon::parse($row['SessionStart'])));
+                $duration = max(
+                    0,
+                    Carbon::parse($row['SessionStart'])->diffInSeconds(Carbon::parse($row['SessionEnd']), true)
+                );
             }
 
             // When multiple PDS selected, use row's campaign_id from API instead of single PDS name

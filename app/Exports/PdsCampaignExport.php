@@ -57,18 +57,22 @@ class PdsCampaignExport
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('PDS Campaign');
 
-        $headings = $this->headings();
-        foreach ($headings as $columnIndex => $heading) {
-            $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
-            $sheet->setCellValueExplicit(
-                $column . '1',
-                (string) $heading,
-                DataType::TYPE_STRING
-            );
+        $headingRows = $this->headings();
+        foreach ($headingRows as $rowIndex => $headingRow) {
+            $sheetRow = $rowIndex + 1;
+
+            foreach ($headingRow as $columnIndex => $heading) {
+                $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
+                $sheet->setCellValueExplicit(
+                    $column . $sheetRow,
+                    (string) $heading,
+                    DataType::TYPE_STRING
+                );
+            }
         }
 
         foreach ($this->rows() as $rowIndex => $row) {
-            $sheetRow = $rowIndex + 2;
+            $sheetRow = $rowIndex + count($headingRows) + 1;
 
             foreach ($row as $columnIndex => $value) {
                 $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
@@ -80,12 +84,12 @@ class PdsCampaignExport
             }
         }
 
-        $lastColumn = Coordinate::stringFromColumnIndex(count($headings));
-        $sheet->getStyle("A1:{$lastColumn}1")
+        $lastColumn = Coordinate::stringFromColumnIndex(count($headingRows[0]));
+        $sheet->getStyle("A1:{$lastColumn}2")
             ->getAlignment()
             ->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle("A1:{$lastColumn}1")
+        $sheet->getStyle("A1:{$lastColumn}2")
             ->getFont()
             ->setBold(true);
 
@@ -94,7 +98,8 @@ class PdsCampaignExport
 
     private function headings(): array
     {
-        return array_merge([
+        $visibleOutbounds = $this->visibleOutboundNames();
+        $fixedColumns = [
             'PDS Name',
             'SessionStart',
             'SessionEnd',
@@ -106,9 +111,21 @@ class PdsCampaignExport
             'Contacted',
             'Uncontacted',
             'Abandon',
-        ], $this->visibleOutboundNames(), [
-            'Duration PDS',
-        ]);
+        ];
+
+        return [
+            array_merge(
+                $fixedColumns,
+                [count($visibleOutbounds) > 0 ? 'Call Status' : ''],
+                array_fill(0, max(count($visibleOutbounds) - 1, 0), ''),
+                ['Duration PDS']
+            ),
+            array_merge(
+                array_fill(0, count($fixedColumns), ''),
+                $visibleOutbounds,
+                ['']
+            ),
+        ];
     }
 
     private function rows(): array
@@ -180,10 +197,7 @@ class PdsCampaignExport
             return (string) ($row['duration_pds'] ?? '00:00:00');
         }
 
-        $duration = max(
-            0,
-            Carbon::parse($sessionEnd)->diffInSeconds(Carbon::parse($sessionStart))
-        );
+        $duration = max(0, Carbon::parse($sessionStart)->diffInSeconds(Carbon::parse($sessionEnd), true));
 
         return gmdate('H:i:s', $duration);
     }
