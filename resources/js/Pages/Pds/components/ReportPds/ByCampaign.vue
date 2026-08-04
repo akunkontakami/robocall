@@ -68,7 +68,7 @@
                 <Td v-for="(outbound, i) in visibleOutbounds" :key="outbound">
                     {{ row.ticket_status?.[outbound] ?? 0 }}
                 </Td>
-                <Td>{{ getDurationPdsValue(row) }}</Td>
+                <Td>{{ row.duration_pds }}</Td>
             </tr>
         </Table>
     </div>
@@ -98,66 +98,6 @@ const paginate = usePaginate({
     route: route('pds.report.campaign-datatable'),
 });
 
-const CONTACTED_STATUSES = [
-    "Promised to Pay (PTP)",
-    "Call Back",
-    "Visit Request - Contacted",
-    "BP Partial",
-    "NBP-A",
-    "NBP-B (Salah Sambung)",
-    "NBP-C (Invalid Number)",
-    "Paid in Confins",
-];
-
-const parseSessionDate = (value?: string | null) => {
-    if (!value) {
-        return null;
-    }
-
-    const normalizedValue = value.includes("T") ? value : value.replace(" ", "T");
-    const date = new Date(normalizedValue);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const formatDuration = (totalSeconds: number) => {
-    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
-    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
-    const seconds = String(totalSeconds % 60).padStart(2, "0");
-
-    return `${hours}:${minutes}:${seconds}`;
-};
-
-const getContactedValue = (row: any) => {
-    return CONTACTED_STATUSES.reduce((total, status) => {
-        return total + Number(row.ticket_status?.[status] ?? 0);
-    }, 0);
-};
-
-const getUncontactedValue = (row: any) => {
-    const dataUtilize = Number(row.data_utilize ?? 0);
-    const contacted = Number(row.contacted ?? 0);
-    const abandoned = Number(row.abandoned ?? 0);
-
-    return Math.max(0, dataUtilize - contacted - abandoned);
-};
-
-const getDurationPdsValue = (row: any) => {
-    const sessionStart = parseSessionDate(row.session_start);
-    const sessionEnd = parseSessionDate(row.session_end);
-
-    if (!sessionStart || !sessionEnd) {
-        return row.duration_pds ?? "00:00:00";
-    }
-
-    const diffInSeconds = Math.max(
-        0,
-        Math.floor((sessionEnd.getTime() - sessionStart.getTime()) / 1000)
-    );
-
-    return formatDuration(diffInSeconds);
-};
-
 const visibleOutbounds = computed(() => {
     const rows = paginate.data.value ?? [];
 
@@ -165,6 +105,14 @@ const visibleOutbounds = computed(() => {
         rows.some((row: any) => Number(row.ticket_status?.[outbound] ?? 0) !== 0)
     );
 });
+
+const getUncontactedValue = (row: any) => {
+    const dataUtilize = Number(row.data_utilize ?? 0);
+    const contacted = Number(row.contacted ?? 0);
+    const abandoned = Number(row.abandoned ?? 0);
+
+    return dataUtilize - contacted - abandoned;
+};
 
 const columns = computed(() => [
     "PDS Name",
