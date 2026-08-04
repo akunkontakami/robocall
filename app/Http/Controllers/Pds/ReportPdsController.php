@@ -127,8 +127,9 @@ class ReportPdsController extends Controller
             page: 1,
         );
 
-        $filename = 'pds_campaign_' . now()->format('Ymd_His') . '.txt';
-
-        return (new PdsCampaignExport($response['data'] ?? [], $outbounds))->download($filename);
+        // $filename = 'pds_campaign_' . now()->format('Ymd_His') . '.txt';
+        $filename = 'pds_campaign_' . now()->format('Ymd_His') . '.xlsx';
+        // return (new PdsCampaignExport($response['data'] ?? [], $outbounds))->download($filename);
+        return Excel::download(new PdsCampaignExport($response['data'] ?? [], $outbounds), $filename);
     }
 }

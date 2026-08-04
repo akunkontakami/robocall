@@ -32,7 +32,7 @@
                         :colspan="visibleOutbounds.length"
                         class="text-center border-x"
                     >
-                        Call Status
+                        Contract
                     </Th>
                     <Th :rowspan="visibleOutbounds.length ? 2 : 1">Duration PDS</Th>
                 </tr>
@@ -62,9 +62,8 @@
                 <Td>{{ row.data_utilize }}</Td>
                 <Td>{{ row.data_unutilize }}</Td>
                 <Td>{{ row.attempt }}</Td>
-                <Td>{{ getContactedValue(row) }}</Td>
-                <Td>{{ row.uncontacted }}</Td>
-                <Td>{{ row.abandoned }}</Td>
+                <Td>{{ row.contacted }}</Td>
+                <Td>{{ row.data_utilize - row.contacted - row.abandoned }}</Td>
                 <Td v-for="(outbound, i) in visibleOutbounds" :key="outbound">
                     {{ row.ticket_status?.[outbound] ?? 0 }}
                 </Td>
