@@ -10,50 +10,43 @@
                     Export Data
                 </ButtonOutlineGreen>
 
-                <FilterByCampaign :filter="filter" @filterData="filterData" :campaigns="campaigns" :spv="spv" :agents="agents" :pds="pds" />
+                <FilterByCampaign :filter="filter" @filterData="filterData" :campaigns="campaigns" :spv="spv"
+                    :agents="agents" :pds="pds" />
             </div>
         </div>
         <Table :columns="columns" :paginate="paginate" :hide-th="true">
             <template #thead>
                 <tr class="bg-[#F4F6FA]">
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">PDS Name</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">SessionStart</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">SessionEnd</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Agent Ready</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Data Size</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Data Utilize</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Data Unutilize</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Attempt</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Contacted</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Uncontacted</Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Abandon</Th>
-                    <Th
-                        v-if="visibleOutbounds.length"
-                        :colspan="visibleOutbounds.length"
-                        class="text-center border-x"
-                    >
-                        Contract
+                    <Th rowspan="2">PDS Name</Th>
+                    <Th rowspan="2">SessionStart</Th>
+                    <Th rowspan="2">SessionEnd</Th>
+                    <Th rowspan="2">Agent Ready</Th>
+                    <Th colspan="7" class="text-center border-x">
+                        Customer
                     </Th>
-                    <Th :rowspan="visibleOutbounds.length ? 2 : 1">Duration PDS</Th>
+                    <Th v-if="visibleOutbounds.length" :colspan="visibleOutbounds.length" class="text-center border-x">
+                        Call Status(Contract)
+                    </Th>
+                    <Th rowspan="2">Duration PDS</Th>
                 </tr>
-                <tr v-if="visibleOutbounds.length" class="bg-[#F4F6FA]">
-                    <Th
-                        v-for="(outbound, i) in visibleOutbounds"
-                        :key="outbound"
-                        :class="{
-                            'border-l': i == 0,
-                            'border-r': i + 1 == visibleOutbounds.length
-                        }"
-                    >
+                <tr class="bg-[#F4F6FA]">
+                    <Th class="border-l">Data Size</Th>
+                    <Th>Data Utilize</Th>
+                    <Th>Data Unutilize</Th>
+                    <Th>Attempt</Th>
+                    <Th>Contacted</Th>
+                    <Th>Uncontacted</Th>
+                    <Th class="border-r">Abandon</Th>
+                    <Th v-for="(outbound, i) in visibleOutbounds" :key="outbound" :class="{
+                        'border-l': i == 0,
+                        'border-r': i + 1 == visibleOutbounds.length
+                    }">
                         {{ outbound }}
                     </Th>
                 </tr>
             </template>
 
-            <tr
-                v-for="(row, i) in paginate.data.value"
-                :key="i"
-            >
+            <tr v-for="(row, i) in paginate.data.value" :key="i">
                 <Td>{{ row.campaign }}</Td>
                 <Td>{{ row.session_start }}</Td>
                 <Td>{{ row.session_end }}</Td>
