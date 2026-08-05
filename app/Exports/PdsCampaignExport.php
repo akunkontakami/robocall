@@ -42,11 +42,13 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
     public function headings(): array
     {
         $visibleOutbounds = $this->visibleOutboundNames();
-        $fixedColumns = [
+        $primaryColumns = [
             'PDS Name',
             'SessionStart',
             'SessionEnd',
             'Agent Ready',
+        ];
+        $customerColumns = [
             'Data Size',
             'Data Utilize',
             'Data Unutilize',
@@ -56,22 +58,18 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
             'Abandon',
         ];
 
-        if (count($visibleOutbounds) === 0) {
-            return [
-                array_merge($fixedColumns, ['Duration PDS']),
-                array_fill(0, count($fixedColumns) + 1, ''),
-            ];
-        }
-
         return [
             array_merge(
-                $fixedColumns,
-                ['Call Status'],
+                $primaryColumns,
+                ['Customer'],
+                array_fill(0, count($customerColumns) - 1, ''),
+                $visibleOutbounds ? ['Call Status(Contract)'] : [],
                 array_fill(0, max(count($visibleOutbounds) - 1, 0), ''),
                 ['Duration PDS']
             ),
             array_merge(
-                array_fill(0, count($fixedColumns), ''),
+                array_fill(0, count($primaryColumns), ''),
+                $customerColumns,
                 $visibleOutbounds,
                 ['']
             ),
@@ -85,17 +83,25 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
                 /** @var Worksheet $sheet */
                 $sheet = $event->sheet->getDelegate();
 
-                $fixedColumnCount = 11;
+                $primaryColumnCount = 4;
+                $customerColumnCount = 7;
                 $visibleOutbounds = $this->visibleOutboundNames();
                 $visibleOutboundCount = count($visibleOutbounds);
 
-                for ($columnIndex = 1; $columnIndex <= $fixedColumnCount; $columnIndex++) {
+                for ($columnIndex = 1; $columnIndex <= $primaryColumnCount; $columnIndex++) {
                     $column = $this->excelColumn($columnIndex);
                     $sheet->mergeCells("{$column}1:{$column}2");
                 }
 
+                $customerStartIndex = $primaryColumnCount + 1;
+                $customerEndIndex = $customerStartIndex + $customerColumnCount - 1;
+                $sheet->mergeCells(
+                    $this->excelColumn($customerStartIndex) . '1:' .
+                    $this->excelColumn($customerEndIndex) . '1'
+                );
+
                 if ($visibleOutboundCount > 0) {
-                    $callStatusStartIndex = $fixedColumnCount + 1;
+                    $callStatusStartIndex = $customerEndIndex + 1;
                     $callStatusEndIndex = $callStatusStartIndex + $visibleOutboundCount - 1;
 
                     $sheet->mergeCells(
@@ -104,7 +110,7 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
                     );
                 }
 
-                $durationColumnIndex = $fixedColumnCount + $visibleOutboundCount + 1;
+                $durationColumnIndex = $customerEndIndex + $visibleOutboundCount + 1;
                 $durationColumn = $this->excelColumn($durationColumnIndex);
                 $sheet->mergeCells("{$durationColumn}1:{$durationColumn}2");
 
