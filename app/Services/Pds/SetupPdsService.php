@@ -842,7 +842,6 @@ class SetupPdsService
         $campaigns = @$filter['campaigns'];
         $spv = @$filter['spv'];
         $agent = @$filter['agent'];
-        [$reportStart, $reportEnd] = $this->resolveAgentReportPeriod();
 
         $agentTicketSummary = $this->buildAgentIncomingCallBaseQuery($companyId, $reportStart, $reportEnd, $statuses)
             ->selectRaw('ca.agent_id as user_id, COUNT(DISTINCT th.ticket_id) as ticket_count')
