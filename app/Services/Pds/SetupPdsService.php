@@ -828,4 +828,63 @@ class SetupPdsService
             'per_page'      => $response['per_page'] ?? $limit,
         ];
     }
+
+    public function getByAgents($companyId, $search, $filter, $limit)
+    {
+        $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
+        $statuses = collect($outbounds)
+            ->map(fn($outbound) => is_array($outbound) ? ($outbound['name'] ?? null) : $outbound)
+            ->filter()
+            ->values()
+            ->all();
+
+        $pds = @$filter['pds'];
+        $campaigns = @$filter['campaigns'];
+        $spv = @$filter['spv'];
+        $agent = @$filter['agent'];
+        [$reportStart, $reportEnd] = $this->resolveAgentReportPeriod();
+
+        $agentTicketSummary = $this->buildAgentIncomingCallBaseQuery($companyId, $reportStart, $reportEnd, $statuses)
+            ->selectRaw('ca.agent_id as user_id, COUNT(DISTINCT th.ticket_id) as ticket_count')
+            ->groupBy('ca.agent_id');
+
+        $data = PdsAgent::with([
+            'ext',
+            'companyUser',
+            'pds.campaign',
+            'pds.customers',
+            'pds.spv',
+            'pds.spv.companyUser',
+        ])
+            ->leftJoinSub(
+                $agentTicketSummary,
+                'agent_ticket_summary',
+                fn($join) => $join->on('agent_ticket_summary.user_id', '=', 'pds_agents.user_id')
+            )
+            ->select('pds_agents.*', DB::raw('COALESCE(agent_ticket_summary.ticket_count, 0) as ticket_count'))
+            ->whereHas(
+                'pds',
+                fn($q) => $q->where('company_id', $companyId)
+                    ->when($campaigns, fn($q) => $q->whereIn('marketing_campaign_id', $campaigns))
+                    ->when($spv, fn($q) => $q->whereIn('spv_id', $spv))
+                    ->when($pds, fn($q) => $q->whereIn('id', $pds))
+            )
+            ->whereHas(
+                'companyUser',
+                fn($q) => $q->where('status', 'active')
+                    ->when($agent, fn($q) => $q->whereIn('id', $agent))
+            )
+            ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
+            ->orderBy('pds_agents.created_at', 'desc');
+
+        if ($limit === null) {
+            $data = $data->get();
+        } else {
+            $data = $data->paginate($limit ?: 10);
+        }
+
+        $this->hydrateAgentReportMetrics($data, $outbounds, $companyId);
+
+        return $data;
+    }
 }

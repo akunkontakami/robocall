@@ -53,7 +53,7 @@ class ReportPdsController extends Controller
     public function agentDatatable()
     {
         return ReportAgentResource::collection(
-            (new SetupPdsService())->getByAgent(
+            (new SetupPdsService())->getByAgents(
                 companyId: user()->company_id,
                 search: request('search', ''),
                 filter: request('filter', []),
