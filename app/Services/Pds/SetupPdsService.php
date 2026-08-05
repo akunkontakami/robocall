@@ -101,7 +101,8 @@ class SetupPdsService
             )
             ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
             ->orderBy('created_at', 'desc');
-
+        // dump($data->toSql(), $data->getBindings());
+        
         if ($limit === null) {
             $data = $data->get();
         } else {
@@ -482,12 +483,14 @@ class SetupPdsService
             ->orderBy('pds_name', 'asc')->get();
     }
 
-    public function sessionactivity($companyId, $start_date, $end_date, $limit = 10)
+    public function sessionactivity($companyId, $start_date, $end_date, $limit = 10, $page = 1)
     {
         $query = http_build_query([
+            'page' => $page,
+            'per_page' => $limit,
+            'tenant_id' => user()->tenant_id,
             'start_date' => $start_date,
             'end_date' => $end_date,
-            'limit' => $limit,
         ]);
 
         $dialer = Dialer::get('/report/sessionactivity?' . $query);

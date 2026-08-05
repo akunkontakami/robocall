@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Pds;
 use Inertia\Inertia;
 use App\Http\Controllers\Controller;
 use Rap2hpoutre\FastExcel\FastExcel;
+use App\Services\Pds\MonitoringPdsService;
 use App\Services\Pds\SetupPdsService;
 
 class MonitoringPdsController extends Controller
@@ -25,12 +26,14 @@ class MonitoringPdsController extends Controller
     {
         $start_date = request('start_date', now()->format('Y-m-d'));
         $end_date = request('end_date', now()->format('Y-m-d'));
+        $page = request('page', 1);
 
         $data = (new SetupPdsService())->sessionactivity(
             companyId: user()->company_id,
             start_date: $start_date,
             end_date: $end_date,
             limit: request('limit', 10),
+            page: $page,
         );
 
         return response()->json($data);
