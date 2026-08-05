@@ -109,11 +109,66 @@ class SetupPdsService
             $data = $data->paginate($limit ?: 10);
         }
 
-        $data->each(function ($item) use ($outbounds) {
+        $this->hydrateAgentReportMetrics($data, $outbounds, $companyId);
+
+        return $data;
+    }
+
+    private function hydrateAgentReportMetrics($data, array $outbounds, $companyId)
+    {
+        $items = method_exists($data, 'getCollection') ? $data->getCollection() : $data;
+
+        if ($items->isEmpty()) {
+            return $data;
+        }
+
+        $start = request('created_start');
+        $end = request('created_end');
+
+        $sessionLogs = $items->pluck('pds')
+            ->filter()
+            ->unique('id')
+            ->mapWithKeys(function ($pds) use ($start, $end) {
+                return [
+                    $pds->id => (new MonitoringPdsService())->pdsHistoryLogs($pds->pds_name, $start, $end),
+                ];
+            });
+
+        $campaignIds = $items->pluck('pds.marketing_campaign_id')->filter()->unique()->values();
+        $agentIds = $items->pluck('user_id')->filter()->unique()->values();
+
+        $ticketStatusCounts = DB::table('tickets')
+            ->select([
+                'marketing_campaign_id',
+                'current_agent_id',
+                'status',
+                DB::raw('COUNT(*) as total'),
+            ])
+            ->where('company_id', $companyId)
+            ->whereIn('marketing_campaign_id', $campaignIds)
+            ->whereIn('current_agent_id', $agentIds)
+            ->whereIn('status', $outbounds)
+            ->where('is_bucket', 1)
+            ->groupBy('marketing_campaign_id', 'current_agent_id', 'status')
+            ->get()
+            ->groupBy(fn($row) => $row->marketing_campaign_id . '__' . $row->current_agent_id)
+            ->map(fn($rows) => $rows->pluck('total', 'status')->all());
+
+        $items->each(function ($item) use ($outbounds, $sessionLogs, $ticketStatusCounts) {
+            $campaignId = $item->pds?->marketing_campaign_id;
+            $ticketStatus = $ticketStatusCounts->get($campaignId . '__' . $item->user_id, []);
+
             $item->outbounds = $outbounds;
+            $item->session_log = $sessionLogs->get($item->pds_id);
+            $item->ticket_status_count = $ticketStatus;
+            $item->data_utilize = (int) ($item->ticket_count ?? array_sum($ticketStatus));
 
             return $item;
         });
+
+        if (method_exists($data, 'setCollection')) {
+            $data->setCollection($items);
+        }
 
         return $data;
     }

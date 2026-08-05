@@ -118,34 +118,26 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                 $statusColumns = [];
 
                 foreach ($visibleOutbounds as $statusName) {
-                    $statusColumns[] = $index === 0 ? (string) ($row['ticket_status'][$statusName] ?? 0) : '';
+                    $statusColumns[] = (string) ($row['ticket_status'][$statusName] ?? 0);
                 }
 
                 $rows[] = array_merge([
                     $index === 0 ? (string) ($row['session_start'] ?? '-') : '',
                     $index === 0 ? (string) ($row['session_end'] ?? '-') : '',
                     (string) ($row['agent'] ?? '-'),
-                    $index === 0 ? (string) ($row['data_utilize'] ?? 0) : '',
+                    (string) ($row['data_utilize'] ?? 0),
                 ], $statusColumns);
 
                 $currentRow++;
             }
 
             $dataEndRow = $currentRow - 1;
-            $mergeColumns = ['A', 'B', 'D'];
-
-            if (count($visibleOutbounds) > 0) {
-                foreach (range(0, count($visibleOutbounds) - 1) as $offset) {
-                    $mergeColumns[] = $this->excelColumn(5 + $offset);
-                }
-            }
-
             $this->groupLayouts[] = [
                 'header_row' => $headerRow,
                 'data_start_row' => $dataStartRow,
                 'data_end_row' => $dataEndRow,
                 'rowspan' => count($group['rows']),
-                'merge_columns' => $mergeColumns,
+                'merge_columns' => ['A', 'B'],
             ];
         }
 

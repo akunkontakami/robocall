@@ -46,28 +46,24 @@
                 </tr>
 
                 <tr v-for="(row, index) in group.rows" :key="`${group.key}-${row.id}-${index}`">
-                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
+                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-middle">
                         {{ row.session_start ?? '-' }}
                     </Td>
-                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
+                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-middle">
                         {{ row.session_end ?? '-' }}
                     </Td>
                     <Td>
                         {{ row.agent }}
                     </Td>
-                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
+                    <Td>
                         {{ row.data_utilize ?? 0 }}
                     </Td>
-                    <template v-if="index === 0">
-                        <Td
-                            v-for="outbound in visibleOutbounds"
-                            :key="`${group.key}-${outbound}`"
-                            :rowspan="group.rowspan"
-                            class="align-top"
-                        >
-                            {{ row.ticket_status?.[outbound] ?? 0 }}
-                        </Td>
-                    </template>
+                    <Td
+                        v-for="outbound in visibleOutbounds"
+                        :key="`${group.key}-${row.id}-${outbound}`"
+                    >
+                        {{ row.ticket_status?.[outbound] ?? 0 }}
+                    </Td>
                 </tr>
             </template>
         </Table>
