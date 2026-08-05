@@ -48,7 +48,7 @@ class SetupPdsService
             ->when($pds, fn($q) => $q->whereIn('id', $pds))
             ->when($search, fn($q) => $q->where('pds_name', 'LIKE', "%$search%"))
             ->orderBy('created_at', 'desc');
-            
+
         if ($limit === null) {
             $data = $data->get();
         } else {
@@ -711,7 +711,14 @@ class SetupPdsService
             $contacted    = $row['DialContacted'] ?? 0;
             $abandoned    = $row['DialAbandoned'] ?? 0;
             $sessionStart = $row['SessionStart'] ?? $start_date;
-            $sessionEnd   = $row['SessionEnd'] ?? $end_date;
+            $sessionEnd   = $row['SessionEnd']   ?? $end_date;
+
+            // ambil hanya bagian tanggal (YYYY-MM-DD)
+            $tanggalStart = date('Y-m-d', strtotime($sessionStart));
+            $tanggalEnd   = date('Y-m-d', strtotime($sessionEnd));
+            // set jam tetap: 06:00:00 dan 21:00:00
+            $sessionStart = $tanggalStart . ' 06:00:00';
+            $sessionEnd   = $tanggalEnd   . ' 23:00:00';
 
             $ticketStatus = DB::table('ticket_histories as th')
                 ->where('th.company_id', $companyId)
@@ -737,7 +744,6 @@ class SetupPdsService
                 ->where('ca.pstn_id', '!=', null)
                 ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
                 $ticketStatus->groupBy('th.status');
-                dump($ticketStatus->toSql(), $ticketStatus->getBindings());
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
             
