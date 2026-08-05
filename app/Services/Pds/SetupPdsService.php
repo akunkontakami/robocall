@@ -744,7 +744,7 @@ class SetupPdsService
                 ->where('ca.pstn_id', '!=', null)
                 ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
                 $ticketStatus->groupBy('th.status');
-                dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+                // dump($ticketStatus->toSql(), $ticketStatus->getBindings());
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
             
