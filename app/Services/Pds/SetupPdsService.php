@@ -102,7 +102,7 @@ class SetupPdsService
             ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
             ->orderBy('created_at', 'desc');
         // dump($data->toSql(), $data->getBindings());
-        
+
         if ($limit === null) {
             $data = $data->get();
         } else {
@@ -626,14 +626,14 @@ class SetupPdsService
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->whereIn('id', $pdsIds)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId));
-                $selectedPdsList = $selectedPdsList->get();
+            $selectedPdsList = $selectedPdsList->get();
         } elseif ($campaignId) {
             // Filter by campaign (marketing_campaign_id) -> resolve matching PDS names
             $selectedPdsList = Pds::query()
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->where('marketing_campaign_id', $campaignId)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId));
-                $selectedPdsList = $selectedPdsList->get();
+            $selectedPdsList = $selectedPdsList->get();
         }
 
         $selectedPds = $selectedPdsList->first();
@@ -704,7 +704,7 @@ class SetupPdsService
 
         // Build PDS name lookup for multi-PDS rows (pds_name == campaign_id on dialer)
         $pdsNameLookup = $selectedPdsList->pluck('pds_name', 'pds_name')->filter();
-        
+
         $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
@@ -733,7 +733,7 @@ class SetupPdsService
                     fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
                         ->on('last.last_created', '=', 'th.created_at')
                 )
-                ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')                
+                ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')
                 ->when($resolvedCampaignId, function ($q) use ($resolvedCampaignId) {
                     $q->join('tickets', 'tickets.id', '=', 'th.ticket_id')
                         ->where('tickets.marketing_campaign_id', $resolvedCampaignId);
@@ -743,11 +743,11 @@ class SetupPdsService
                 ->where('ca.category', 'Incoming Call')
                 ->where('ca.pstn_id', '!=', null)
                 ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
-                $ticketStatus->groupBy('th.status');
-                // dump($ticketStatus->toSql(), $ticketStatus->getBindings());
-                $ticketStatus = $ticketStatus->pluck('total', 'th.status');
+            $ticketStatus->groupBy('th.status');
+            // dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+            $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
-            
+
             $duration = 0;
             if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
                 $duration = max(
@@ -762,7 +762,7 @@ class SetupPdsService
             } else {
                 $campaignName = $selectedPds?->pds_name ?? ($row['campaign_id'] ?? null);
             }
-           
+
             return [
                 'campaign'       => $campaignName,
                 'name'           => $campaignName,
@@ -829,61 +829,46 @@ class SetupPdsService
         ];
     }
 
-    public function getByAgents($companyId, $search, $filter, $limit)
+    public function getByAgents($companyId, $start_date, $end_date, $filter = [])
     {
-        $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
-        $statuses = collect($outbounds)
-            ->map(fn($outbound) => is_array($outbound) ? ($outbound['name'] ?? null) : $outbound)
-            ->filter()
-            ->values()
-            ->all();
+        $agentIds = @$filter['agent'];
 
-        $pds = @$filter['pds'];
-        $campaigns = @$filter['campaigns'];
-        $spv = @$filter['spv'];
-        $agent = @$filter['agent'];
-
-        $agentTicketSummary = $this->buildAgentIncomingCallBaseQuery($companyId, $reportStart, $reportEnd, $statuses)
-            ->selectRaw('ca.agent_id as user_id, COUNT(DISTINCT th.ticket_id) as ticket_count')
+        $query = DB::table('ticket_histories as th')
+            ->joinSub(
+                DB::table('ticket_histories')
+                    ->select('ticket_id', DB::raw('MAX(created_at) as last_created'))
+                    ->where('company_id', $companyId)
+                    ->where('created_at', '>=', $start_date)
+                    ->where('created_at', '<=', $end_date)
+                    ->groupBy('ticket_id'),
+                'last',
+                fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
+                    ->on('last.last_created', '=', 'th.created_at')
+            )
+            ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')
+            ->where('th.company_id', $companyId)
+            ->where('th.created_at', '>=', $start_date)
+            ->where('th.created_at', '<=', $end_date)
+            ->where('ca.category', 'Incoming Call')
+            ->whereNotNull('ca.pstn_id')
+            ->when($agentIds, fn($q) => $q->whereIn('ca.agent_id', $agentIds))
+            ->select([
+                'ca.agent_id as user_id',
+                'th.created_at',
+                'th.company_id',
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'Promised to Pay (PTP)' THEN th.ticket_id END) as PTP"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'Call Back' THEN th.ticket_id END) as CallBack"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'Visit Request - Contacted' THEN th.ticket_id END) as VisitRequest"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'BP Partial' THEN th.ticket_id END) as BPPartial"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'NBP-A' THEN th.ticket_id END) as NBPA"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'NBP-B (Salah Sambung)' THEN th.ticket_id END) as NBPB"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'NBP-C (Invalid Number)' THEN th.ticket_id END) as NBPC"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'Paid in Confins' THEN th.ticket_id END) as PaidinConfins"),
+            ])
             ->groupBy('ca.agent_id');
 
-        $data = PdsAgent::with([
-            'ext',
-            'companyUser',
-            'pds.campaign',
-            'pds.customers',
-            'pds.spv',
-            'pds.spv.companyUser',
-        ])
-            ->leftJoinSub(
-                $agentTicketSummary,
-                'agent_ticket_summary',
-                fn($join) => $join->on('agent_ticket_summary.user_id', '=', 'pds_agents.user_id')
-            )
-            ->select('pds_agents.*', DB::raw('COALESCE(agent_ticket_summary.ticket_count, 0) as ticket_count'))
-            ->whereHas(
-                'pds',
-                fn($q) => $q->where('company_id', $companyId)
-                    ->when($campaigns, fn($q) => $q->whereIn('marketing_campaign_id', $campaigns))
-                    ->when($spv, fn($q) => $q->whereIn('spv_id', $spv))
-                    ->when($pds, fn($q) => $q->whereIn('id', $pds))
-            )
-            ->whereHas(
-                'companyUser',
-                fn($q) => $q->where('status', 'active')
-                    ->when($agent, fn($q) => $q->whereIn('id', $agent))
-            )
-            ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
-            ->orderBy('pds_agents.created_at', 'desc');
+        // dump($query->toSql(), $query->getBindings());
 
-        if ($limit === null) {
-            $data = $data->get();
-        } else {
-            $data = $data->paginate($limit ?: 10);
-        }
-
-        $this->hydrateAgentReportMetrics($data, $outbounds, $companyId);
-
-        return $data;
+        return $query->get();
     }
 }
