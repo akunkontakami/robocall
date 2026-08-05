@@ -48,7 +48,7 @@ class SetupPdsService
             ->when($pds, fn($q) => $q->whereIn('id', $pds))
             ->when($search, fn($q) => $q->where('pds_name', 'LIKE', "%$search%"))
             ->orderBy('created_at', 'desc');
-            dump($data->toSql(), $data->getBindings());
+            
         if ($limit === null) {
             $data = $data->get();
         } else {
@@ -737,6 +737,7 @@ class SetupPdsService
                 ->where('ca.pstn_id', '!=', null)
                 ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
                 $ticketStatus->groupBy('th.status');
+                dump($ticketStatus->toSql(), $ticketStatus->getBindings());
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
             
