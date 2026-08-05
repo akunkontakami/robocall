@@ -48,7 +48,7 @@ class SetupPdsService
             ->when($pds, fn($q) => $q->whereIn('id', $pds))
             ->when($search, fn($q) => $q->where('pds_name', 'LIKE', "%$search%"))
             ->orderBy('created_at', 'desc');
-
+            dump($data->toSql(), $data->getBindings());
         if ($limit === null) {
             $data = $data->get();
         } else {
@@ -101,7 +101,7 @@ class SetupPdsService
             )
             ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
             ->orderBy('created_at', 'desc');
-        dump($data->toSql(), $data->getBindings());
+        // dump($data->toSql(), $data->getBindings());
         
         if ($limit === null) {
             $data = $data->get();
