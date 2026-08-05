@@ -170,25 +170,11 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
             return $this->visibleOutbounds;
         }
 
-        $visibleOutbounds = [];
-
-        foreach ($this->outbounds as $outbound) {
-            $statusName = is_array($outbound) ? ($outbound['name'] ?? null) : $outbound;
-
-            if (!$statusName) {
-                continue;
-            }
-
-            $hasValue = collect($this->data)->contains(function ($row) use ($statusName) {
-                return (int) ($row['ticket_status'][$statusName] ?? 0) !== 0;
-            });
-
-            if ($hasValue) {
-                $visibleOutbounds[] = $statusName;
-            }
-        }
-
-        return $this->visibleOutbounds = $visibleOutbounds;
+        return $this->visibleOutbounds = collect($this->outbounds)
+            ->map(fn($outbound) => is_array($outbound) ? ($outbound['name'] ?? null) : $outbound)
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function excelColumn(int $index): string

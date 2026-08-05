@@ -96,13 +96,11 @@ const paginate = usePaginate({
     route: route('pds.report.agent-datatable'),
 });
 
-const visibleOutbounds = computed(() => {
-    const rows = paginate.data.value ?? [];
-
-    return (props.outbounds ?? []).filter((outbound: string) =>
-        rows.some((row: any) => Number(row.ticket_status?.[outbound] ?? 0) !== 0)
-    );
-});
+const visibleOutbounds = computed(() =>
+    (props.outbounds ?? []).map((outbound: any) =>
+        typeof outbound === "string" ? outbound : outbound?.name
+    ).filter(Boolean)
+);
 
 const columns = computed(() => [
     "SessionStart",
