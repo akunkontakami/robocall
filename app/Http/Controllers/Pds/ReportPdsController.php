@@ -37,14 +37,18 @@ class ReportPdsController extends Controller
 
     public function campaignDatatable()
     {
-        return ReportCampaignResource::collection(
-            (new SetupPdsService())->getByCampaign(
-                companyId: user()->company_id,
-                search: request('search', ''),
-                filter: request('filter', []),
-                limit: request('limit', 10),
-            )
+        $data = (new SetupPdsService())->sessionByCampaign(
+            companyId: user()->company_id,
+            start_date: request('created_start', now()->toDateString()),
+            end_date: request('created_end', now()->toDateString()),
+            campaignId: request('filter.campaigns'),
+            pdsId: request('filter.pds'),
+            search: request('search', ''),
+            limit: request('limit', 10),
+            page: request('page', 1),
         );
+
+        return response()->json($data);
     }
 
     public function agentDatatable()
@@ -127,5 +131,4 @@ class ReportPdsController extends Controller
 
         return Excel::download(new PdsCampaignExport($data, $outbounds), $filename);
     }
-
 }
