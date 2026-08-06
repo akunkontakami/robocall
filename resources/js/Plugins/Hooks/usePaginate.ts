@@ -74,23 +74,26 @@ export const usePaginate = ({
 
     const next = () => {
         const page = information.value.current_page + 1
-        routeAppendParam({ page })
-        fetchData()
+        routeAppendParam({ page }, true, () => {
+            fetchData()
+        })
     }
 
     const prev = () => {
         if (information.value.current_page > 1) {
             const page = information.value.current_page - 1
-            routeAppendParam({ page })
-            fetchData()
+            routeAppendParam({ page }, true, () => {
+                fetchData()
+            })
         }
     }
 
     const changeLimit = (limit: any) => {
         limit = Number(limit)
         if (limit >= 5) {
-            routeAppendParam({ limit, page: 1 })
-            fetchData()
+            routeAppendParam({ limit, page: 1 }, true, () => {
+                fetchData()
+            })
         }
     }
 

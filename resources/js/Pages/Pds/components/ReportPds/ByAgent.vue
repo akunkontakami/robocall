@@ -16,19 +16,21 @@
         <Table :columns="columns" :paginate="paginate" :hide-th="true">
             <template #thead>
                 <tr class="bg-[#F4F6FA]">
-                    <Th rowspan="2">PDS Name</Th>
-                    <Th rowspan="2">Marketing Campaign</Th>
-                    <Th rowspan="2">SPV</Th>
-                    <Th rowspan="2">Agent</Th>
-                    <Th rowspan="2">Data Utilize PDS</Th>
-                    <Th :colspan="outbounds.length" class="text-center border-x">Receive Agent</Th>
+                    <Th rowspan="2">SessionStart</Th>
+                    <Th rowspan="2">SessionEnd</Th>
+                    <Th rowspan="2">Deskcoll</Th>
+                    <Th rowspan="2">Data Contacted</Th>
+                    <Th v-if="visibleOutbounds.length" :colspan="visibleOutbounds.length" class="text-center border-x">
+                        Call Status
+                    </Th>
                 </tr>
-                <tr class="bg-[#F4F6FA]">
+                <tr v-if="visibleOutbounds.length" class="bg-[#F4F6FA]">
                     <Th
-                        v-for="(outbound, i) in outbounds"
+                        v-for="(outbound, i) in visibleOutbounds"
+                        :key="outbound"
                         :class="{
                             'border-l': i == 0,
-                            'border-r': i + 1 == outbounds.length
+                            'border-r': i + 1 == visibleOutbounds.length
                         }"
                     >
                         {{ outbound }}
@@ -36,28 +38,38 @@
                 </tr>
             </template>
 
-            <tr
-                v-for="(row, i) in paginate.data.value"
-            >
-                <Td>
-                    {{ row.name }}
-                </Td>
-                <Td>
-                    {{ row.campaign }}
-                </Td>
-                <Td>
-                    {{ row.spv }}
-                </Td>
-                <Td>
-                    {{ row.agent }}
-                </Td>
-                <Td>
-                    {{ row.data_utilize }}
-                </Td>
-                <Td v-for="(outbound, i) in outbounds">
-                    {{ row.ticket_status?.[outbound] ?? 0 }}
-                </Td>
-            </tr>
+            <template v-for="group in groupedRows" :key="group.key">
+                <tr class="bg-[#F4F6FA]">
+                    <Td :colspan="columns.length" class="font-semibold text-[14px]">
+                        {{ group.title }}
+                    </Td>
+                </tr>
+
+                <tr v-for="(row, index) in group.rows" :key="`${group.key}-${row.id}-${index}`">
+                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
+                        {{ row.session_start ?? '-' }}
+                    </Td>
+                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
+                        {{ row.session_end ?? '-' }}
+                    </Td>
+                    <Td>
+                        {{ row.agent }}
+                    </Td>
+                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
+                        {{ row.data_utilize ?? 0 }}
+                    </Td>
+                    <template v-if="index === 0">
+                        <Td
+                            v-for="outbound in visibleOutbounds"
+                            :key="`${group.key}-${outbound}`"
+                            :rowspan="group.rowspan"
+                            class="align-top"
+                        >
+                            {{ row.ticket_status?.[outbound] ?? 0 }}
+                        </Td>
+                    </template>
+                </tr>
+            </template>
         </Table>
     </div>
 </template>
@@ -68,14 +80,12 @@ import Table from "@/Components/Table/Table.vue";
 import TableSearch from "@/Components/Table/TableSearch.vue";
 import Td from "@/Components/Table/Td.vue";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
-import { ref, onBeforeUnmount, onMounted, onBeforeMount } from "vue";
+import { computed, ref } from "vue";
 import FilterByAgent from "./FilterByAgent.vue";
 import { closeFilter, getArrayParamsFromUrl, getQueryParam, removeAllUrlParameter, routeAppendParam, showAlert, validateGreaterDateRange } from "@/Plugins/Function/global-function";
 import Th from "@/Components/Table/Th.vue";
 
-const props = defineProps(["campaigns", "spv", "agents", "pds", "outbounds"])
-
-const columns = ref([]);
+const props = defineProps(["campaigns", "spv", "agents", "pds", "outbounds"]);
 
 const filter = ref({
     created_start: getQueryParam("created_start"),
@@ -88,6 +98,50 @@ const filter = ref({
 
 const paginate = usePaginate({
     route: route('pds.report.agent-datatable'),
+});
+
+const visibleOutbounds = computed(() => {
+    const rows = paginate.data.value ?? [];
+
+    return (props.outbounds ?? []).filter((outbound: string) =>
+        rows.some((row: any) => Number(row.ticket_status?.[outbound] ?? 0) !== 0)
+    );
+});
+
+const columns = computed(() => [
+    "SessionStart",
+    "SessionEnd",
+    "Deskcoll",
+    "Data Contacted",
+    ...visibleOutbounds.value,
+]);
+
+const groupedRows = computed(() => {
+    const groups: Array<any> = [];
+    const groupMap = new Map<string, any>();
+
+    (paginate.data.value ?? []).forEach((row: any) => {
+        const groupKey = `${row.name ?? '-'}__${row.spv ?? '-'}`;
+
+        if (!groupMap.has(groupKey)) {
+            const group = {
+                key: groupKey,
+                title: `${row.name ?? '-'} - ${row.spv ?? '-'}`,
+                rows: [],
+                rowspan: 0,
+            };
+
+            groupMap.set(groupKey, group);
+            groups.push(group);
+        }
+
+        groupMap.get(groupKey).rows.push(row);
+    });
+
+    return groups.map((group) => ({
+        ...group,
+        rowspan: group.rows.length || 1,
+    }));
 });
 
 const filterData = () => {
@@ -114,10 +168,6 @@ const filterData = () => {
             filterParam[`filter[campaigns][${index}]`] = id;
         });
 
-        param.pds.forEach((id, index) => {
-            filterParam[`filter[pds][${index}]`] = id;
-        });
-
         param.spv.forEach((id, index) => {
             filterParam[`filter[spv][${index}]`] = id;
         });
@@ -130,24 +180,11 @@ const filterData = () => {
         routeAppendParam(filterParam, false);
         closeFilter();
     }
-
 };
 
 const exportData = () => {
     window.open(
         route('pds.report.agent-export') + window.location.search
-    )
-}
-
-onBeforeMount(() => {
-    (columns.value as any) = [
-        'PDS Name',
-        'Marketing Campaign',
-        'SPV',
-        'Agent',
-        'Data Utilize PDS',
-        ...props.outbounds
-    ]
-})
-
+    );
+};
 </script>

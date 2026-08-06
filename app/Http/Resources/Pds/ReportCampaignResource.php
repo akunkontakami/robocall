@@ -6,6 +6,7 @@ use App\Services\Pds\MonitoringPdsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
 class ReportCampaignResource extends JsonResource
 {
@@ -22,20 +23,32 @@ class ReportCampaignResource extends JsonResource
         $log = (new MonitoringPdsService())->pdsHistoryLogs($this->pds_name, $start, $end);
         $agentReady = (new MonitoringPdsService())->getAgentReady($this->agents);
 
-        $duration =gmdate("H:i:s", $log->Duration);
-        // if ($log->SessionStart && $log->SessionEnd) {
-        //     $startTime = Carbon::parse($log->SessionStart);
-        //     $endTime = Carbon::parse($log->SessionEnd);
-        //     $duration = $endTime->diff($startTime)->format('%H:%I:%S');
-        // }
+        $duration = '00:00:00';
+        if ($log->SessionStart && $log->SessionEnd) {
+            $duration = gmdate('H:i:s', max(0, Carbon::parse($log->SessionEnd)
+                ->diffInSeconds(Carbon::parse($log->SessionStart))));
+        }
 
         $ticketStatuses = $this->outbounds;
-        $ticketCount = $this->tickets()
-            ->whereIn('status', $ticketStatuses)
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->get()
-            ->pluck('count', 'status');
+        $ticketCount = DB::table('ticket_histories as th')
+            ->where('th.company_id', $this->company_id)
+            ->joinSub(
+                DB::table('ticket_histories')
+                    ->select('ticket_id', DB::raw('MAX(created_at) as last_created'))
+                    ->where('company_id', $this->company_id)
+                    ->when($start && $end, fn($q) => $q->whereBetween('created_at', [$start, $end]))
+                    ->groupBy('ticket_id'),
+                'last',
+                fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
+                    ->on('last.last_created', '=', 'th.created_at')
+            )
+            ->join('tickets', 'tickets.id', '=', 'th.ticket_id')
+            ->where('tickets.marketing_campaign_id', $this->marketing_campaign_id)
+            ->when($start && $end, fn($q) => $q->whereBetween('th.created_at', [$start, $end]))
+            ->whereIn('th.status', $ticketStatuses)
+            ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total')
+            ->groupBy('th.status')
+            ->pluck('total', 'th.status');
 
         return [
             'id' => $this->id,

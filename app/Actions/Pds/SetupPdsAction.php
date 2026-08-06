@@ -3,6 +3,7 @@
 namespace App\Actions\Pds;
 
 use App\Helpers\Dialer;
+use App\Jobs\ReleasePdsCustomersJob;
 use App\Models\Data\ProductSubject;
 use App\Models\Data\Ticket;
 use App\Models\Data\TicketForm;
@@ -337,16 +338,71 @@ class SetupPdsAction
         });
     }
 
-    public function release(Request $request, $id)
+    public function release(Request $request, $ids)
     {
         $user = user();
+        $ids = is_array($ids) ? $ids : [$ids];
+        $ids = array_values(array_unique(array_filter($ids)));
 
-        return DB::transaction(function () use ($user, $id) {
-            $pds = Pds::where('id', $id)->first();
-            $customers = PdsCustomer::where('pds_id', $pds->id)->where('company_id', $user->company_id)->get();
+        if (empty($ids)) {
+            throw new BadRequestException('PDS is required');
+        }
+
+        $pdsIds = Pds::whereIn('id', $ids)
+            ->where('company_id', $user->company_id)
+            ->pluck('id');
+
+        if ($pdsIds->isEmpty()) {
+            throw new BadRequestException('No valid PDS selected');
+        }
+
+        if ($pdsIds->count() === 1) {
+            $dialerPayload = $this->releasePdsCustomers(
+                $pdsIds->first(),
+                $user->company_id
+            );
+
+            if ($dialerPayload) {
+                $dialer = Dialer::post(
+                    '/campaign-dialer/releaseCustomerPDS',
+                    $dialerPayload,
+                    true
+                );
+
+                if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                    throw new BadRequestException($dialer['errors']);
+                }
+            }
+
+            return 1;
+        }
+
+        foreach ($pdsIds as $pdsId) {
+            ReleasePdsCustomersJob::dispatch($pdsId, $user->company_id)
+                ->onConnection('database')
+                ->onQueue('dialer');
+        }
+
+        return $pdsIds->count();
+    }
+
+    public function releasePdsCustomers(string $pdsId, string $companyId): ?array
+    {
+        return DB::transaction(function () use ($pdsId, $companyId) {
+            $pds = Pds::where('id', $pdsId)
+                ->where('company_id', $companyId)
+                ->first();
+
+            if (!$pds) {
+                return null;
+            }
+
+            $customers = PdsCustomer::where('pds_id', $pds->id)
+                ->where('company_id', $companyId)
+                ->lazyById(500, 'id');
 
             $agentIds = PdsAgent::where('pds_id', $pds->id)
-                ->where('company_id', $user->company_id)
+                ->where('company_id', $companyId)
                 ->pluck('user_id')
                 ->toArray();
 
@@ -374,7 +430,6 @@ class SetupPdsAction
                     }
 
                     $subject = ProductSubject::where('id', $ticket->subject_id)->first();
-
                     $lastHistory = TicketHistory::where('ticket_id', $ticket->id)
                         ->orderBy('id', 'desc')
                         ->first();
@@ -403,20 +458,14 @@ class SetupPdsAction
                 }
             }
 
-            PdsCustomer::where('pds_id', $pds->id)->where('company_id', $user->company_id)->delete();
+            PdsCustomer::where('pds_id', $pds->id)
+                ->where('company_id', $companyId)
+                ->delete();
 
-            $dialer = Dialer::post('/campaign-dialer/releaseCustomerPDS', [
+            return [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-            ]);
-
-            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
-                $errorMessage = $dialer['errors'];
-
-                throw new BadRequestException($errorMessage);
-
-                return;
-            }
+            ];
         });
     }
 }

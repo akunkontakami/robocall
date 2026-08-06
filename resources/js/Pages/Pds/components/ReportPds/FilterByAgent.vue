@@ -10,14 +10,14 @@
                 placeholder="Select"
             />
 
-            <MultipleSelect
+            <!-- <MultipleSelect
                 label="Marketing Campaign"
                 id="campaigns"
                 v-model="filter.campaigns"
                 :selected="filter.campaigns"
                 :items="campaigns"
                 placeholder="Select"
-            />
+            /> -->
 
             <MultipleSelect
                 label="Spv"

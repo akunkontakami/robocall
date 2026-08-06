@@ -81,9 +81,15 @@ class SetupPdsController extends Controller
     public function release(Request $request, SetupPdsAction $action)
     {
         try {
-            $action->release($request, $request->id);
+            $ids = $request->input('ids', $request->input('id'));
+            $releasedCount = $action->release($request, $ids);
 
-            return back()->with('success', 'Successfully release customers');
+            return back()->with(
+                'success',
+                $releasedCount === 1
+                    ? 'Successfully release customers'
+                    : 'Customer release queued successfully'
+            );
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }
