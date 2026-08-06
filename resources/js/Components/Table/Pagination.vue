@@ -6,15 +6,16 @@
              <p class="pl-2 text-[11px] font-krub-medium">Show rows per page</p>
              <select
                  class="border rounded-md outline-none p-1 text-[11px] bg-white font-krub-medium w-[45px]"
+                 :value="String(props.information?.per_page ?? 10)"
                  @change="
                      $emit('setLimit', ($event.target as HTMLInputElement).value)
                  "
              >
-                 <option :selected="props.information.per_page===10" value="10">10</option>
-                 <option :selected="props.information.per_page===20" value="20">20</option>
-                 <option :selected="props.information.per_page===50" value="50">50</option>
-                 <option :selected="props.information.per_page===100" value="100">100</option>
-                 <option :selected="props.information.per_page===150" value="150">150</option>
+                 <option value="10">10</option>
+                 <option value="20">20</option>
+                 <option value="50">50</option>
+                 <option value="100">100</option>
+                 <option value="150">150</option>
              </select>
          </div>
  

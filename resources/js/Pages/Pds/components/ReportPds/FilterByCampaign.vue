@@ -11,14 +11,14 @@
                 placeholder="Select"
             />
 
-            <MultipleSelect
+            <!-- <MultipleSelect
                 label="Marketing Campaign"
                 id="campaigns"
                 v-model="filter.campaigns"
                 :selected="filter.campaigns"
                 :items="campaigns"
                 placeholder="Select"
-            />
+            /> -->
 
             <div class="grid grid-cols-2 gap-4">
                 <DatePicker
