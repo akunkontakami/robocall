@@ -52,11 +52,15 @@ class ReportPdsController extends Controller
 
     public function agentDatatable()
     {
+        $filter = request('filter', []);
+        $filter['created_start'] = request('created_start', now()->toDateString());
+        $filter['created_end'] = request('created_end', now()->toDateString());
+
         return ReportAgentResource::collection(
             (new SetupPdsService())->getByAgents(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter', []),
+                filter: $filter,
                 limit: request('limit', 10),
             )
         );
@@ -96,11 +100,16 @@ class ReportPdsController extends Controller
     public function agentExport(Request $request)
     {
         $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
+
+        $filter = request('filter', []);
+        $filter['created_start'] = request('created_start', now()->toDateString());
+        $filter['created_end'] = request('created_end', now()->toDateString());
+
         $dataCollection = ReportAgentResource::collection(
-            (new SetupPdsService())->getByAgent(
+            (new SetupPdsService())->getByAgents(
                 companyId: user()->company_id,
                 search: request('search', ''),
-                filter: request('filter', []),
+                filter: $filter,
                 limit: null
             )
         );
