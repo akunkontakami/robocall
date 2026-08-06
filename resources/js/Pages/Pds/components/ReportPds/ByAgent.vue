@@ -96,13 +96,27 @@ const paginate = usePaginate({
     route: route('pds.report.agent-datatable'),
 });
 
-const propsOutboundNames = computed(() =>
-    (props.outbounds ?? []).map((outbound: any) =>
-        typeof outbound === "string" ? outbound : outbound?.name
-    ).filter(Boolean)
-);
-
 const keyNormalize = (s: string) => String(s ?? '').toLowerCase().replace(/[\s\-_()]/g, '');
+
+const EXCLUDED_STATUSES = new Set([
+    'visitrequestcontacted',
+    'visitrequest',
+    'contacted',
+    'vr',
+    'visitrequestcontacted',
+]);
+
+const CALL_STATUS_ALIASES: Record<string, string[]> = {
+    'PTP': ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
+    'CallBack': ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
+    'BPPartial': ['BP Partial', 'Bp Partial', 'BPPartial'],
+    'NBPA': ['NBP-A', 'NBP A', 'NBPA'],
+    'NBPB': ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
+    'NBPC': ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
+    'PaidinConfins': ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+};
+
+const CALL_STATUS_ORDER = ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins'];
 
 const findStatusValue = (row: any, statusName: string): number => {
     if (!row || !row.ticket_status) return 0;
@@ -118,35 +132,41 @@ const findStatusValue = (row: any, statusName: string): number => {
     return 0;
 };
 
-const visibleOutbounds = computed(() => {
-    const names = propsOutboundNames.value;
-    if (names && names.length) {
-        const nonZero = new Set<string>();
-        (paginate.data.value ?? []).forEach((row: any) => {
-            names.forEach((statusName: string) => {
-                if (findStatusValue(row, statusName) > 0) nonZero.add(statusName);
-            });
-        });
-        if (nonZero.size === 0) {
-            const fromData = new Set<string>();
-            (paginate.data.value ?? []).forEach((row: any) => {
-                Object.entries(row.ticket_status ?? {}).forEach(([k, v]: any) => {
-                    if (Number(v) > 0) fromData.add(k);
-                });
-            });
-            if (fromData.size > 0) {
-                return [...names, ...Array.from(fromData).filter(n => !names.includes(n))];
+const propsOutboundNames = computed(() =>
+    (props.outbounds ?? []).map((outbound: any) =>
+        typeof outbound === "string" ? outbound : outbound?.name
+    ).filter(Boolean)
+);
+
+const filteredPropsOutboundNames = computed(() => {
+    const names: string[] = [];
+    propsOutboundNames.value.forEach((name: string) => {
+        const kn = keyNormalize(name);
+        if (EXCLUDED_STATUSES.has(kn)) return;
+        for (const aliasList of Object.values(CALL_STATUS_ALIASES)) {
+            for (const variant of aliasList) {
+                if (keyNormalize(variant) === kn) {
+                    names.push(name);
+                    return;
+                }
             }
         }
-        return names;
-    }
-    const fromData = new Set<string>();
-    (paginate.data.value ?? []).forEach((row: any) => {
-        Object.entries(row.ticket_status ?? {}).forEach(([k, v]: any) => {
-            if (Number(v) > 0) fromData.add(k);
-        });
     });
-    return Array.from(fromData);
+    return names;
+});
+
+const visibleOutbounds = computed(() => {
+    const filtered = filteredPropsOutboundNames.value;
+
+    if (filtered && filtered.length) {
+        return filtered;
+    }
+
+    const firstRow = (paginate.data.value ?? [])[0];
+    if (firstRow && firstRow.ticket_status) {
+        return Object.keys(firstRow.ticket_status);
+    }
+    return CALL_STATUS_ORDER;
 });
 
 const columns = computed(() => [

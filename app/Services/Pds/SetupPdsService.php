@@ -939,20 +939,19 @@ class SetupPdsService
             })->all();
         }
 
-        $statusNameToKey = [
-            'Promised to Pay (PTP)' => 'PTP',
-            'Call Back' => 'CallBack',
-            'Visit Request - Contacted' => 'VisitRequest',
-            'BP Partial' => 'BPPartial',
-            'NBP-A' => 'NBPA',
-            'NBP-B (Salah Sambung)' => 'NBPB',
-            'NBP-C (Invalid Number)' => 'NBPC',
-            'Paid in Confins' => 'PaidinConfins',
+        $fixedStatusOrder = [
+            'PTP' => 'PTP',
+            'CallBack' => 'CallBack',
+            'BPPartial' => 'BP Partial',
+            'NBPA' => 'NBP-A',
+            'NBPB' => 'NBP-B (Salah Sambung)',
+            'NBPC' => 'NBP-C (Invalid Number)',
+            'PaidinConfins' => 'Paid in Confins',
         ];
+
         $keyEquivalents = [
             'PTP' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
             'CallBack' => ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
-            'VisitRequest' => ['Visit Request - Contacted', 'Visit Request', 'VisitRequest', 'VR'],
             'BPPartial' => ['BP Partial', 'Bp Partial', 'BPPartial'],
             'NBPA' => ['NBP-A', 'NBP A', 'NBPA'],
             'NBPB' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
@@ -960,12 +959,26 @@ class SetupPdsService
             'PaidinConfins' => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
         ];
 
-        $items->each(function ($item) use ($outbounds, $aggRows, $statusNameToKey, $keyEquivalents, $sessionLogs, $start_date, $end_date) {
+        $queryStatusOrder = array_keys($fixedStatusOrder);
+        $outboundsFiltered = collect($outbounds)->filter(function ($name) use ($keyEquivalents) {
+            if (in_array($name, ['Visit Request - Contacted', 'Visit Request', 'Contacted', 'VR'], true)) {
+                return false;
+            }
+            foreach ($keyEquivalents as $canonicalKey => $variants) {
+                foreach ($variants as $variant) {
+                    if (mb_strtolower(trim($variant)) === mb_strtolower(trim($name))) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        })->values()->all();
+
+        $items->each(function ($item) use ($aggRows, $keyEquivalents, $fixedStatusOrder, $queryStatusOrder, $outboundsFiltered, $sessionLogs, $start_date, $end_date) {
             $agg = $aggRows->get($item->user_id);
 
             $ptp = $agg ? (int) ($agg->PTP ?? 0) : 0;
             $callback = $agg ? (int) ($agg->CallBack ?? 0) : 0;
-            $visit = $agg ? (int) ($agg->VisitRequest ?? 0) : 0;
             $bpp = $agg ? (int) ($agg->BPPartial ?? 0) : 0;
             $nbpa = $agg ? (int) ($agg->NBPA ?? 0) : 0;
             $nbpb = $agg ? (int) ($agg->NBPB ?? 0) : 0;
@@ -975,7 +988,6 @@ class SetupPdsService
 
             $item->PTP = $ptp;
             $item->CallBack = $callback;
-            $item->VisitRequest = $visit;
             $item->BPPartial = $bpp;
             $item->NBPA = $nbpa;
             $item->NBPB = $nbpb;
@@ -986,7 +998,6 @@ class SetupPdsService
             $valueMap = [
                 'PTP' => $ptp,
                 'CallBack' => $callback,
-                'VisitRequest' => $visit,
                 'BPPartial' => $bpp,
                 'NBPA' => $nbpa,
                 'NBPB' => $nbpb,
@@ -994,35 +1005,32 @@ class SetupPdsService
                 'PaidinConfins' => $pic,
             ];
 
-            $ticketStatus = [];
-            foreach ($outbounds as $statusName) {
-                $matchedValue = 0;
-                $found = false;
+            $displayNames = [];
+            foreach ($outboundsFiltered as $name) {
                 foreach ($keyEquivalents as $canonicalKey => $variants) {
                     foreach ($variants as $variant) {
-                        if (mb_strtolower(trim($variant)) === mb_strtolower(trim($statusName))) {
-                            $matchedValue = $valueMap[$canonicalKey] ?? 0;
-                            $found = true;
+                        if (mb_strtolower(trim($variant)) === mb_strtolower(trim($name))) {
+                            $displayNames[$canonicalKey] = $name;
                             break 2;
                         }
                     }
                 }
-                if (!$found) {
-                    $directKey = $statusNameToKey[$statusName] ?? null;
-                    if ($directKey && isset($valueMap[$directKey])) {
-                        $matchedValue = $valueMap[$directKey];
-                    }
-                }
-                $ticketStatus[$statusName] = $matchedValue;
             }
 
-            foreach ($valueMap as $canonicalKey => $value) {
-                if (!array_key_exists($canonicalKey, $ticketStatus)) {
-                    $ticketStatus[$canonicalKey] = $value;
-                }
+            $ticketStatus = [];
+            foreach ($queryStatusOrder as $alias) {
+                $displayName = $displayNames[$alias] ?? $fixedStatusOrder[$alias] ?? $alias;
+                $ticketStatus[$displayName] = (int) ($valueMap[$alias] ?? 0);
             }
 
-            $item->outbounds = $outbounds;
+            $item->outbounds = array_values($displayNames);
+            if (empty($item->outbounds)) {
+                $item->outbounds = collect($queryStatusOrder)
+                    ->map(fn($alias) => $fixedStatusOrder[$alias] ?? $alias)
+                    ->values()
+                    ->all();
+            }
+
             $pdsId = $item->pds_id;
             $item->session_log = $pdsId && isset($sessionLogs[$pdsId]) ? $sessionLogs[$pdsId] : (object) [
                 'SessionStart' => $start_date ? $start_date . ' 00:00:00' : null,
@@ -1053,7 +1061,6 @@ class SetupPdsService
                     'created_at' => now(),
                     'PTP' => (int) ($agg->PTP ?? 0),
                     'CallBack' => (int) ($agg->CallBack ?? 0),
-                    'VisitRequest' => (int) ($agg->VisitRequest ?? 0),
                     'BPPartial' => (int) ($agg->BPPartial ?? 0),
                     'NBPA' => (int) ($agg->NBPA ?? 0),
                     'NBPB' => (int) ($agg->NBPB ?? 0),
@@ -1082,7 +1089,6 @@ class SetupPdsService
                 $valueMap = [
                     'PTP' => $obj->PTP,
                     'CallBack' => $obj->CallBack,
-                    'VisitRequest' => $obj->VisitRequest,
                     'BPPartial' => $obj->BPPartial,
                     'NBPA' => $obj->NBPA,
                     'NBPB' => $obj->NBPB,
@@ -1090,25 +1096,31 @@ class SetupPdsService
                     'PaidinConfins' => $obj->PaidinConfins,
                 ];
 
-                $ticketStatus = [];
-                foreach ($outbounds as $statusName) {
-                    $matchedValue = 0;
+                $displayNames = [];
+                foreach ($outboundsFiltered as $name) {
                     foreach ($keyEquivalents as $canonicalKey => $variants) {
                         foreach ($variants as $variant) {
-                            if (mb_strtolower(trim($variant)) === mb_strtolower(trim($statusName))) {
-                                $matchedValue = $valueMap[$canonicalKey] ?? 0;
+                            if (mb_strtolower(trim($variant)) === mb_strtolower(trim($name))) {
+                                $displayNames[$canonicalKey] = $name;
                                 break 2;
                             }
                         }
                     }
-                    $ticketStatus[$statusName] = $matchedValue;
                 }
-                foreach ($valueMap as $k => $v) {
-                    if (!isset($ticketStatus[$k])) {
-                        $ticketStatus[$k] = $v;
-                    }
+
+                $ticketStatus = [];
+                foreach ($queryStatusOrder as $alias) {
+                    $displayName = $displayNames[$alias] ?? $fixedStatusOrder[$alias] ?? $alias;
+                    $ticketStatus[$displayName] = (int) ($valueMap[$alias] ?? 0);
                 }
-                $obj->outbounds = $outbounds;
+
+                $obj->outbounds = array_values($displayNames);
+                if (empty($obj->outbounds)) {
+                    $obj->outbounds = collect($queryStatusOrder)
+                        ->map(fn($alias) => $fixedStatusOrder[$alias] ?? $alias)
+                        ->values()
+                        ->all();
+                }
                 $obj->ticket_status_count = $ticketStatus;
                 $obj->data_utilize = (int) ($obj->data_contacted > 0 ? $obj->data_contacted : array_sum($valueMap));
                 $items->push($obj);

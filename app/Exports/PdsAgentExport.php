@@ -210,43 +210,74 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
         return 0;
     }
 
+    private function callStatusAliases(): array
+    {
+        return [
+            'PTP' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
+            'CallBack' => ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
+            'BPPartial' => ['BP Partial', 'Bp Partial', 'BPPartial'],
+            'NBPA' => ['NBP-A', 'NBP A', 'NBPA'],
+            'NBPB' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
+            'NBPC' => ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
+            'PaidinConfins' => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+        ];
+    }
+
+    private function callStatusOrder(): array
+    {
+        return ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins'];
+    }
+
+    private function excludedStatuses(): array
+    {
+        return ['visitrequestcontacted', 'visitrequest', 'contacted', 'vr'];
+    }
+
     private function visibleOutboundNames(): array
     {
         if ($this->visibleOutbounds !== null) {
             return $this->visibleOutbounds;
         }
 
-        $names = collect($this->outbounds)
+        $aliases = $this->callStatusAliases();
+        $order = $this->callStatusOrder();
+        $excluded = $this->excludedStatuses();
+
+        $rawNames = collect($this->outbounds)
             ->map(fn($outbound) => is_array($outbound) ? ($outbound['name'] ?? null) : $outbound)
             ->filter()
             ->values()
             ->all();
 
-        $namesHaveNonZero = [];
-        $fromData = [];
-        foreach ($this->data as $row) {
-            $ts = $row['ticket_status'] ?? [];
-            if (is_array($ts)) {
-                foreach ($ts as $k => $v) {
-                    if ((int) $v > 0) {
-                        $fromData[$k] = true;
+        $names = [];
+        foreach ($rawNames as $name) {
+            $kn = $this->keyNormalize((string) $name);
+            if (in_array($kn, $excluded, true)) {
+                continue;
+            }
+            $found = false;
+            foreach ($aliases as $variants) {
+                foreach ($variants as $variant) {
+                    if ($this->keyNormalize($variant) === $kn) {
+                        $found = true;
+                        break 2;
                     }
                 }
             }
-            foreach ($names as $nm) {
-                if ($this->findStatusValue($row, $nm) > 0) {
-                    $namesHaveNonZero[$nm] = true;
-                }
+            if ($found) {
+                $names[] = (string) $name;
             }
         }
 
-        if ($names && count($namesHaveNonZero) === 0 && count($fromData) > 0) {
-            $extra = array_keys($fromData);
-            $names = array_values(array_unique(array_merge($names, $extra)));
+        if (empty($names)) {
+            $firstRow = $this->data[0] ?? null;
+            if ($firstRow && !empty($firstRow['ticket_status']) && is_array($firstRow['ticket_status'])) {
+                $names = array_keys($firstRow['ticket_status']);
+            }
         }
 
-        if (!$names && $fromData) {
-            $names = array_keys($fromData);
+        if (empty($names)) {
+            $names = $order;
         }
 
         return $this->visibleOutbounds = $names;
