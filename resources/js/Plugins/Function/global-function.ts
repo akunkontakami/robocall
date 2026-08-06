@@ -1,13 +1,38 @@
-export const routeAppendParam = (params: any, silent = true) => {
-    const newUrl = new URL(window.location.href);
-    for (var key in params) {
-        newUrl.searchParams.set(key, params[key]);
-    }
-    window.history.pushState({}, '', newUrl);
-    if (!silent) {
-        window.dispatchEvent(new Event('changeUrlParameter'));
-    }
-}
+// export const routeAppendParam = (params: any, silent = true) => {
+//     const newUrl = new URL(window.location.href);
+//     for (var key in params) {
+//         newUrl.searchParams.set(key, params[key]);
+//     }
+//     window.history.pushState({}, '', newUrl);
+//     if (!silent) {
+//         window.dispatchEvent(new Event('changeUrlParameter'));
+//     }
+// }
+import { router } from '@inertiajs/vue3';
+export const routeAppendParam = (params: Record<string, any>, silent = true, callback?: any) => {
+     const url = new URL(window.location.href);
+
+     for (const key in params) {
+          url.searchParams.set(key, params[key]);
+     }
+
+     router.get(url.toString(), {}, {
+          preserveState: true,
+          preserveScroll: true,
+          replace: true,
+          onFinish: () => {
+               if (!silent) {
+                    window.dispatchEvent(new Event('changeUrlParameter'));
+               }
+               if (callback) {
+                    const f = callback as any
+                    f()
+               }
+          }
+     });
+
+};
+
 export const removeAllUrlParameter = (silent = true) => {
     const url = new URL(window.location.href);
     window.history.replaceState({}, document.title, `${url.origin}${url.pathname}`);

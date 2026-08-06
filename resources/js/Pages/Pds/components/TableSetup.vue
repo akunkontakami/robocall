@@ -1,6 +1,38 @@
 <template>
-    <Table :columns="columns" :paginate="paginate">
-        <tr v-for="(row, i) in paginate.data.value">
+    <Table :columns="columns" :paginate="paginate" hide-th>
+        <template #thead>
+            <tr class="bg-[#F4F6FA]">
+                <Th class="w-[20px] pt-2 pe-[14px]">
+                    <input
+                        type="checkbox"
+                        :checked="allRowsSelected"
+                        :disabled="!selectableRows.length"
+                        @change="toggleSelectAll($event)"
+                        class="w-4 h-4 accent-yellow cursor-pointer disabled:cursor-default mt-[-13px]"
+                        aria-label="Select all PDS customers"
+                    />
+                </Th>
+                <Th>Date</Th>
+                <Th>PDS Name</Th>
+                <Th>SPV</Th>
+                <Th>Campaign PDS</Th>
+                <Th>Status PDS</Th>
+                <Th>Total Agent</Th>
+                <Th>Total Data</Th>
+                <Th>Action</Th>
+            </tr>
+        </template>
+        <tr v-for="(row, i) in paginate.data.value" :key="row.id">
+            <Td class="w-[20px] pt-2 pe-[14px]">
+                <input
+                    v-if="row.total_data > 0"
+                    type="checkbox"
+                    :checked="isRowSelected(row)"
+                    @change="toggleRowSelection(row, $event)"
+                    class="w-4 h-4 accent-yellow cursor-pointer mt-[-15px]"
+                    aria-label="Select PDS customers"
+                />
+            </Td>
             <Td>
                 {{ row.date }}
             </Td>
@@ -8,26 +40,40 @@
                 {{ row.name }}
             </Td>
             <Td>
-                <span v-if="row.spv" class="text-[#424EA1] font-krub-semibold underline cursor-pointer" @click="showSpv(row)">View SPV</span>
+                <span
+                    v-if="row.spv"
+                    class="text-[#424EA1] font-krub-semibold underline cursor-pointer"
+                    @click="showSpv(row)"
+                    >View SPV</span
+                >
                 <span v-else>-</span>
             </Td>
             <Td>
                 {{ row.campaign }}
             </Td>
             <Td>
-                <span class="text-red text-[13px] font-krub-semibold" v-if="!row.is_running">Stop</span>
-                <span class="text-green text-[13px] font-krub-semibold" v-if="row.is_running">Running</span>
+                <span
+                    class="text-red text-[13px] font-krub-semibold"
+                    v-if="!row.is_running"
+                    >Stop</span
+                >
+                <span
+                    class="text-green text-[13px] font-krub-semibold"
+                    v-if="row.is_running"
+                    >Running</span
+                >
             </Td>
             <Td>
-                {{ row.total_agent ?? '-' }}
+                {{ row.total_agent ?? "-" }}
             </Td>
             <Td>
-                {{ row.total_data ?? '-' }}
+                {{ row.total_data ?? "-" }}
             </Td>
             <Td>
                 <a
                     :x-on:click="`openRowIndex = '${i}'`"
-                    class="rotate-90 cursor-pointer inline-flex" x-ref="anchor"
+                    class="rotate-90 cursor-pointer inline-flex"
+                    x-ref="anchor"
                 >
                     <i class="isax icon-more"></i>
                 </a>
@@ -38,37 +84,59 @@
                     x-on:click.away="openRowIndex = ''"
                     class="absolute bg-white shadow-lg border rounded-md mt-1 min-w-[120px] z-50 p-2"
                 >
-                    <ul class="text-sm text-dark flex flex-col gap-2" v-if="!row.is_running">
-                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="manage(row)">
+                    <ul
+                        class="text-sm text-dark flex flex-col gap-2"
+                        v-if="!row.is_running"
+                    >
+                        <li
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                            @click="manage(row)"
+                        >
                             <i class="text-base isax icon-edit"></i>
                             <span class="text-xs">Manage</span>
                         </li>
-                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-red" @click="showDelete(row)">
+                        <li
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-red"
+                            @click="showDelete(row)"
+                        >
                             <i class="text-base isax icon-trash"></i>
                             <span class="text-xs">Delete</span>
                         </li>
-                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showRelease(row)" v-if="row.total_data > 0">
+                        <li
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                            @click="showRelease(row)"
+                            v-if="row.total_data > 0"
+                        >
                             <i class="text-base isax icon-refresh-circle"></i>
                             <span class="text-xs">Release Customers</span>
                         </li>
                         <li
-                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showStart(row)"
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                            @click="showStart(row)"
                             :class="{
-                                '!text-[#DDD] !cursor-default': row.campaign_status == 'non_active'
+                                '!text-[#DDD] !cursor-default':
+                                    row.campaign_status == 'non_active',
                             }"
                         >
                             <i
                                 class="text-base isax-b icon-play-circle text-green"
                                 :class="{
-                                    '!text-[#DDD]': row.campaign_status == 'non_active'
+                                    '!text-[#DDD]':
+                                        row.campaign_status == 'non_active',
                                 }"
                             ></i>
                             <span class="text-xs">Start PDS</span>
                         </li>
                     </ul>
 
-                    <ul class="text-sm text-dark flex flex-col gap-2" v-if="row.is_running">
-                        <li class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" @click="showStop(row)">
+                    <ul
+                        class="text-sm text-dark flex flex-col gap-2"
+                        v-if="row.is_running"
+                    >
+                        <li
+                            class="transition-all rounded-sm py-1 px-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                            @click="showStop(row)"
+                        >
                             <IconPowerOff />
                             <span class="text-xs">Stop</span>
                         </li>
@@ -77,6 +145,26 @@
             </Td>
         </tr>
     </Table>
+
+    <div
+        v-if="selectedCount > 0"
+        class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[999] bg-white border border-[#E5E7EB] shadow-lg rounded-xl px-4 py-3 flex items-center gap-4"
+    >
+        <span class="text-dark text-[13px] font-krub-medium">
+            {{ selectedCount }} selected
+        </span>
+        <ButtonYellow type="button" @click="showBulkReleaseConfirmation">
+            Release Customer
+        </ButtonYellow>
+    </div>
+
+    <div x-data="{confirmation:false}" v-if="showPopupBulkRelease">
+        <a hidden id="show-bulk-release" x-on:click="confirmation=true"></a>
+        <ConfirmationSubmit
+            confirmation="Are you sure you want to release the selected customers?"
+            @action="actionBulkRelease"
+        />
+    </div>
 
     <div x-data="{confirmation:false}" v-if="showPopupRelease">
         <a hidden id="show-release" x-on:click="confirmation=true"></a>
@@ -106,16 +194,20 @@
         <div class="flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
             <div
                 class="bg-[#F4F6FA] p-3 rounded-[4px] w-full text-[13px] text-[#181C32] font-opensauceone-medium flex justify-between items-center"
-                @click="openSub('sub-'+spv?.id)"
+                @click="openSub('sub-' + spv?.id)"
                 :class="{
-                    'cursor-pointer': agents.length
+                    'cursor-pointer': agents.length,
                 }"
             >
-                {{ spv?.company_user?.name }} <i class="isax icon-arrow-down-1 text-base" v-if="agents.length"></i>
+                {{ spv?.company_user?.name }}
+                <i
+                    class="isax icon-arrow-down-1 text-base"
+                    v-if="agents.length"
+                ></i>
             </div>
             <div
                 class="ms-5 hidden"
-                :id="'sub-'+spv?.id"
+                :id="'sub-' + spv?.id"
                 v-if="agents.length"
             >
                 <div
@@ -124,7 +216,9 @@
                 >
                     <span class="timeline-line-v"></span>
                     <span class="h-[1px] w-3 bg-[#181C32]"></span>
-                    <span class="h-[5px] w-[5px] rounded-full bg-[#181C32]"></span>
+                    <span
+                        class="h-[5px] w-[5px] rounded-full bg-[#181C32]"
+                    ></span>
                     <span class="ms-2">{{ agent?.company_user?.name }}</span>
                 </div>
             </div>
@@ -135,22 +229,29 @@
 </template>
 <script setup lang="ts">
 import IconPowerOff from "@/Components/Icon/Etc/IconPowerOff.vue";
+import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
 import ConfirmationSubmit from "@/Components/Popup/ConfirmationSubmit.vue";
 import Popup from "@/Components/Popup/Index.vue";
 import Table from "@/Components/Table/Table.vue";
+import Th from "@/Components/Table/Th.vue";
 import Td from "@/Components/Table/Td.vue";
 import { clickId, showAlert } from "@/Plugins/Function/global-function";
 import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { router, useForm } from "@inertiajs/vue3";
-import { ref, onBeforeUnmount, onMounted } from "vue";
+import { computed, ref } from "vue";
 
-const emits = defineEmits(['showStartPds'])
+const emits = defineEmits(["showStartPds"]);
 
-const showPopupRelease = ref(true)
-const showPopupDelete = ref(true)
-const showPopupStop = ref(true)
+const showPopupRelease = ref(true);
+const showPopupBulkRelease = ref(true);
+const showPopupDelete = ref(true);
+const showPopupStop = ref(true);
+
+const selectedRowIds = ref<Array<string | number>>([]);
+const selectedCount = computed(() => selectedRowIds.value.length);
 
 const columns = ref([
+    "",
     "Date",
     "PDS Name",
     "SPV",
@@ -158,135 +259,185 @@ const columns = ref([
     "Status PDS",
     "Total Agent",
     "Total Data",
-    "Action"
+    "Action",
 ]);
 
-const spv = ref<any>(null)
-const agents = ref<any>([])
+const spv = ref<any>(null);
+const agents = ref<any>([]);
 
 const form = useForm({
-    id: ''
-})
-
-const paginate = usePaginate({
-    route: route('pds.setup.datatable'),
+    id: "",
+    ids: [] as Array<string | number>,
 });
 
+const paginate = usePaginate({
+    route: route("pds.setup.datatable"),
+});
+
+const selectableRows = computed(() =>
+    paginate.data.value.filter((row: any) => row.total_data > 0),
+);
+const allRowsSelected = computed(
+    () =>
+        selectableRows.value.length > 0 &&
+        selectableRows.value.every((row: any) => isRowSelected(row)),
+);
+
+const isRowSelected = (row: any) => selectedRowIds.value.includes(row.id);
+
+const toggleRowSelection = (row: any, event: Event) => {
+    const checked = (event.target as HTMLInputElement).checked;
+
+    if (checked && !isRowSelected(row)) {
+        selectedRowIds.value.push(row.id);
+    } else if (!checked) {
+        selectedRowIds.value = selectedRowIds.value.filter(
+            (id) => id !== row.id,
+        );
+    }
+};
+
+const toggleSelectAll = (event: Event) => {
+    const checked = (event.target as HTMLInputElement).checked;
+    const pageRowIds = selectableRows.value.map((row: any) => row.id);
+
+    if (checked) {
+        selectedRowIds.value = Array.from(
+            new Set([...selectedRowIds.value, ...pageRowIds]),
+        );
+    } else {
+        selectedRowIds.value = selectedRowIds.value.filter(
+            (id) => !pageRowIds.includes(id),
+        );
+    }
+};
+
+const showBulkReleaseConfirmation = () => {
+    clickId("show-bulk-release");
+};
+
+const actionBulkRelease = () => {
+    form.ids = [...selectedRowIds.value];
+    actionRelease(true);
+};
+
 const showStart = (row: any) => {
-    if (row.campaign_status == 'active') {
+    if (row.campaign_status == "active") {
         if (row.total_data == 0) {
-            showAlert("Please upload customer data before starting")
+            showAlert("Please upload customer data before starting");
         } else if (row.total_agent == 0) {
-            showAlert("Please assign agent before starting")
+            showAlert("Please assign agent before starting");
         } else {
-            emits('showStartPds', row)
+            emits("showStartPds", row);
         }
     }
-}
-
+};
 
 const actionDelete = () => {
     if (!form.processing) {
-        form.post(route('pds.setup.delete'), {
+        form.post(route("pds.setup.delete"), {
             onError: () => {
-                showPopupDelete.value = false
+                showPopupDelete.value = false;
 
                 setTimeout(() => {
-                    showPopupDelete.value = true
+                    showPopupDelete.value = true;
                 }, 100);
             },
             onSuccess: () => {
-                paginate.fetchData()
-                showPopupDelete.value = false
+                paginate.fetchData();
+                showPopupDelete.value = false;
 
                 setTimeout(() => {
-                    showPopupDelete.value = true
+                    showPopupDelete.value = true;
                 }, 100);
-            }
-        })
+            },
+        });
     }
-}
+};
 
-const actionRelease = () => {
+const actionRelease = (isBulk = false) => {
+    const releasePopup = isBulk ? showPopupBulkRelease : showPopupRelease;
+
     if (!form.processing) {
-        form.post(route('pds.setup.release'), {
+        form.post(route("pds.setup.release"), {
             onError: () => {
-                showPopupRelease.value = false
+                releasePopup.value = false;
 
                 setTimeout(() => {
-                    showPopupRelease.value = true
+                    releasePopup.value = true;
                 }, 100);
             },
             onSuccess: () => {
-                paginate.fetchData()
-                showPopupRelease.value = false
+                paginate.fetchData();
+                selectedRowIds.value = [];
+                releasePopup.value = false;
 
                 setTimeout(() => {
-                    showPopupRelease.value = true
+                    releasePopup.value = true;
                 }, 100);
-            }
-        })
+            },
+        });
     }
-}
+};
 
 const showDelete = (row: any) => {
     if (row.total_data > 0) {
-        showAlert("Please release customer data before delete pds")
+        showAlert("Please release customer data before delete pds");
     } else if (row.total_agent > 0) {
-        showAlert("Please release agent before delete pds")
+        showAlert("Please release agent before delete pds");
     } else {
-        form.id = row.id
-        clickId("show-delete")
+        form.id = row.id;
+        clickId("show-delete");
     }
-
-}
+};
 
 const showRelease = (row: any) => {
-    form.id = row.id
+    form.id = row.id;
+    form.ids = [row.id];
 
-    clickId("show-release")
-}
+    clickId("show-release");
+};
 
 const actionStop = () => {
     if (!form.processing) {
-        form.post(route('pds.setup.stop'), {
+        form.post(route("pds.setup.stop"), {
             onError: () => {
-                showPopupStop.value = false
+                showPopupStop.value = false;
 
                 setTimeout(() => {
-                    showPopupStop.value = true
+                    showPopupStop.value = true;
                 }, 100);
             },
             onSuccess: () => {
-                paginate.fetchData()
-                showPopupStop.value = false
+                paginate.fetchData();
+                showPopupStop.value = false;
 
                 setTimeout(() => {
-                    showPopupStop.value = true
+                    showPopupStop.value = true;
                 }, 100);
-            }
-        })
+            },
+        });
     }
-}
+};
 
 const showStop = (row: any) => {
-    form.id = row.id
+    form.id = row.id;
 
-    clickId("show-stop")
-}
+    clickId("show-stop");
+};
 
 const manage = (row: any) => {
-    router.visit(route('pds.detail', row.id))
-}
+    router.visit(route("pds.detail", row.id));
+};
 
 const openSub = (id: string) => {
-    document.getElementById(id)?.classList.toggle('hidden')
-}
+    document.getElementById(id)?.classList.toggle("hidden");
+};
 
 const showSpv = (item: any) => {
-    agents.value = item.agents
-    spv.value = item.spv
+    agents.value = item.agents;
+    spv.value = item.spv;
 
-    clickId("show-popup-spv")
-}
+    clickId("show-popup-spv");
+};
 </script>
