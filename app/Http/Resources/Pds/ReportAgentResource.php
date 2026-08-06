@@ -33,6 +33,8 @@ class ReportAgentResource extends JsonResource
 
         return [
             'id' => $this->id,
+            'date' => $this->date ? Carbon::parse($this->date)->format('Y-m-d') : ($log->SessionStart ? Carbon::parse($log->SessionStart)->format('Y-m-d') : ''),
+            'date_label' => $this->date ? Carbon::parse($this->date)->format('d M Y') : ($log->SessionStart ? Carbon::parse($log->SessionStart)->format('d M Y') : ''),
             'campaign' => $pds->campaign?->name ?? '-',
             'session_start' => $log->SessionStart,
             'session_end' => $log->SessionEnd,
@@ -41,7 +43,8 @@ class ReportAgentResource extends JsonResource
             'end_date' => $log->SessionEnd ? Carbon::parse($log->SessionEnd)->format("d M Y") : '',
             'end_time' => $log->SessionEnd ? Carbon::parse($log->SessionEnd)->format("H.i") : '',
             'name' => $pds->pds_name,
-            'data_utilize' => (int) ($this->data_utilize ?? $this->ticket_count ?? array_sum($ticketStatus)),
+            'data_contacted' => (int) ($this->data_contacted ?? 0),
+            'data_utilize' => (int) ($this->data_utilize ?? $this->data_contacted ?? $this->ticket_count ?? array_sum($ticketStatus)),
             'ticket_status' => $ticketStatus,
             'spv' => $this->pds?->spv?->company_user ? $this->pds?->spv->company_user->name : $this->pds?->spv?->name,
             'agent' => $this->companyUser ? $this->companyUser->name : $this->name

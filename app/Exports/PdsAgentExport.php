@@ -68,19 +68,24 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                 }
 
                 foreach ($this->groupLayouts as $layout) {
-                    $sheet->mergeCells("A{$layout['header_row']}:{$lastColumnLetter}{$layout['header_row']}");
-                    $sheet->getStyle("A{$layout['header_row']}:{$lastColumnLetter}{$layout['header_row']}")
-                        ->getFont()
-                        ->setBold(true);
-
-                    $sheet->getStyle("A{$layout['header_row']}:{$lastColumnLetter}{$layout['header_row']}")
-                        ->getAlignment()
-                        ->setHorizontal(Alignment::HORIZONTAL_LEFT)
-                        ->setVertical(Alignment::VERTICAL_CENTER);
-
-                    if ($layout['rowspan'] > 1) {
-                        foreach ($layout['merge_columns'] as $column) {
-                            $sheet->mergeCells("{$column}{$layout['data_start_row']}:{$column}{$layout['data_end_row']}");
+                    $type = $layout['type'] ?? 'header';
+                    if ($type === 'date_header' || $type === 'pds_header') {
+                        $row = $layout['row'];
+                        $sheet->mergeCells("A{$row}:{$lastColumnLetter}{$row}");
+                        $sheet->getStyle("A{$row}:{$lastColumnLetter}{$row}")
+                            ->getFont()
+                            ->setBold(true);
+                        $sheet->getStyle("A{$row}:{$lastColumnLetter}{$row}")
+                            ->getAlignment()
+                            ->setHorizontal(Alignment::HORIZONTAL_LEFT)
+                            ->setVertical(Alignment::VERTICAL_CENTER);
+                    } elseif ($type === 'session_merge') {
+                        $startRow = $layout['start_row'];
+                        $endRow = $layout['end_row'];
+                        if ($endRow > $startRow) {
+                            foreach (($layout['merge_columns'] ?? ['A', 'B']) as $column) {
+                                $sheet->mergeCells("{$column}{$startRow}:{$column}{$endRow}");
+                            }
                         }
                     }
                 }
@@ -108,54 +113,64 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
         $currentRow = 3;
         $this->groupLayouts = [];
 
-        foreach ($this->groupedData() as $group) {
-            $rows[] = [$group['title']];
-            $headerRow = $currentRow;
+        foreach ($this->groupedByDate() as $dateGroup) {
+            $rows[] = ['Tanggal: ' . $dateGroup['date_label']];
+            $this->groupLayouts[] = ['type' => 'date_header', 'row' => $currentRow];
             $currentRow++;
-            $dataStartRow = $currentRow;
 
-            foreach ($group['rows'] as $index => $row) {
-                $statusColumns = [];
-
-                foreach ($visibleOutbounds as $statusName) {
-                    $statusColumns[] = (string) $this->findStatusValue($row, $statusName);
-                }
-
-                $sessionStart = '';
-                $sessionEnd = '';
-                if ($index === 0) {
-                    if (!empty($row['start_date'])) {
-                        $sessionStart = trim((string) $row['start_date'] . ' ' . ($row['start_time'] ?? ''));
-                    }
-                    if ($sessionStart === '' || $sessionStart === ' ') {
-                        $sessionStart = (string) ($row['session_start'] ?? '-');
-                    }
-                    if (!empty($row['end_date'])) {
-                        $sessionEnd = trim((string) $row['end_date'] . ' ' . ($row['end_time'] ?? ''));
-                    }
-                    if ($sessionEnd === '' || $sessionEnd === ' ') {
-                        $sessionEnd = (string) ($row['session_end'] ?? '-');
-                    }
-                }
-
-                $rows[] = array_merge([
-                    $index === 0 ? $sessionStart : '',
-                    $index === 0 ? $sessionEnd : '',
-                    (string) ($row['agent'] ?? '-'),
-                    (string) ($row['data_utilize'] ?? $row['data_contacted'] ?? 0),
-                ], $statusColumns);
-
+            foreach ($dateGroup['pds_groups'] as $pdsGroup) {
+                $rows[] = [$pdsGroup['title']];
+                $this->groupLayouts[] = ['type' => 'pds_header', 'row' => $currentRow];
                 $currentRow++;
-            }
 
-            $dataEndRow = $currentRow - 1;
-            $this->groupLayouts[] = [
-                'header_row' => $headerRow,
-                'data_start_row' => $dataStartRow,
-                'data_end_row' => $dataEndRow,
-                'rowspan' => count($group['rows']),
-                'merge_columns' => ['A', 'B'],
-            ];
+                foreach ($pdsGroup['session_groups'] as $sessGroup) {
+                    $sessionStart = '';
+                    $sessionEnd = '';
+                    if (!empty($sessGroup['rows'][0])) {
+                        $firstRow = $sessGroup['rows'][0];
+                        if (!empty($firstRow['start_date'])) {
+                            $sessionStart = trim((string) $firstRow['start_date'] . ' ' . ($firstRow['start_time'] ?? ''));
+                        }
+                        if ($sessionStart === '' || $sessionStart === ' ') {
+                            $sessionStart = (string) ($sessGroup['session_start'] ?? $firstRow['session_start'] ?? '-');
+                        }
+                        if (!empty($firstRow['end_date'])) {
+                            $sessionEnd = trim((string) $firstRow['end_date'] . ' ' . ($firstRow['end_time'] ?? ''));
+                        }
+                        if ($sessionEnd === '' || $sessionEnd === ' ') {
+                            $sessionEnd = (string) ($sessGroup['session_end'] ?? $firstRow['session_end'] ?? '-');
+                        }
+                    }
+
+                    $startSessionDataRow = $currentRow;
+
+                    foreach ($sessGroup['rows'] as $index => $row) {
+                        $statusColumns = [];
+                        foreach ($visibleOutbounds as $statusName) {
+                            $statusColumns[] = (string) $this->findStatusValue($row, $statusName);
+                        }
+
+                        $rows[] = array_merge([
+                            $index === 0 ? $sessionStart : '',
+                            $index === 0 ? $sessionEnd : '',
+                            (string) ($row['agent'] ?? '-'),
+                            (string) ($row['data_utilize'] ?? $row['data_contacted'] ?? 0),
+                        ], $statusColumns);
+
+                        $currentRow++;
+                    }
+
+                    $endSessionDataRow = $currentRow - 1;
+                    if (count($sessGroup['rows']) > 1) {
+                        $this->groupLayouts[] = [
+                            'type' => 'session_merge',
+                            'start_row' => $startSessionDataRow,
+                            'end_row' => $endSessionDataRow,
+                            'merge_columns' => ['A', 'B'],
+                        ];
+                    }
+                }
+            }
         }
 
         return $rows;
@@ -179,6 +194,78 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
         }
 
         return array_values($groups);
+    }
+
+    private function groupedByDate(): array
+    {
+        $dateGroups = [];
+        $dateMap = [];
+
+        foreach ($this->data as $row) {
+            $dateKey = (string) ($row['date'] ?? '');
+            if ($dateKey === '') {
+                $dateKey = !empty($row['date_label']) ? (string) $row['date_label'] : 'unknown';
+            }
+            $dateLabel = !empty($row['date_label']) ? (string) $row['date_label'] : ($dateKey !== 'unknown' ? $dateKey : '-');
+
+            if (!isset($dateMap[$dateKey])) {
+                $dateGroup = [
+                    'date_key' => $dateKey,
+                    'date_label' => $dateLabel,
+                    'pds_groups' => [],
+                    '_pds_map' => [],
+                ];
+                $dateMap[$dateKey] = $dateGroup;
+                $dateGroups[] = &$dateGroup;
+                unset($dateGroup);
+            }
+
+            $dateGroup = &$dateMap[$dateKey];
+            $pdsKey = ($row['name'] ?? '-') . '__' . ($row['spv'] ?? '-');
+
+            if (!isset($dateGroup['_pds_map'][$pdsKey])) {
+                $pdsG = [
+                    'key' => $pdsKey,
+                    'title' => ($row['name'] ?? '-') . ' - ' . ($row['spv'] ?? '-'),
+                    'session_groups' => [],
+                    '_sess_map' => [],
+                ];
+                $dateGroup['_pds_map'][$pdsKey] = $pdsG;
+                $dateGroup['pds_groups'][] = &$pdsG;
+                unset($pdsG);
+            }
+
+            $pdsGroup = &$dateGroup['_pds_map'][$pdsKey];
+
+            $sStart = !empty($row['start_date']) ? trim((string) $row['start_date'] . ' ' . ($row['start_time'] ?? '')) : (string) ($row['session_start'] ?? '');
+            $sEnd = !empty($row['end_date']) ? trim((string) $row['end_date'] . ' ' . ($row['end_time'] ?? '')) : (string) ($row['session_end'] ?? '');
+            $sessKey = $sStart . '__' . $sEnd;
+
+            if (!isset($pdsGroup['_sess_map'][$sessKey])) {
+                $sg = [
+                    'session_key' => $sessKey,
+                    'session_start' => $sStart ?: '-',
+                    'session_end' => $sEnd ?: '-',
+                    'rows' => [],
+                ];
+                $pdsGroup['_sess_map'][$sessKey] = $sg;
+                $pdsGroup['session_groups'][] = &$sg;
+                unset($sg);
+            }
+
+            $pdsGroup['_sess_map'][$sessKey]['rows'][] = $row;
+            unset($dateGroup, $pdsGroup);
+        }
+
+        foreach ($dateGroups as &$dg) {
+            foreach ($dg['pds_groups'] as &$pg) {
+                unset($pg['_sess_map']);
+            }
+            unset($dg['_pds_map']);
+        }
+        unset($dg, $pg);
+
+        return $dateGroups;
     }
 
     private function keyNormalize(string $s): string
