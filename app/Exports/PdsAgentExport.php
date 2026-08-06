@@ -19,8 +19,26 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
 
     public function __construct(array|Collection $data, array|Collection $outbounds)
     {
-        $this->data = $data instanceof Collection ? $data->values()->all() : array_values($data);
-        $this->outbounds = $outbounds instanceof Collection ? $outbounds->values()->all() : array_values($outbounds);
+        if ($data instanceof Collection) {
+            $dataArr = $data->values()->all();
+        } else {
+            $dataArr = is_array($data) ? $data : [];
+            if (isset($dataArr['data']) && is_array($dataArr['data'])) {
+                $dataArr = $dataArr['data'];
+            }
+            $dataArr = array_values($dataArr);
+        }
+        $this->data = $dataArr;
+
+        if ($outbounds instanceof Collection) {
+            $this->outbounds = $outbounds->values()->all();
+        } else {
+            $outArr = is_array($outbounds) ? $outbounds : [];
+            if (isset($outArr['data']) && is_array($outArr['data'])) {
+                $outArr = $outArr['data'];
+            }
+            $this->outbounds = array_values($outArr);
+        }
     }
 
     public function array(): array

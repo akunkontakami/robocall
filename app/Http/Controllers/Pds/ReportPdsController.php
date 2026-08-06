@@ -114,7 +114,8 @@ class ReportPdsController extends Controller
             )
         );
 
-        $data = $dataCollection->toArray($request);
+        $wrapped = $dataCollection->toArray($request);
+        $data = $wrapped['data'] ?? $wrapped;
 
         $filename = 'pds_agent_' . now()->format('Ymd_His') . '.xlsx';
 
