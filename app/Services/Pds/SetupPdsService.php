@@ -840,7 +840,7 @@ class SetupPdsService
         $spvIds = @$filter['spv'];
         $agentIds = @$filter['agent'];
 
-        $aggSub = DB::table('ticket_histories as th')
+        $aggQuery = DB::table('ticket_histories as th')
             ->joinSub(
                 DB::table('ticket_histories')
                     ->select('ticket_id', DB::raw('MAX(created_at) as last_created'))
@@ -858,6 +858,7 @@ class SetupPdsService
             ->where('th.created_at', '<=', $end_date . ' 23:59:59')
             ->where('ca.category', 'Incoming Call')
             ->whereNotNull('ca.pstn_id')
+            ->when($agentIds, fn($q) => $q->whereIn('ca.agent_id', $agentIds))
             ->select([
                 'ca.agent_id as user_id',
                 DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'Promised to Pay (PTP)' THEN th.ticket_id END) as PTP"),
@@ -871,63 +872,61 @@ class SetupPdsService
                 DB::raw("COUNT(DISTINCT th.ticket_id) as data_contacted"),
             ])
             ->groupBy('ca.agent_id');
-            dump($aggSub->toSql(), $aggSub->getBindings());
-        $agentsSub = PdsAgent::query()
-            ->select([
-                'pds_agents.id',
-                'pds_agents.pds_id',
-                'pds_agents.user_id',
-                'pds_agents.created_at',
-            ])
-            ->distinct();
 
-        $query = DB::table(DB::raw("({$agentsSub->toSql()}) as pa"))
-            ->mergeBindings($agentsSub->getQuery())
-            ->join('pds', 'pa.pds_id', '=', 'pds.id')
-            ->leftJoin('marketing_campaigns as mc', 'pds.marketing_campaign_id', '=', 'mc.id')
-            ->leftJoin('company_users as cu', 'pa.user_id', '=', 'cu.user_id')
-            ->leftJoin('company_users as spv', 'pds.spv_id', '=', 'spv.user_id')
-            ->leftJoin(DB::raw("({$aggSub->toSql()}) as agg"), 'pa.user_id', '=', 'agg.user_id')
-            ->mergeBindings($aggSub)
-            ->where('pds.company_id', $companyId)
-            ->where('cu.status', 'active')
-            ->when($campaignIds, fn($q) => $q->whereIn('pds.marketing_campaign_id', $campaignIds))
-            ->when($pdsIds, fn($q) => $q->whereIn('pds.id', $pdsIds))
-            ->when($spvIds, fn($q) => $q->whereIn('pds.spv_id', $spvIds))
-            ->when($agentIds, fn($q) => $q->whereIn('pa.user_id', $agentIds))
-            ->when($search, fn($q) => $q->where('pds.pds_name', 'LIKE', "%{$search}%"))
-            ->select([
-                'pa.id',
-                'pa.pds_id',
-                'pa.user_id',
-                'pa.created_at',
-                'pds.pds_name as name',
-                'mc.name as campaign_name',
-                'cu.name as agent_name',
-                'spv.name as spv_name',
-                'pds.spv_id',
-                'agg.PTP',
-                'agg.CallBack',
-                'agg.VisitRequest',
-                'agg.BPPartial',
-                'agg.NBPA',
-                'agg.NBPB',
-                'agg.NBPC',
-                'agg.PaidinConfins',
-                DB::raw('COALESCE(agg.data_contacted, 0) as data_contacted'),
-            ])
-            ->orderBy('pds.created_at', 'desc')
-            ->orderBy('pa.created_at', 'desc');
+        $aggRows = $aggQuery->get()->keyBy('user_id');
 
-        // dump($query->toSql(), $query->getBindings());
+        $aggUserIds = $aggRows->keys()->filter()->values();
+
+        $baseQuery = PdsAgent::with([
+            'ext',
+            'companyUser',
+            'pds.campaign',
+            'pds.customers',
+            'pds.spv',
+            'pds.spv.companyUser',
+        ])
+            ->whereIn('pds_agents.user_id', $aggUserIds)
+            ->whereHas(
+                'pds',
+                fn($q) => $q->where('company_id', $companyId)
+                    ->when($campaignIds, fn($q2) => $q2->whereIn('marketing_campaign_id', $campaignIds))
+                    ->when($spvIds, fn($q2) => $q2->whereIn('spv_id', $spvIds))
+                    ->when($pdsIds, fn($q2) => $q2->whereIn('id', $pdsIds))
+            )
+            ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%{$search}%")))
+            ->orderBy('pds_agents.created_at', 'desc');
 
         if ($limit === null) {
-            $data = $query->get();
+            $data = $baseQuery->get();
         } else {
-            $data = $query->paginate($limit ?: 10);
+            $data = $baseQuery->paginate($limit ?: 10);
         }
 
         $items = method_exists($data, 'getCollection') ? $data->getCollection() : $data;
+
+        if ($items->isEmpty() && $aggUserIds->isNotEmpty()) {
+            $fallbackAgents = PdsAgent::with([
+                'ext',
+                'companyUser',
+                'pds.campaign',
+                'pds.customers',
+                'pds.spv',
+                'pds.spv.companyUser',
+            ])
+                ->whereIn('pds_agents.user_id', $aggUserIds)
+                ->whereHas('pds', fn($q) => $q->where('company_id', $companyId))
+                ->orderBy('pds_agents.created_at', 'desc')
+                ->get();
+
+            $seenUser = [];
+            foreach ($fallbackAgents as $fa) {
+                if (isset($seenUser[$fa->user_id])) {
+                    continue;
+                }
+                $seenUser[$fa->user_id] = true;
+                $items->push($fa);
+            }
+        }
 
         $pdsIdsPluck = $items->pluck('pds_id')->filter()->unique()->values();
         $sessionLogs = [];
@@ -940,7 +939,7 @@ class SetupPdsService
             })->all();
         }
 
-        $outboundStatusMap = [
+        $statusNameToKey = [
             'Promised to Pay (PTP)' => 'PTP',
             'Call Back' => 'CallBack',
             'Visit Request - Contacted' => 'VisitRequest',
@@ -950,31 +949,182 @@ class SetupPdsService
             'NBP-C (Invalid Number)' => 'NBPC',
             'Paid in Confins' => 'PaidinConfins',
         ];
+        $keyEquivalents = [
+            'PTP' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
+            'CallBack' => ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
+            'VisitRequest' => ['Visit Request - Contacted', 'Visit Request', 'VisitRequest', 'VR'],
+            'BPPartial' => ['BP Partial', 'Bp Partial', 'BPPartial'],
+            'NBPA' => ['NBP-A', 'NBP A', 'NBPA'],
+            'NBPB' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
+            'NBPC' => ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
+            'PaidinConfins' => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+        ];
 
-        $items->each(function ($item) use ($outbounds, $outboundStatusMap, $sessionLogs) {
+        $items->each(function ($item) use ($outbounds, $aggRows, $statusNameToKey, $keyEquivalents, $sessionLogs, $start_date, $end_date) {
+            $agg = $aggRows->get($item->user_id);
+
+            $ptp = $agg ? (int) ($agg->PTP ?? 0) : 0;
+            $callback = $agg ? (int) ($agg->CallBack ?? 0) : 0;
+            $visit = $agg ? (int) ($agg->VisitRequest ?? 0) : 0;
+            $bpp = $agg ? (int) ($agg->BPPartial ?? 0) : 0;
+            $nbpa = $agg ? (int) ($agg->NBPA ?? 0) : 0;
+            $nbpb = $agg ? (int) ($agg->NBPB ?? 0) : 0;
+            $nbpc = $agg ? (int) ($agg->NBPC ?? 0) : 0;
+            $pic = $agg ? (int) ($agg->PaidinConfins ?? 0) : 0;
+            $dataContacted = $agg ? (int) ($agg->data_contacted ?? 0) : 0;
+
+            $item->PTP = $ptp;
+            $item->CallBack = $callback;
+            $item->VisitRequest = $visit;
+            $item->BPPartial = $bpp;
+            $item->NBPA = $nbpa;
+            $item->NBPB = $nbpb;
+            $item->NBPC = $nbpc;
+            $item->PaidinConfins = $pic;
+            $item->data_contacted = $dataContacted;
+
+            $valueMap = [
+                'PTP' => $ptp,
+                'CallBack' => $callback,
+                'VisitRequest' => $visit,
+                'BPPartial' => $bpp,
+                'NBPA' => $nbpa,
+                'NBPB' => $nbpb,
+                'NBPC' => $nbpc,
+                'PaidinConfins' => $pic,
+            ];
+
             $ticketStatus = [];
             foreach ($outbounds as $statusName) {
-                $statusKey = $outboundStatusMap[$statusName] ?? null;
-                $ticketStatus[$statusName] = $statusKey && isset($item->{$statusKey}) ? (int) $item->{$statusKey} : 0;
+                $matchedValue = 0;
+                $found = false;
+                foreach ($keyEquivalents as $canonicalKey => $variants) {
+                    foreach ($variants as $variant) {
+                        if (mb_strtolower(trim($variant)) === mb_strtolower(trim($statusName))) {
+                            $matchedValue = $valueMap[$canonicalKey] ?? 0;
+                            $found = true;
+                            break 2;
+                        }
+                    }
+                }
+                if (!$found) {
+                    $directKey = $statusNameToKey[$statusName] ?? null;
+                    if ($directKey && isset($valueMap[$directKey])) {
+                        $matchedValue = $valueMap[$directKey];
+                    }
+                }
+                $ticketStatus[$statusName] = $matchedValue;
+            }
+
+            foreach ($valueMap as $canonicalKey => $value) {
+                if (!array_key_exists($canonicalKey, $ticketStatus)) {
+                    $ticketStatus[$canonicalKey] = $value;
+                }
             }
 
             $item->outbounds = $outbounds;
-            $item->session_log = $sessionLogs[$item->pds_id] ?? (object) [
-                'SessionStart' => null,
-                'SessionEnd' => null,
+            $pdsId = $item->pds_id;
+            $item->session_log = $pdsId && isset($sessionLogs[$pdsId]) ? $sessionLogs[$pdsId] : (object) [
+                'SessionStart' => $start_date ? $start_date . ' 00:00:00' : null,
+                'SessionEnd' => $end_date ? $end_date . ' 23:59:59' : null,
             ];
             $item->ticket_status_count = $ticketStatus;
-            $item->data_utilize = (int) ($item->data_contacted ?? array_sum($ticketStatus));
-            $item->companyUser = (object) ['name' => $item->agent_name];
-            $item->pds = (object) [
-                'pds_name' => $item->name,
-                'campaign' => (object) ['name' => $item->campaign_name],
-                'spv' => (object) ['name' => $item->spv_name, 'company_user' => (object) ['name' => $item->spv_name]],
-            ];
+            $item->data_utilize = (int) ($dataContacted > 0 ? $dataContacted : array_sum($valueMap));
         });
 
+        if ($items->isEmpty() && $aggUserIds->isNotEmpty()) {
+            $companyUsers = DB::table('company_users')
+                ->whereIn('user_id', $aggUserIds)
+                ->select('user_id', 'name')
+                ->get()
+                ->keyBy('user_id');
+
+            $defaultPds = \App\Models\Pds\Pds::with(['campaign', 'spv', 'spv.companyUser'])
+                ->where('company_id', $companyId)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            foreach ($aggRows as $userId => $agg) {
+                $cu = $companyUsers->get($userId);
+                $obj = (object) [
+                    'id' => 'agg_' . $userId,
+                    'pds_id' => $defaultPds->id ?? null,
+                    'user_id' => $userId,
+                    'created_at' => now(),
+                    'PTP' => (int) ($agg->PTP ?? 0),
+                    'CallBack' => (int) ($agg->CallBack ?? 0),
+                    'VisitRequest' => (int) ($agg->VisitRequest ?? 0),
+                    'BPPartial' => (int) ($agg->BPPartial ?? 0),
+                    'NBPA' => (int) ($agg->NBPA ?? 0),
+                    'NBPB' => (int) ($agg->NBPB ?? 0),
+                    'NBPC' => (int) ($agg->NBPC ?? 0),
+                    'PaidinConfins' => (int) ($agg->PaidinConfins ?? 0),
+                    'data_contacted' => (int) ($agg->data_contacted ?? 0),
+                    'companyUser' => $cu ? (object) ['name' => $cu->name] : (object) ['name' => 'Agent ' . substr($userId, 0, 8)],
+                    'pds' => $defaultPds ? (object) [
+                        'pds_name' => $defaultPds->pds_name ?? 'Unknown PDS',
+                        'campaign' => (object) ['name' => $defaultPds->campaign?->name ?? '-'],
+                        'spv' => $defaultPds->spv ? (object) [
+                            'name' => $defaultPds->spv->company_user?->name ?? $defaultPds->spv->name ?? '-',
+                            'company_user' => (object) ['name' => $defaultPds->spv->company_user?->name ?? $defaultPds->spv->name ?? '-'],
+                        ] : (object) ['name' => '-', 'company_user' => (object) ['name' => '-']],
+                    ] : (object) [
+                        'pds_name' => 'Without PDS',
+                        'campaign' => (object) ['name' => '-'],
+                        'spv' => (object) ['name' => '-', 'company_user' => (object) ['name' => '-']],
+                    ],
+                    'session_log' => (object) [
+                        'SessionStart' => $start_date . ' 00:00:00',
+                        'SessionEnd' => $end_date . ' 23:59:59',
+                    ],
+                ];
+
+                $valueMap = [
+                    'PTP' => $obj->PTP,
+                    'CallBack' => $obj->CallBack,
+                    'VisitRequest' => $obj->VisitRequest,
+                    'BPPartial' => $obj->BPPartial,
+                    'NBPA' => $obj->NBPA,
+                    'NBPB' => $obj->NBPB,
+                    'NBPC' => $obj->NBPC,
+                    'PaidinConfins' => $obj->PaidinConfins,
+                ];
+
+                $ticketStatus = [];
+                foreach ($outbounds as $statusName) {
+                    $matchedValue = 0;
+                    foreach ($keyEquivalents as $canonicalKey => $variants) {
+                        foreach ($variants as $variant) {
+                            if (mb_strtolower(trim($variant)) === mb_strtolower(trim($statusName))) {
+                                $matchedValue = $valueMap[$canonicalKey] ?? 0;
+                                break 2;
+                            }
+                        }
+                    }
+                    $ticketStatus[$statusName] = $matchedValue;
+                }
+                foreach ($valueMap as $k => $v) {
+                    if (!isset($ticketStatus[$k])) {
+                        $ticketStatus[$k] = $v;
+                    }
+                }
+                $obj->outbounds = $outbounds;
+                $obj->ticket_status_count = $ticketStatus;
+                $obj->data_utilize = (int) ($obj->data_contacted > 0 ? $obj->data_contacted : array_sum($valueMap));
+                $items->push($obj);
+            }
+        }
+
         if (method_exists($data, 'setCollection')) {
-            $data->setCollection($items);
+            $data = $data instanceof \Illuminate\Pagination\AbstractPaginator
+                ? new \Illuminate\Pagination\LengthAwarePaginator(
+                    $items,
+                    $items->count(),
+                    $limit ?: 10,
+                    request('page', 1),
+                    ['path' => request()->url(), 'query' => request()->query()]
+                )
+                : $items;
         }
 
         return $data;

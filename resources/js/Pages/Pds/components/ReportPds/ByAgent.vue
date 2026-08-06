@@ -47,22 +47,22 @@
 
                 <tr v-for="(row, index) in group.rows" :key="`${group.key}-${row.id}-${index}`">
                     <Td v-if="index === 0" :rowspan="group.rowspan" class="align-middle">
-                        {{ row.session_start ?? '-' }}
+                        {{ row.start_date ? `${row.start_date} ${row.start_time ?? ''}` : (row.session_start ?? '-') }}
                     </Td>
                     <Td v-if="index === 0" :rowspan="group.rowspan" class="align-middle">
-                        {{ row.session_end ?? '-' }}
+                        {{ row.end_date ? `${row.end_date} ${row.end_time ?? ''}` : (row.session_end ?? '-') }}
                     </Td>
                     <Td>
-                        {{ row.agent }}
+                        {{ row.agent ?? '-' }}
                     </Td>
                     <Td>
-                        {{ row.data_utilize ?? 0 }}
+                        {{ Number(row.data_utilize ?? row.data_contacted ?? 0) }}
                     </Td>
                     <Td
                         v-for="outbound in visibleOutbounds"
                         :key="`${group.key}-${row.id}-${outbound}`"
                     >
-                        {{ row.ticket_status?.[outbound] ?? 0 }}
+                        {{ findStatusValue(row, outbound) }}
                     </Td>
                 </tr>
             </template>
@@ -96,11 +96,58 @@ const paginate = usePaginate({
     route: route('pds.report.agent-datatable'),
 });
 
-const visibleOutbounds = computed(() =>
+const propsOutboundNames = computed(() =>
     (props.outbounds ?? []).map((outbound: any) =>
         typeof outbound === "string" ? outbound : outbound?.name
     ).filter(Boolean)
 );
+
+const keyNormalize = (s: string) => String(s ?? '').toLowerCase().replace(/[\s\-_()]/g, '');
+
+const findStatusValue = (row: any, statusName: string): number => {
+    if (!row || !row.ticket_status) return 0;
+    const direct = row.ticket_status[statusName];
+    if (direct !== undefined && direct !== null) return Number(direct) || 0;
+    const target = keyNormalize(statusName);
+    for (const key of Object.keys(row.ticket_status)) {
+        if (keyNormalize(key) === target) {
+            const v = row.ticket_status[key];
+            if (v !== undefined && v !== null) return Number(v) || 0;
+        }
+    }
+    return 0;
+};
+
+const visibleOutbounds = computed(() => {
+    const names = propsOutboundNames.value;
+    if (names && names.length) {
+        const nonZero = new Set<string>();
+        (paginate.data.value ?? []).forEach((row: any) => {
+            names.forEach((statusName: string) => {
+                if (findStatusValue(row, statusName) > 0) nonZero.add(statusName);
+            });
+        });
+        if (nonZero.size === 0) {
+            const fromData = new Set<string>();
+            (paginate.data.value ?? []).forEach((row: any) => {
+                Object.entries(row.ticket_status ?? {}).forEach(([k, v]: any) => {
+                    if (Number(v) > 0) fromData.add(k);
+                });
+            });
+            if (fromData.size > 0) {
+                return [...names, ...Array.from(fromData).filter(n => !names.includes(n))];
+            }
+        }
+        return names;
+    }
+    const fromData = new Set<string>();
+    (paginate.data.value ?? []).forEach((row: any) => {
+        Object.entries(row.ticket_status ?? {}).forEach(([k, v]: any) => {
+            if (Number(v) > 0) fromData.add(k);
+        });
+    });
+    return Array.from(fromData);
+});
 
 const columns = computed(() => [
     "SessionStart",

@@ -118,14 +118,31 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                 $statusColumns = [];
 
                 foreach ($visibleOutbounds as $statusName) {
-                    $statusColumns[] = (string) ($row['ticket_status'][$statusName] ?? 0);
+                    $statusColumns[] = (string) $this->findStatusValue($row, $statusName);
+                }
+
+                $sessionStart = '';
+                $sessionEnd = '';
+                if ($index === 0) {
+                    if (!empty($row['start_date'])) {
+                        $sessionStart = trim((string) $row['start_date'] . ' ' . ($row['start_time'] ?? ''));
+                    }
+                    if ($sessionStart === '' || $sessionStart === ' ') {
+                        $sessionStart = (string) ($row['session_start'] ?? '-');
+                    }
+                    if (!empty($row['end_date'])) {
+                        $sessionEnd = trim((string) $row['end_date'] . ' ' . ($row['end_time'] ?? ''));
+                    }
+                    if ($sessionEnd === '' || $sessionEnd === ' ') {
+                        $sessionEnd = (string) ($row['session_end'] ?? '-');
+                    }
                 }
 
                 $rows[] = array_merge([
-                    $index === 0 ? (string) ($row['session_start'] ?? '-') : '',
-                    $index === 0 ? (string) ($row['session_end'] ?? '-') : '',
+                    $index === 0 ? $sessionStart : '',
+                    $index === 0 ? $sessionEnd : '',
                     (string) ($row['agent'] ?? '-'),
-                    (string) ($row['data_utilize'] ?? 0),
+                    (string) ($row['data_utilize'] ?? $row['data_contacted'] ?? 0),
                 ], $statusColumns);
 
                 $currentRow++;
@@ -164,17 +181,75 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
         return array_values($groups);
     }
 
+    private function keyNormalize(string $s): string
+    {
+        return preg_replace('/[\s\-_()]/u', '', mb_strtolower(trim($s)));
+    }
+
+    private function findStatusValue(array $row, string $statusName): int
+    {
+        $ticketStatus = $row['ticket_status'] ?? [];
+        if (!is_array($ticketStatus)) {
+            return 0;
+        }
+        if (array_key_exists($statusName, $ticketStatus)) {
+            $v = $ticketStatus[$statusName];
+            if ($v !== null && $v !== '') {
+                return (int) $v;
+            }
+        }
+        $target = $this->keyNormalize($statusName);
+        foreach ($ticketStatus as $key => $value) {
+            if ($this->keyNormalize((string) $key) === $target) {
+                if ($value !== null && $value !== '') {
+                    return (int) $value;
+                }
+                return 0;
+            }
+        }
+        return 0;
+    }
+
     private function visibleOutboundNames(): array
     {
         if ($this->visibleOutbounds !== null) {
             return $this->visibleOutbounds;
         }
 
-        return $this->visibleOutbounds = collect($this->outbounds)
+        $names = collect($this->outbounds)
             ->map(fn($outbound) => is_array($outbound) ? ($outbound['name'] ?? null) : $outbound)
             ->filter()
             ->values()
             ->all();
+
+        $namesHaveNonZero = [];
+        $fromData = [];
+        foreach ($this->data as $row) {
+            $ts = $row['ticket_status'] ?? [];
+            if (is_array($ts)) {
+                foreach ($ts as $k => $v) {
+                    if ((int) $v > 0) {
+                        $fromData[$k] = true;
+                    }
+                }
+            }
+            foreach ($names as $nm) {
+                if ($this->findStatusValue($row, $nm) > 0) {
+                    $namesHaveNonZero[$nm] = true;
+                }
+            }
+        }
+
+        if ($names && count($namesHaveNonZero) === 0 && count($fromData) > 0) {
+            $extra = array_keys($fromData);
+            $names = array_values(array_unique(array_merge($names, $extra)));
+        }
+
+        if (!$names && $fromData) {
+            $names = array_keys($fromData);
+        }
+
+        return $this->visibleOutbounds = $names;
     }
 
     private function excelColumn(int $index): string
