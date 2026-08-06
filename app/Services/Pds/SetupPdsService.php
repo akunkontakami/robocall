@@ -871,7 +871,7 @@ class SetupPdsService
                 DB::raw("COUNT(DISTINCT th.ticket_id) as data_contacted"),
             ])
             ->groupBy('ca.agent_id');
-
+            dump($aggSub->toSql(), $aggSub->getBindings());
         $agentsSub = PdsAgent::query()
             ->select([
                 'pds_agents.id',
