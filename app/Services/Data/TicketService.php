@@ -279,7 +279,7 @@ class TicketService
                 $query->select(DB::raw(1))
                     ->from('ticket_histories')
                     ->whereColumn('ticket_histories.ticket_id', 'tickets.id')
-                    ->where('ticket_histories.status', 'Promised to Pay (PTP)');
+                    ->whereIn('ticket_histories.status', ['Promised to Pay (PTP)','Paid in Confins','KP']);
             })
             ->select('tickets.*')
             ->get();
