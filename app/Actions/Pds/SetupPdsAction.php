@@ -4,6 +4,7 @@ namespace App\Actions\Pds;
 
 use App\Helpers\Dialer;
 use App\Jobs\ReleasePdsCustomersJob;
+use App\Jobs\StopPdsJob;
 use App\Models\Data\ProductSubject;
 use App\Models\Data\Ticket;
 use App\Models\Data\TicketForm;
@@ -177,43 +178,78 @@ class SetupPdsAction
 
     public function stop(Request $request)
     {
-        $request->validate([
-            'id' => 'required|exists:pds,id',
-        ]);
+        $user = user();
+        $ids = $request->input('ids', $request->input('id'));
+        $ids = is_array($ids) ? $ids : [$ids];
+        $ids = array_values(array_unique(array_filter($ids)));
 
-        $pdsStatus = Pds::where('id', $request->id)->where('is_running', 0)->first();
-
-        if ($pdsStatus) {
-            throw new BadRequestException('PDS already stop');
-
-            return;
+        if (empty($ids)) {
+            throw new BadRequestException('PDS is required');
         }
 
-        $user = user();
+        $isBulk = count($ids) > 1;
+        $pdsQuery = Pds::whereIn('id', $ids)
+            ->where('company_id', $user->company_id);
 
-        return DB::transaction(function () use ($request) {
-            $pds = Pds::where('id', $request->id)->first();
+        if ($isBulk) {
+            $pdsQuery->where('is_running', 1);
+        }
+
+        $pdsIds = $pdsQuery->pluck('id');
+
+        if ($pdsIds->isEmpty()) {
+            throw new BadRequestException($isBulk ? 'No running PDS selected' : 'PDS not found');
+        }
+
+        if (!$isBulk) {
+            $dialerPayload = $this->stopPds($pdsIds->first(), $user->company_id);
+
+            if ($dialerPayload) {
+                $dialer = Dialer::post('/pds-stop', $dialerPayload, true);
+
+                if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                    throw new BadRequestException($dialer['errors']);
+                }
+            }
+
+            return 1;
+        }
+
+        foreach ($pdsIds as $pdsId) {
+            StopPdsJob::dispatch($pdsId, $user->company_id)
+                ->onConnection('database')
+                ->onQueue('dialer');
+        }
+
+        return $pdsIds->count();
+    }
+
+    public function stopPds(string $pdsId, string $companyId, bool $ignoreAlreadyStopped = false): ?array
+    {
+        return DB::transaction(function () use ($pdsId, $companyId, $ignoreAlreadyStopped) {
+            $pds = Pds::where('id', $pdsId)
+                ->where('company_id', $companyId)
+                ->first();
+
+            if (!$pds) {
+                return null;
+            }
+
+            if (!$pds->is_running) {
+                if ($ignoreAlreadyStopped) {
+                    return null;
+                }
+
+                throw new BadRequestException('PDS already stop');
+            }
 
             $pds->update([
                 'is_running' => 0,
             ]);
 
-            $dialer = Dialer::post('/pds-stop', [
+            return [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-            ]);
-
-            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
-                $errorMessage = $dialer['errors'];
-
-                throw new BadRequestException($errorMessage);
-
-                return;
-            }
-
-            return [
-                'pds' => $pds,
-                'dialer_response' => $dialer,
             ];
         });
     }

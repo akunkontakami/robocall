@@ -25,7 +25,7 @@
         <tr v-for="(row, i) in paginate.data.value" :key="row.id">
             <Td class="w-[20px] pt-2 pe-[14px]">
                 <input
-                    v-if="row.total_data > 0"
+                    v-if="row.total_data > 0 || row.is_running"
                     type="checkbox"
                     :checked="isRowSelected(row)"
                     @change="toggleRowSelection(row, $event)"
@@ -153,8 +153,19 @@
         <span class="text-dark text-[13px] font-krub-medium">
             {{ selectedCount }} selected
         </span>
-        <ButtonYellow type="button" @click="showBulkReleaseConfirmation">
+        <ButtonYellow
+            type="button"
+            @click="showBulkReleaseConfirmation"
+            v-if="hasReleaseSelection"
+        >
             Release Customer
+        </ButtonYellow>
+        <ButtonYellow
+            type="button"
+            @click="showBulkStopConfirmation"
+            v-if="hasStopSelection"
+        >
+            Stop PDS
         </ButtonYellow>
     </div>
 
@@ -163,6 +174,14 @@
         <ConfirmationSubmit
             confirmation="Are you sure you want to release the selected customers?"
             @action="actionBulkRelease"
+        />
+    </div>
+
+    <div x-data="{confirmation:false}" v-if="showPopupBulkStop">
+        <a hidden id="show-bulk-stop" x-on:click="confirmation=true"></a>
+        <ConfirmationSubmit
+            confirmation="Are you sure you want to stop the selected PDS?"
+            @action="actionBulkStop"
         />
     </div>
 
@@ -244,11 +263,19 @@ const emits = defineEmits(["showStartPds"]);
 
 const showPopupRelease = ref(true);
 const showPopupBulkRelease = ref(true);
+const showPopupBulkStop = ref(true);
 const showPopupDelete = ref(true);
 const showPopupStop = ref(true);
 
 const selectedRowIds = ref<Array<string | number>>([]);
+const selectedRows = ref<any[]>([]);
 const selectedCount = computed(() => selectedRowIds.value.length);
+const hasReleaseSelection = computed(() =>
+    selectedRows.value.some((row: any) => row.total_data > 0),
+);
+const hasStopSelection = computed(() =>
+    selectedRows.value.some((row: any) => row.is_running),
+);
 
 const columns = ref([
     "",
@@ -275,7 +302,9 @@ const paginate = usePaginate({
 });
 
 const selectableRows = computed(() =>
-    paginate.data.value.filter((row: any) => row.total_data > 0),
+    paginate.data.value.filter(
+        (row: any) => row.total_data > 0 || row.is_running,
+    ),
 );
 const allRowsSelected = computed(
     () =>
@@ -290,9 +319,13 @@ const toggleRowSelection = (row: any, event: Event) => {
 
     if (checked && !isRowSelected(row)) {
         selectedRowIds.value.push(row.id);
+        selectedRows.value.push(row);
     } else if (!checked) {
         selectedRowIds.value = selectedRowIds.value.filter(
             (id) => id !== row.id,
+        );
+        selectedRows.value = selectedRows.value.filter(
+            (selectedRow) => selectedRow.id !== row.id,
         );
     }
 };
@@ -305,9 +338,23 @@ const toggleSelectAll = (event: Event) => {
         selectedRowIds.value = Array.from(
             new Set([...selectedRowIds.value, ...pageRowIds]),
         );
+        const selectedIds = new Set(selectedRowIds.value);
+        selectedRows.value = [
+            ...selectedRows.value,
+            ...selectableRows.value.filter(
+                (row: any) =>
+                    selectedIds.has(row.id) &&
+                    !selectedRows.value.some(
+                        (selectedRow) => selectedRow.id === row.id,
+                    ),
+            ),
+        ];
     } else {
         selectedRowIds.value = selectedRowIds.value.filter(
             (id) => !pageRowIds.includes(id),
+        );
+        selectedRows.value = selectedRows.value.filter(
+            (row) => !pageRowIds.includes(row.id),
         );
     }
 };
@@ -316,9 +363,22 @@ const showBulkReleaseConfirmation = () => {
     clickId("show-bulk-release");
 };
 
+const showBulkStopConfirmation = () => {
+    clickId("show-bulk-stop");
+};
+
 const actionBulkRelease = () => {
-    form.ids = [...selectedRowIds.value];
+    form.ids = selectedRows.value
+        .filter((row: any) => row.total_data > 0)
+        .map((row: any) => row.id);
     actionRelease(true);
+};
+
+const actionBulkStop = () => {
+    form.ids = selectedRows.value
+        .filter((row: any) => row.is_running)
+        .map((row: any) => row.id);
+    actionStop(true);
 };
 
 const showStart = (row: any) => {
@@ -370,6 +430,7 @@ const actionRelease = (isBulk = false) => {
             onSuccess: () => {
                 paginate.fetchData();
                 selectedRowIds.value = [];
+                selectedRows.value = [];
                 releasePopup.value = false;
 
                 setTimeout(() => {
@@ -398,22 +459,26 @@ const showRelease = (row: any) => {
     clickId("show-release");
 };
 
-const actionStop = () => {
+const actionStop = (isBulk = false) => {
+    const stopPopup = isBulk ? showPopupBulkStop : showPopupStop;
+
     if (!form.processing) {
         form.post(route("pds.setup.stop"), {
             onError: () => {
-                showPopupStop.value = false;
+                stopPopup.value = false;
 
                 setTimeout(() => {
-                    showPopupStop.value = true;
+                    stopPopup.value = true;
                 }, 100);
             },
             onSuccess: () => {
                 paginate.fetchData();
-                showPopupStop.value = false;
+                selectedRowIds.value = [];
+                selectedRows.value = [];
+                stopPopup.value = false;
 
                 setTimeout(() => {
-                    showPopupStop.value = true;
+                    stopPopup.value = true;
                 }, 100);
             },
         });
@@ -422,6 +487,7 @@ const actionStop = () => {
 
 const showStop = (row: any) => {
     form.id = row.id;
+    form.ids = [row.id];
 
     clickId("show-stop");
 };
