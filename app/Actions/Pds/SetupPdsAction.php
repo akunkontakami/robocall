@@ -67,6 +67,7 @@ class SetupPdsAction
                 'route_id' => $request->trunk,
                 'vdn' => $request->ivr,
             ]);
+            logger(json_encode($dialer));
 
             if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
                 $errorMessage = $dialer['errors'];
