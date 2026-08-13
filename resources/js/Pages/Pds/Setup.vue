@@ -17,7 +17,7 @@
                     </ButtonYellow>
                 </div>
             </div>
-            <TableSetup @showStartPds="showStartPds" />
+            <TableSetup @showStartPds="showStartPds" @showBulkStartPds="showBulkStartPds" />
             <FormSetup :campaigns="campaigns" :ivr="ivr" :route="route" />
         </div>
 
@@ -41,10 +41,15 @@ import { clickId } from "@/Plugins/Function/global-function";
 
 defineProps(["campaigns", "ivr", "route"])
 
-const idPds = ref('')
+const idPds = ref<string | Array<string | number>>('')
 
 const showStartPds = (item: any) => {
     idPds.value = item.id
+    clickId('toggle-start-form')
+}
+
+const showBulkStartPds = (items: any[]) => {
+    idPds.value = items.map((item) => item.id)
     clickId('toggle-start-form')
 }
 

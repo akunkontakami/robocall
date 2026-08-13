@@ -102,7 +102,9 @@ class SetupPdsAction
     public function start(Request $request)
     {
         $request->validate([
-            'id' => 'required|exists:pds,id',
+            'id' => 'nullable|exists:pds,id',
+            'ids' => 'nullable|array',
+            'ids.*' => 'exists:pds,id',
             'call_factor' => 'required',
             'call_wait' => 'required',
             'call_abandon_rate' => 'required',
@@ -111,22 +113,39 @@ class SetupPdsAction
             'call_retry_max' => 'required',
         ]);
 
-        $customers = PdsCustomer::where('pds_id', $request->id)->count();
-
-        if ($customers == 0) {
-            throw ValidationException::withMessages(['call_factor' => 'Please upload customer data before starting']);
-        }
-
-        $agents = PdsAgent::where('pds_id', $request->id)->count();
-
-        if ($agents == 0) {
-            throw ValidationException::withMessages(['call_factor' => 'Please assign agent before starting']);
-        }
-
         $user = user();
+        $ids = collect($request->input('ids', [$request->input('id')]))
+            ->filter()
+            ->unique()
+            ->values();
 
-        return DB::transaction(function () use ($request) {
-            $pds = Pds::where('id', $request->id)->first();
+        if ($ids->isEmpty()) {
+            throw new BadRequestException('PDS is required');
+        }
+
+        $pdsList = Pds::whereIn('id', $ids)
+            ->where('company_id', $user->company_id)
+            ->where('is_running', 0)
+            ->get();
+
+        foreach ($pdsList as $pds) {
+            $customers = PdsCustomer::where('pds_id', $pds->id)->count();
+            if ($customers == 0) {
+                throw ValidationException::withMessages(['call_factor' => 'Please upload customer data before starting']);
+            }
+
+            $agents = PdsAgent::where('pds_id', $pds->id)->count();
+            if ($agents == 0) {
+                throw ValidationException::withMessages(['call_factor' => 'Please assign agent before starting']);
+            }
+
+            $this->startPds($request, $pds);
+        }
+    }
+
+    private function startPds(Request $request, Pds $pds)
+    {
+        return DB::transaction(function () use ($request, $pds) {
 
             $pds->update([
                 'call_factor' => $request->call_factor,
@@ -338,9 +357,15 @@ class SetupPdsAction
         ]);
 
         $user = user();
+        $ids = collect($request->input('ids', [$id]))->push($id)->filter()->unique()->values();
+        $pdsList = Pds::whereIn('id', $ids)->where('company_id', $user->company_id)->where('is_running', 0)->get();
 
-        return DB::transaction(function () use ($request, $user, $id) {
-            $pds = Pds::where('id', $id)->first();
+        if ($pdsList->isEmpty()) {
+            throw new BadRequestException('No valid stopped PDS selected');
+        }
+
+        foreach ($pdsList as $pds) {
+            DB::transaction(function () use ($request, $user, $pds) {
             $customers = (new TicketService())->getCustByTicket($user->company_id, $pds->marketing_campaign_id, $pds->id, $request->status, $request->mobile ?? [], $request->additional ?? [], $request->risk_criteria ?? []);
 
             foreach ($customers as $key => $value) {
@@ -371,7 +396,8 @@ class SetupPdsAction
 
                 return;
             }
-        });
+            });
+        }
     }
 
     public function release(Request $request, $ids)

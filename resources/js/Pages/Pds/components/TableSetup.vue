@@ -25,7 +25,6 @@
         <tr v-for="(row, i) in paginate.data.value" :key="row.id">
             <Td class="w-[20px] pt-2 pe-[14px]">
                 <input
-                    v-if="row.total_data > 0 || row.is_running"
                     type="checkbox"
                     :checked="isRowSelected(row)"
                     @change="toggleRowSelection(row, $event)"
@@ -167,7 +166,15 @@
         >
             Stop PDS
         </ButtonYellow>
+        <ButtonYellow type="button" @click="showBulkAssign" v-if="hasAssignSelection">
+            Assign Customer
+        </ButtonYellow>
+        <ButtonYellow type="button" @click="showBulkStart" v-if="hasStartSelection">
+            Start PDS
+        </ButtonYellow>
     </div>
+
+    <BulkAssignCustomer v-if="showBulkAssignPopup" :ids="assignableIds" :rows="assignableRows" @close="showBulkAssignPopup = false" @success="onBulkAssignSuccess" />
 
     <div x-data="{confirmation:false}" v-if="showPopupBulkRelease">
         <a hidden id="show-bulk-release" x-on:click="confirmation=true"></a>
@@ -249,6 +256,7 @@
 <script setup lang="ts">
 import IconPowerOff from "@/Components/Icon/Etc/IconPowerOff.vue";
 import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
+import BulkAssignCustomer from "./BulkAssignCustomer.vue";
 import ConfirmationSubmit from "@/Components/Popup/ConfirmationSubmit.vue";
 import Popup from "@/Components/Popup/Index.vue";
 import Table from "@/Components/Table/Table.vue";
@@ -259,7 +267,7 @@ import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { router, useForm } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 
-const emits = defineEmits(["showStartPds"]);
+const emits = defineEmits(["showStartPds", "showBulkStartPds"]);
 
 const showPopupRelease = ref(true);
 const showPopupBulkRelease = ref(true);
@@ -276,6 +284,17 @@ const hasReleaseSelection = computed(() =>
 const hasStopSelection = computed(() =>
     selectedRows.value.some((row: any) => row.is_running),
 );
+const assignableRows = computed(() => selectedRows.value.filter((row: any) => !row.is_running && row.total_data === 0 && row.campaign_status === "active"));
+const hasAssignSelection = computed(() => assignableRows.value.length > 0);
+const assignableIds = computed(() => assignableRows.value.map((row: any) => row.id));
+const showBulkAssignPopup = ref(false);
+const startableRows = computed(() => selectedRows.value.filter((row: any) =>
+    !row.is_running &&
+    row.campaign_status === "active" &&
+    row.total_data > 0 &&
+    row.total_agent > 0,
+));
+const hasStartSelection = computed(() => startableRows.value.length > 0);
 
 const columns = ref([
     "",
@@ -302,9 +321,7 @@ const paginate = usePaginate({
 });
 
 const selectableRows = computed(() =>
-    paginate.data.value.filter(
-        (row: any) => row.total_data > 0 || row.is_running,
-    ),
+    paginate.data.value.filter((row: any) => !row.is_running),
 );
 const allRowsSelected = computed(
     () =>
@@ -365,6 +382,15 @@ const showBulkReleaseConfirmation = () => {
 
 const showBulkStopConfirmation = () => {
     clickId("show-bulk-stop");
+};
+
+const showBulkAssign = () => { showBulkAssignPopup.value = true; };
+const showBulkStart = () => { emits("showBulkStartPds", startableRows.value); };
+const onBulkAssignSuccess = () => {
+    showBulkAssignPopup.value = false;
+    selectedRowIds.value = [];
+    selectedRows.value = [];
+    paginate.fetchData();
 };
 
 const actionBulkRelease = () => {

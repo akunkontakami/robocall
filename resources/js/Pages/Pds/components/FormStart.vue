@@ -129,8 +129,8 @@
 
     <div x-data="{confirmation:false}" v-if="showPopupStart">
         <a hidden id="show-start-pds" x-on:click="confirmation=true"></a>
-        <ConfirmationSubmit
-            confirmation="Are you sure you want to start this PDS?"
+            <ConfirmationSubmit
+            :confirmation="ids.length > 1 ? 'Are you sure you want to start the selected PDS?' : 'Are you sure you want to start this PDS?'"
             @action="actionStart"
         />
     </div>
@@ -142,15 +142,17 @@ import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
 import ButtonOutlineGrey from "@/Components/Button/ButtonOutlineGrey.vue";
 import { useForm } from "@inertiajs/vue3";
 import { clickId, showAlert } from "@/Plugins/Function/global-function";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import ConfirmationSubmit from "@/Components/Popup/ConfirmationSubmit.vue";
 
 const props = defineProps(["id"])
+const ids = computed(() => Array.isArray(props.id) ? props.id : [props.id])
 
 const showPopupStart = ref(true)
 
 const form = useForm({
     id: "",
+    ids: [] as Array<string | number>,
     call_factor: 0,
     call_wait: 0,
     call_abandon_rate: 0,
@@ -171,7 +173,8 @@ const submit = () => {
 
 const actionStart = () => {
     if (!form.processing) {
-        form.id = props.id
+        form.id = Array.isArray(props.id) ? props.id[0] : props.id
+        form.ids = Array.isArray(props.id) ? props.id : [props.id]
 
         if (form.call_abandon_rate == 0) {
             showAlert("Call Abandon Rate cannot be set to zero")
