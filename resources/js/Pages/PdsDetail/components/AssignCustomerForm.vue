@@ -679,14 +679,19 @@ const fetchStatuses = () => {
         }, 100);
     }
 
+    const selectedIds = props.ids?.length ? props.ids : [props.id];
+
     axios
-        .get(route("pds.detail.status", props.id), {
-            params: {
-                risk_criteria: riskCriteria,
-                offices: form.offices,
-                type: form.type,
+        .get(
+            `${route("pds.detail.status", props.id)}?ids=${encodeURIComponent(selectedIds.join(","))}`,
+            {
+                params: {
+                    risk_criteria: riskCriteria,
+                    offices: form.offices,
+                    type: form.type,
+                },
             },
-        })
+        )
         .then((res) => {
             statuses.value = res.data.data;
         })
@@ -720,8 +725,10 @@ watch(()=>form.type,()=>{
     updateTypeSelectedValue()
 })
 onMounted(() => {
-    if (props.ids?.length > 1) {
-        axios.get(route("pds.detail.options", props.id))
+    if (props.ids?.length) {
+        axios.get(
+            `${route("pds.detail.options", props.id)}?ids=${encodeURIComponent(props.ids.join(","))}`,
+        )
             .then((response) => { officeOptions.value = response.data.offices || []; });
     }
 });
@@ -734,4 +741,3 @@ onBeforeUnmount(() => {
     document.removeEventListener("mousedown", handleClickOutsideRiskCriteria);
 });
 </script>
-
