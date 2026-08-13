@@ -1,10 +1,17 @@
 <template>
     <div
-        ref="confirmationRoot"
         x-show="confirmation"
         class="fixed top-0 left-0 z-[99] flex items-center justify-center w-screen h-screen"
         x-cloak
     >
+        <button
+            ref="closeTrigger"
+            type="button"
+            class="hidden"
+            x-on:click="confirmation = false"
+            aria-hidden="true"
+            tabindex="-1"
+        ></button>
         <div
             x-show="confirmation"
             x-transition:enter="ease-out duration-300"
@@ -79,18 +86,14 @@ defineProps<{
 }>();
 
 const progres = ref(false);
-const confirmationRoot = ref<HTMLElement | null>(null);
+const closeTrigger = ref<HTMLButtonElement | null>(null);
 
 const confirmAction = () => {
     progres.value = true;
     emit("action", (close = true) => {
         progres.value = false;
         if (close) {
-            (
-                confirmationRoot.value?.querySelector(
-                    "[data-confirmation-close]",
-                ) as HTMLElement | null
-            )?.click();
+            closeTrigger.value?.click();
         }
     });
 };

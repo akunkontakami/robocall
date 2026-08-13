@@ -52,10 +52,8 @@ class StartPdsJob implements ShouldQueue, ShouldBeUnique
 
         $dialer = Dialer::post('/pds-start', $dialerPayload, true);
 
-        $error = $this->dialerError($dialer);
-
-        if ($error !== null) {
-            throw new RuntimeException($error);
+        if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+            throw new RuntimeException($dialer['errors']);
         }
 
         $action->markPdsStarted(
@@ -63,33 +61,5 @@ class StartPdsJob implements ShouldQueue, ShouldBeUnique
             $this->companyId,
             $this->settings,
         );
-    }
-
-    private function dialerError(?array $response): ?string
-    {
-        if ($response === null) {
-            return 'Dialer returned an empty response';
-        }
-
-        foreach (['errors', 'error'] as $key) {
-            if (!empty($response[$key])) {
-                return is_string($response[$key])
-                    ? $response[$key]
-                    : json_encode($response[$key]);
-            }
-        }
-
-        if (($response['success'] ?? null) === false) {
-            return is_string($response['message'] ?? null)
-                ? $response['message']
-                : 'Dialer failed to start PDS';
-        }
-
-        $message = $response['message'] ?? null;
-        if (is_string($message) && str_contains(strtolower($message), 'failed')) {
-            return $message;
-        }
-
-        return null;
     }
 }
