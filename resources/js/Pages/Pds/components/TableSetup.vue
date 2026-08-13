@@ -174,7 +174,12 @@
         </ButtonYellow>
     </div>
 
-    <BulkAssignCustomer v-if="showBulkAssignPopup" :ids="assignableIds" :rows="assignableRows" @close="showBulkAssignPopup = false" @success="onBulkAssignSuccess" />
+    <BulkAssignCustomer
+        v-if="showBulkAssignPopup"
+        :rows="assignableRows"
+        @close="showBulkAssignPopup = false"
+        @success="onBulkAssignSuccess"
+    />
 
     <div x-data="{confirmation:false}" v-if="showPopupBulkRelease">
         <a hidden id="show-bulk-release" x-on:click="confirmation=true"></a>
@@ -286,7 +291,6 @@ const hasStopSelection = computed(() =>
 );
 const assignableRows = computed(() => selectedRows.value.filter((row: any) => !row.is_running && row.total_data === 0 && row.campaign_status === "active"));
 const hasAssignSelection = computed(() => assignableRows.value.length > 0);
-const assignableIds = computed(() => assignableRows.value.map((row: any) => row.id));
 const showBulkAssignPopup = ref(false);
 const startableRows = computed(() => selectedRows.value.filter((row: any) =>
     !row.is_running &&

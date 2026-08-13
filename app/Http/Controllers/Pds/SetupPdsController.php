@@ -104,4 +104,14 @@ class SetupPdsController extends Controller
             return back()->with(['error' => $e->getMessage()]);
         }
     }
+
+    public function bulkAssign(Request $request, SetupPdsAction $action)
+    {
+        $assignedCount = $action->bulkAssign($request);
+
+        return back()->with(
+            'success',
+            $assignedCount.' PDS customer uploads queued successfully'
+        );
+    }
 }

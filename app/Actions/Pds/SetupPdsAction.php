@@ -6,6 +6,7 @@ use App\Helpers\Dialer;
 use App\Jobs\ReleasePdsCustomersJob;
 use App\Jobs\StartPdsJob;
 use App\Jobs\StopPdsJob;
+use App\Jobs\UploadPdsCustomersJob;
 use App\Models\Data\ProductSubject;
 use App\Models\Data\Ticket;
 use App\Models\Data\TicketForm;
@@ -14,7 +15,6 @@ use App\Models\Pds\Pds;
 use App\Models\Pds\PdsAgent;
 use App\Models\Pds\PdsCustomer;
 use App\Services\Data\TicketService;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -365,17 +365,35 @@ class SetupPdsAction
         ]);
 
         $user = user();
-        $ids = collect($request->input('ids', [$id]))->push($id)->filter()->unique()->values();
-        $pdsList = Pds::whereIn('id', $ids)->where('company_id', $user->company_id)->where('is_running', 0)->get();
+        $pds = Pds::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->where('is_running', 0)
+            ->whereDoesntHave('customers')
+            ->first();
 
-        if ($pdsList->isEmpty()) {
-            throw new BadRequestException('No valid stopped PDS selected');
+        if (!$pds) {
+            throw new BadRequestException('PDS is not available for customer assignment');
         }
 
-        foreach ($pdsList as $pds) {
-            DB::transaction(function () use ($request, $user, $pds) {
-            $customers = (new TicketService())->getCustByTicket($user->company_id, $pds->marketing_campaign_id, $pds->id, $request->status, $request->mobile ?? [], $request->additional ?? [], $request->risk_criteria ?? []);
+        $customers = (new TicketService())->getCustByTicket(
+            $user->company_id,
+            $pds->marketing_campaign_id,
+            $pds->id,
+            $request->status,
+            $request->mobile ?? [],
+            $request->additional ?? [],
+            $request->risk_criteria ?? [],
+            $request->type,
+            $request->offices ?? [],
+        );
 
+        if (empty($customers)) {
+            throw ValidationException::withMessages([
+                'status' => 'No customers match the selected filters',
+            ]);
+        }
+
+        DB::transaction(function () use ($customers, $user, $pds) {
             foreach ($customers as $key => $value) {
                 PdsCustomer::create([
                     'company_id' => $user->company_id,
@@ -384,28 +402,125 @@ class SetupPdsAction
                     'phone' => $value['phone'],
                 ]);
             }
+        });
 
-            $dialer = Dialer::post('/campaign-dialer/uploadJsonPDS', [
-                'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name,
-                'data' => $customers,
-            ]);
+        $this->queueCustomerUpload($pds, $customers);
+    }
 
-            Log::info('PAYLOAD PDS '.Carbon::now()->format('Y-m-d H:i:s'), [
-                'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name,
-                'data' => $customers,
-            ]);
+    public function bulkAssign(Request $request): int
+    {
+        $validated = $request->validate([
+            'assignments' => 'required|array|min:1',
+            'assignments.*.pds_id' => 'required|distinct|exists:pds,id',
+            'assignments.*.type' => 'required|in:HO,Branch',
+            'assignments.*.status' => 'required|array|min:1',
+            'assignments.*.offices' => 'nullable|array',
+            'assignments.*.mobile' => 'nullable|array',
+            'assignments.*.additional' => 'nullable|array',
+            'assignments.*.risk_criteria' => 'nullable|array',
+        ]);
 
-            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
-                $errorMessage = $dialer['errors'];
+        $user = user();
+        $assignments = collect($validated['assignments']);
+        $pdsList = Pds::whereIn('id', $assignments->pluck('pds_id'))
+            ->where('company_id', $user->company_id)
+            ->where('is_running', 0)
+            ->whereDoesntHave('customers')
+            ->get()
+            ->keyBy('id');
+        $prepared = [];
+        $reservedCustomers = collect();
 
-                throw new BadRequestException($errorMessage);
+        foreach ($assignments as $index => $assignment) {
+            $pds = $pdsList->get($assignment['pds_id']);
 
-                return;
+            if (!$pds) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.pds_id" => 'PDS is not available for customer assignment',
+                ]);
             }
-            });
+
+            if ($assignment['type'] === 'Branch' && empty($assignment['offices'])) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.offices" => 'Office is required for Branch type',
+                ]);
+            }
+
+            if (empty($assignment['mobile']) && empty($assignment['additional'])) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.mobile" => 'Select at least one phone field',
+                ]);
+            }
+
+            $customers = (new TicketService())->getCustByTicket(
+                $user->company_id,
+                $pds->marketing_campaign_id,
+                $pds->id,
+                $assignment['status'],
+                $assignment['mobile'] ?? [],
+                $assignment['additional'] ?? [],
+                $assignment['risk_criteria'] ?? [],
+                $assignment['type'],
+                $assignment['offices'] ?? [],
+            );
+
+            if (empty($customers)) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.status" => 'No customers match the selected filters for '.$pds->pds_name,
+                ]);
+            }
+
+            $customerKeys = collect($customers)
+                ->map(fn (array $customer) => $customer['customer_id'].'|'.$customer['phone']);
+
+            if ($customerKeys->intersect($reservedCustomers)->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.status" => 'The filters for '.$pds->pds_name.' overlap customers selected for an earlier PDS. Adjust its status, office, or criteria.',
+                ]);
+            }
+
+            $reservedCustomers = $reservedCustomers
+                ->merge($customerKeys)
+                ->unique();
+
+            $prepared[] = compact('pds', 'customers');
         }
+
+        DB::transaction(function () use ($prepared, $user) {
+            foreach ($prepared as $item) {
+                foreach ($item['customers'] as $customer) {
+                    PdsCustomer::create([
+                        'company_id' => $user->company_id,
+                        'pds_id' => $item['pds']->id,
+                        'ticket_id' => $customer['customer_id'],
+                        'phone' => $customer['phone'],
+                    ]);
+                }
+            }
+        });
+
+        foreach ($prepared as $item) {
+            $this->queueCustomerUpload($item['pds'], $item['customers']);
+        }
+
+        return count($prepared);
+    }
+
+    private function queueCustomerUpload(Pds $pds, array $customers): void
+    {
+        Log::info('QUEUE PAYLOAD PDS', [
+            'tenant_id' => $pds->tenant_id,
+            'campaign_id' => $pds->pds_name,
+            'total_data' => count($customers),
+        ]);
+
+        UploadPdsCustomersJob::dispatch(
+            $pds->id,
+            $pds->tenant_id,
+            $pds->pds_name,
+        )
+            ->onConnection('database')
+            ->onQueue('dialer');
     }
 
     public function release(Request $request, $ids)
