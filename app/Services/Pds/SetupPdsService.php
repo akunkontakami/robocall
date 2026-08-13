@@ -101,7 +101,8 @@ class SetupPdsService
             )
             ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%$search%")))
             ->orderBy('created_at', 'desc');
-
+        // dump($data->toSql(), $data->getBindings());
+        
         if ($limit === null) {
             $data = $data->get();
         } else {
@@ -482,12 +483,14 @@ class SetupPdsService
             ->orderBy('pds_name', 'asc')->get();
     }
 
-    public function sessionactivity($companyId, $start_date, $end_date, $limit = 10)
+    public function sessionactivity($companyId, $start_date, $end_date, $limit = 10, $page = 1)
     {
         $query = http_build_query([
+            'page' => $page,
+            'per_page' => $limit,
+            'tenant_id' => user()->tenant_id,
             'start_date' => $start_date,
             'end_date' => $end_date,
-            'limit' => $limit,
         ]);
 
         $dialer = Dialer::get('/report/sessionactivity?' . $query);
@@ -567,15 +570,15 @@ class SetupPdsService
             $selectedPdsList = Pds::query()
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->whereIn('id', $pdsIds)
-                ->when($companyId, fn($q) => $q->where('company_id', $companyId))
-                ->get();
+                ->when($companyId, fn($q) => $q->where('company_id', $companyId));
+                $selectedPdsList = $selectedPdsList->get();
         } elseif ($campaignId) {
             // Filter by campaign (marketing_campaign_id) -> resolve matching PDS names
             $selectedPdsList = Pds::query()
                 ->select(['id', 'pds_name', 'marketing_campaign_id'])
                 ->where('marketing_campaign_id', $campaignId)
-                ->when($companyId, fn($q) => $q->where('company_id', $companyId))
-                ->get();
+                ->when($companyId, fn($q) => $q->where('company_id', $companyId));
+                $selectedPdsList = $selectedPdsList->get();
         }
 
         $selectedPds = $selectedPdsList->first();
@@ -655,24 +658,39 @@ class SetupPdsService
             $sessionStart = $row['SessionStart'] ?? $start_date;
             $sessionEnd   = $row['SessionEnd'] ?? $end_date;
 
-            $ticketStatus = DB::table('calls')
-                ->join('ticket_histories as th', 'th.id', '=', 'calls.ticket_history_id')
-                ->whereNotNull('calls.pstn_id')
+            $ticketStatus = DB::table('ticket_histories as th')
+                ->where('th.company_id', $companyId)
+                ->joinSub(
+                    DB::table('ticket_histories')
+                        ->select('ticket_id', DB::raw('MAX(created_at) as last_created'))
+                        ->where('company_id', $companyId)
+                        ->where('created_at', '>=', $sessionStart)
+                        ->where('created_at', '<=', $sessionEnd)
+                        ->groupBy('ticket_id'),
+                    'last',
+                    fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
+                        ->on('last.last_created', '=', 'th.created_at')
+                )
+                ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')                
                 ->when($resolvedCampaignId, function ($q) use ($resolvedCampaignId) {
                     $q->join('tickets', 'tickets.id', '=', 'th.ticket_id')
                         ->where('tickets.marketing_campaign_id', $resolvedCampaignId);
                 })
                 ->where('th.created_at', '>=', $sessionStart)
                 ->where('th.created_at', '<=', $sessionEnd)
-                ->selectRaw('th.status, COUNT(*) as total')
-                ->groupBy('th.status');
+                ->where('ca.category', 'Incoming Call')
+                ->where('ca.pstn_id', '!=', null)
+                ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
+                $ticketStatus->groupBy('th.status');
                 $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
             
             $duration = 0;
             if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
-                $duration = Carbon::parse($row['SessionEnd'])
-                    ->diffInSeconds(Carbon::parse($row['SessionStart']));
+                $duration = max(
+                    0,
+                    Carbon::parse($row['SessionStart'])->diffInSeconds(Carbon::parse($row['SessionEnd']), true)
+                );
             }
 
             // When multiple PDS selected, use row's campaign_id from API instead of single PDS name

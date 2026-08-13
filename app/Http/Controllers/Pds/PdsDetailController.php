@@ -43,6 +43,16 @@ class PdsDetailController extends Controller
         ]);
     }
 
+    public function options(Request $request, $id)
+    {
+        $data = (new SetupPdsService())->find(user()->company_id, $id, [0]);
+
+        return response()->json([
+            'statuses' => (new TicketService())->getStatus(user()->company_id, $data->marketing_campaign_id, $data->id),
+            'offices' => (new TicketService())->getOffices(user()->company_id, $data->marketing_campaign_id, $data->id),
+        ]);
+    }
+
     public function spvAgent($id)
     {
         return Inertia::render('PdsDetail/SpvAgent', [

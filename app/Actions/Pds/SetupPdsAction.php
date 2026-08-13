@@ -3,6 +3,8 @@
 namespace App\Actions\Pds;
 
 use App\Helpers\Dialer;
+use App\Jobs\ReleasePdsCustomersJob;
+use App\Jobs\StopPdsJob;
 use App\Models\Data\ProductSubject;
 use App\Models\Data\Ticket;
 use App\Models\Data\TicketForm;
@@ -101,7 +103,9 @@ class SetupPdsAction
     public function start(Request $request)
     {
         $request->validate([
-            'id' => 'required|exists:pds,id',
+            'id' => 'nullable|exists:pds,id',
+            'ids' => 'nullable|array',
+            'ids.*' => 'exists:pds,id',
             'call_factor' => 'required',
             'call_wait' => 'required',
             'call_abandon_rate' => 'required',
@@ -110,22 +114,39 @@ class SetupPdsAction
             'call_retry_max' => 'required',
         ]);
 
-        $customers = PdsCustomer::where('pds_id', $request->id)->count();
-
-        if ($customers == 0) {
-            throw ValidationException::withMessages(['call_factor' => 'Please upload customer data before starting']);
-        }
-
-        $agents = PdsAgent::where('pds_id', $request->id)->count();
-
-        if ($agents == 0) {
-            throw ValidationException::withMessages(['call_factor' => 'Please assign agent before starting']);
-        }
-
         $user = user();
+        $ids = collect($request->input('ids', [$request->input('id')]))
+            ->filter()
+            ->unique()
+            ->values();
 
-        return DB::transaction(function () use ($request) {
-            $pds = Pds::where('id', $request->id)->first();
+        if ($ids->isEmpty()) {
+            throw new BadRequestException('PDS is required');
+        }
+
+        $pdsList = Pds::whereIn('id', $ids)
+            ->where('company_id', $user->company_id)
+            ->where('is_running', 0)
+            ->get();
+
+        foreach ($pdsList as $pds) {
+            $customers = PdsCustomer::where('pds_id', $pds->id)->count();
+            if ($customers == 0) {
+                throw ValidationException::withMessages(['call_factor' => 'Please upload customer data before starting']);
+            }
+
+            $agents = PdsAgent::where('pds_id', $pds->id)->count();
+            if ($agents == 0) {
+                throw ValidationException::withMessages(['call_factor' => 'Please assign agent before starting']);
+            }
+
+            $this->startPds($request, $pds);
+        }
+    }
+
+    private function startPds(Request $request, Pds $pds)
+    {
+        return DB::transaction(function () use ($request, $pds) {
 
             $pds->update([
                 'call_factor' => $request->call_factor,
@@ -177,43 +198,78 @@ class SetupPdsAction
 
     public function stop(Request $request)
     {
-        $request->validate([
-            'id' => 'required|exists:pds,id',
-        ]);
+        $user = user();
+        $ids = $request->input('ids', $request->input('id'));
+        $ids = is_array($ids) ? $ids : [$ids];
+        $ids = array_values(array_unique(array_filter($ids)));
 
-        $pdsStatus = Pds::where('id', $request->id)->where('is_running', 0)->first();
-
-        if ($pdsStatus) {
-            throw new BadRequestException('PDS already stop');
-
-            return;
+        if (empty($ids)) {
+            throw new BadRequestException('PDS is required');
         }
 
-        $user = user();
+        $isBulk = count($ids) > 1;
+        $pdsQuery = Pds::whereIn('id', $ids)
+            ->where('company_id', $user->company_id);
 
-        return DB::transaction(function () use ($request) {
-            $pds = Pds::where('id', $request->id)->first();
+        if ($isBulk) {
+            $pdsQuery->where('is_running', 1);
+        }
+
+        $pdsIds = $pdsQuery->pluck('id');
+
+        if ($pdsIds->isEmpty()) {
+            throw new BadRequestException($isBulk ? 'No running PDS selected' : 'PDS not found');
+        }
+
+        if (!$isBulk) {
+            $dialerPayload = $this->stopPds($pdsIds->first(), $user->company_id);
+
+            if ($dialerPayload) {
+                $dialer = Dialer::post('/pds-stop', $dialerPayload, true);
+
+                if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                    throw new BadRequestException($dialer['errors']);
+                }
+            }
+
+            return 1;
+        }
+
+        foreach ($pdsIds as $pdsId) {
+            StopPdsJob::dispatch($pdsId, $user->company_id)
+                ->onConnection('database')
+                ->onQueue('dialer');
+        }
+
+        return $pdsIds->count();
+    }
+
+    public function stopPds(string $pdsId, string $companyId, bool $ignoreAlreadyStopped = false): ?array
+    {
+        return DB::transaction(function () use ($pdsId, $companyId, $ignoreAlreadyStopped) {
+            $pds = Pds::where('id', $pdsId)
+                ->where('company_id', $companyId)
+                ->first();
+
+            if (!$pds) {
+                return null;
+            }
+
+            if (!$pds->is_running) {
+                if ($ignoreAlreadyStopped) {
+                    return null;
+                }
+
+                throw new BadRequestException('PDS already stop');
+            }
 
             $pds->update([
                 'is_running' => 0,
             ]);
 
-            $dialer = Dialer::post('/pds-stop', [
+            return [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-            ]);
-
-            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
-                $errorMessage = $dialer['errors'];
-
-                throw new BadRequestException($errorMessage);
-
-                return;
-            }
-
-            return [
-                'pds' => $pds,
-                'dialer_response' => $dialer,
             ];
         });
     }
@@ -302,9 +358,15 @@ class SetupPdsAction
         ]);
 
         $user = user();
+        $ids = collect($request->input('ids', [$id]))->push($id)->filter()->unique()->values();
+        $pdsList = Pds::whereIn('id', $ids)->where('company_id', $user->company_id)->where('is_running', 0)->get();
 
-        return DB::transaction(function () use ($request, $user, $id) {
-            $pds = Pds::where('id', $id)->first();
+        if ($pdsList->isEmpty()) {
+            throw new BadRequestException('No valid stopped PDS selected');
+        }
+
+        foreach ($pdsList as $pds) {
+            DB::transaction(function () use ($request, $user, $pds) {
             $customers = (new TicketService())->getCustByTicket($user->company_id, $pds->marketing_campaign_id, $pds->id, $request->status, $request->mobile ?? [], $request->additional ?? [], $request->risk_criteria ?? []);
 
             foreach ($customers as $key => $value) {
@@ -335,89 +397,156 @@ class SetupPdsAction
 
                 return;
             }
-        });
+            });
+        }
     }
 
-    public function release(Request $request, $id)
+    public function release(Request $request, $ids)
     {
         $user = user();
+        $ids = is_array($ids) ? $ids : [$ids];
+        $ids = array_values(array_unique(array_filter($ids)));
 
-        return DB::transaction(function () use ($user, $id) {
-            $pds = Pds::where('id', $id)->first();
-            $customers = PdsCustomer::where('pds_id', $pds->id)->where('company_id', $user->company_id)->get();
+        if (empty($ids)) {
+            throw new BadRequestException('PDS is required');
+        }
+
+        $pdsIds = Pds::whereIn('id', $ids)
+            ->where('company_id', $user->company_id)
+            ->pluck('id');
+
+        if ($pdsIds->isEmpty()) {
+            throw new BadRequestException('No valid PDS selected');
+        }
+
+        if ($pdsIds->count() === 1) {
+            $dialerPayload = $this->releasePdsCustomers(
+                $pdsIds->first(),
+                $user->company_id
+            );
+
+            if ($dialerPayload) {
+                $dialer = Dialer::post(
+                    '/campaign-dialer/releaseCustomerPDS',
+                    $dialerPayload,
+                    true
+                );
+
+                if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
+                    throw new BadRequestException($dialer['errors']);
+                }
+            }
+
+            return 1;
+        }
+
+        foreach ($pdsIds as $pdsId) {
+            ReleasePdsCustomersJob::dispatch($pdsId, $user->company_id)
+                ->onConnection('database')
+                ->onQueue('dialer');
+        }
+
+        return $pdsIds->count();
+    }
+
+    public function releasePdsCustomers(string $pdsId, string $companyId): ?array
+    {
+        return DB::transaction(function () use ($pdsId, $companyId) {
+            $pds = Pds::where('id', $pdsId)
+                ->where('company_id', $companyId)
+                ->first();
+
+            if (!$pds) {
+                return null;
+            }
+
+            $ticketIds = PdsCustomer::where('pds_id', $pds->id)
+                ->where('company_id', $companyId)
+                ->pluck('ticket_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $tickets = Ticket::whereIn('id', $ticketIds)
+                ->get()
+                ->groupBy(fn (Ticket $ticket) => filled($ticket->customer_number)
+                    ? (string) $ticket->customer_number
+                    : 'ticket:' . $ticket->id
+                );
 
             $agentIds = PdsAgent::where('pds_id', $pds->id)
-                ->where('company_id', $user->company_id)
+                ->where('company_id', $companyId)
                 ->pluck('user_id')
                 ->toArray();
 
             $totalAgents = count($agentIds);
             $agentIndex = 0;
 
-            foreach ($customers as $cust) {
-                $ticket = Ticket::where('id', $cust->ticket_id)
-                    ->whereNull('current_agent_id')
+            foreach ($tickets as $ticketGroup) {
+                $assignedAgentId = $ticketGroup
+                    ->pluck('current_agent_id')
+                    ->filter()
                     ->first();
 
-                if ($ticket) {
-                    if (!empty($agentIds)) {
-                        $assignedAgentId = $agentIds[$agentIndex % $totalAgents];
+                if (!$assignedAgentId && !empty($agentIds)) {
+                    $assignedAgentId = $agentIds[$agentIndex++ % $totalAgents];
+                }
+
+                foreach ($ticketGroup as $ticket) {
+                    $wasUnassigned = is_null($ticket->current_agent_id);
+
+                    if ($wasUnassigned) {
+                        $updates = [
+                            'status' => 'Uncontacted PDS',
+                            'status_id' => null,
+                        ];
+
+                        if ($assignedAgentId) {
+                            $updates['current_agent_id'] = $assignedAgentId;
+                        }
+
+                        $ticket->update($updates);
+
+                        $subject = ProductSubject::where('id', $ticket->subject_id)->first();
+                        $lastHistory = TicketHistory::where('ticket_id', $ticket->id)
+                            ->orderBy('id', 'desc')
+                            ->first();
+
+                        $newHistory = TicketHistory::create([
+                            'company_id' => $ticket->company_id,
+                            'ticket_id' => $ticket->id,
+                            'bucket_data' => $ticket->bucket,
+                            'note' => '',
+                            'remark' => '',
+                            'status' => 'Uncontacted PDS',
+                            'sla_priority' => $subject?->priority,
+                        ]);
+
+                        if ($lastHistory) {
+                            $oldTicketForms = TicketForm::where('ticket_history_id', $lastHistory->id)->get();
+
+                            foreach ($oldTicketForms as $oldForm) {
+                                $newForm = $oldForm->replicate();
+                                $newForm->ticket_history_id = $newHistory->id;
+                                $newForm->save();
+                            }
+                        }
+                    } elseif ($assignedAgentId && $ticket->current_agent_id != $assignedAgentId) {
                         $ticket->update([
                             'current_agent_id' => $assignedAgentId,
-                            'status' => 'Uncontacted PDS',
-                            'status_id' => null,
-                        ]);
-                    } else {
-                        $ticket->update([
-                            'status' => 'Uncontacted PDS',
-                            'status_id' => null,
                         ]);
                     }
-
-                    $subject = ProductSubject::where('id', $ticket->subject_id)->first();
-
-                    $lastHistory = TicketHistory::where('ticket_id', $ticket->id)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    $newHistory = TicketHistory::create([
-                        'company_id' => $ticket->company_id,
-                        'ticket_id' => $ticket->id,
-                        'bucket_data' => $ticket->bucket,
-                        'note' => '',
-                        'remark' => '',
-                        'status' => 'Uncontacted PDS',
-                        'sla_priority' => $subject?->priority,
-                    ]);
-
-                    if ($lastHistory) {
-                        $oldTicketForms = TicketForm::where('ticket_history_id', $lastHistory->id)->get();
-
-                        foreach ($oldTicketForms as $oldForm) {
-                            $newForm = $oldForm->replicate();
-                            $newForm->ticket_history_id = $newHistory->id;
-                            $newForm->save();
-                        }
-                    }
-
-                    ++$agentIndex;
                 }
             }
 
-            PdsCustomer::where('pds_id', $pds->id)->where('company_id', $user->company_id)->delete();
+            PdsCustomer::where('pds_id', $pds->id)
+                ->where('company_id', $companyId)
+                ->delete();
 
-            $dialer = Dialer::post('/campaign-dialer/releaseCustomerPDS', [
+            return [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-            ]);
-
-            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
-                $errorMessage = $dialer['errors'];
-
-                throw new BadRequestException($errorMessage);
-
-                return;
-            }
+            ];
         });
     }
 }

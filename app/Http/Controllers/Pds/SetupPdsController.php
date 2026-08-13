@@ -59,9 +59,14 @@ class SetupPdsController extends Controller
     public function stop(Request $request, SetupPdsAction $action)
     {
         try {
-            $action->stop($request);
+            $stoppedCount = $action->stop($request);
 
-            return back()->with('success', 'Successfully stop PDS');
+            return back()->with(
+                'success',
+                $stoppedCount === 1
+                    ? 'Successfully stop PDS'
+                    : 'PDS stop queued successfully'
+            );
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }
@@ -81,9 +86,15 @@ class SetupPdsController extends Controller
     public function release(Request $request, SetupPdsAction $action)
     {
         try {
-            $action->release($request, $request->id);
+            $ids = $request->input('ids', $request->input('id'));
+            $releasedCount = $action->release($request, $ids);
 
-            return back()->with('success', 'Successfully release customers');
+            return back()->with(
+                'success',
+                $releasedCount === 1
+                    ? 'Successfully release customers'
+                    : 'Customer release queued successfully'
+            );
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }

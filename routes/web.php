@@ -57,6 +57,7 @@ Route::middleware(['app-auth'])
         Route::get('/pds/detail/{id}/spv-agent', [PdsDetailController::class, 'spvAgent'])->name('pds.detail.spv-agent');
 
         Route::get('/pds/detail/{id}/fetch-status', [PdsDetailController::class, 'status'])->name('pds.detail.status');
+        Route::get('/pds/detail/{id}/options', [PdsDetailController::class, 'options'])->name('pds.detail.options');
 
         // robocall
         Route::inertia('/robocall/dashboard', 'Robocall/Index')->name('robocall.dashboard');

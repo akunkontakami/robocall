@@ -16,7 +16,6 @@ use App\Http\Resources\Pds\MonitoringResource;
 use App\Http\Resources\Pds\PdsHistoryResource;
 use App\Http\Resources\Pds\ReportAgentResource;
 use App\Http\Resources\Pds\ReportTrackResource;
-use App\Http\Resources\Pds\ReportCampaignResource;
 use App\Services\Data\CampaignService;
 use App\Services\Data\TicketService;
 use App\Services\Data\UserService;
@@ -116,19 +115,21 @@ class ReportPdsController extends Controller
     public function campaignExport(Request $request)
     {
         $outbounds = (new TicketService())->getOutboundStatus(user()->company_id);
-        $dataCollection = ReportCampaignResource::collection(
-            (new SetupPdsService())->getByCampaign(
-                companyId: user()->company_id,
-                search: request('search', ''),
-                filter: request('filter', []),
-                limit: request('limit', 10),
-            )
+
+        $response = (new SetupPdsService())->sessionByCampaign(
+            companyId: user()->company_id,
+            start_date: $request->input('created_start', now()->toDateString()),
+            end_date: $request->input('created_end', now()->toDateString()),
+            campaignId: $request->input('filter.campaigns'),
+            pdsId: $request->input('filter.pds'),
+            search: $request->input('search', ''),
+            limit: 100000,
+            page: 1,
         );
 
-        $data = $dataCollection->toArray($request);
-
+        // $filename = 'pds_campaign_' . now()->format('Ymd_His') . '.txt';
         $filename = 'pds_campaign_' . now()->format('Ymd_His') . '.xlsx';
-
-        return Excel::download(new PdsCampaignExport($data, $outbounds), $filename);
+        // return (new PdsCampaignExport($response['data'] ?? [], $outbounds))->download($filename);
+        return Excel::download(new PdsCampaignExport($response['data'] ?? [], $outbounds), $filename);
     }
 }
