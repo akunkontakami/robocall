@@ -38,6 +38,7 @@ class Dialer
         $url = config('services.dialer.api').$path;
         $res = Http::withToken($token)->connectTimeout(10)->timeout(30)->post($url, $payload);
 
+        logger($res);
         if ($throwOnFailure) {
             $res->throw();
         }
