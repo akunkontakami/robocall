@@ -423,26 +423,19 @@ const showStart = (row: any) => {
     }
 };
 
-const actionDelete = () => {
-    if (!form.processing) {
-        form.post(route("pds.setup.delete"), {
-            onError: () => {
-                showPopupDelete.value = false;
-
-                setTimeout(() => {
-                    showPopupDelete.value = true;
-                }, 100);
-            },
-            onSuccess: () => {
-                paginate.fetchData();
-                showPopupDelete.value = false;
-
-                setTimeout(() => {
-                    showPopupDelete.value = true;
-                }, 100);
-            },
-        });
+const actionDelete = (finishConfirmation?: (close?: boolean) => void) => {
+    if (form.processing) {
+        finishConfirmation?.(false);
+        return;
     }
+
+    form.post(route("pds.setup.delete"), {
+        onError: () => finishConfirmation?.(false),
+        onSuccess: () => {
+            finishConfirmation?.();
+            paginate.fetchData();
+        },
+    });
 };
 
 const actionRelease = (finishConfirmation?: (close?: boolean) => void) => {
@@ -453,31 +446,20 @@ const submitRelease = (
     isBulk: boolean,
     finishConfirmation?: (close?: boolean) => void,
 ) => {
-    const releasePopup = isBulk ? showPopupBulkRelease : showPopupRelease;
-
-    if (!form.processing) {
-        form.post(route("pds.setup.release"), {
-            onError: () => {
-                finishConfirmation?.(false);
-                releasePopup.value = false;
-
-                setTimeout(() => {
-                    releasePopup.value = true;
-                }, 100);
-            },
-            onSuccess: () => {
-                finishConfirmation?.();
-                paginate.fetchData();
-                selectedRowIds.value = [];
-                selectedRows.value = [];
-                releasePopup.value = false;
-
-                setTimeout(() => {
-                    releasePopup.value = true;
-                }, 100);
-            },
-        });
+    if (form.processing) {
+        finishConfirmation?.(false);
+        return;
     }
+
+    form.post(route("pds.setup.release"), {
+        onError: () => finishConfirmation?.(false),
+        onSuccess: () => {
+            finishConfirmation?.();
+            paginate.fetchData();
+            selectedRowIds.value = [];
+            selectedRows.value = [];
+        },
+    });
 };
 
 const showDelete = (row: any) => {
@@ -506,31 +488,20 @@ const submitStop = (
     isBulk: boolean,
     finishConfirmation?: (close?: boolean) => void,
 ) => {
-    const stopPopup = isBulk ? showPopupBulkStop : showPopupStop;
-
-    if (!form.processing) {
-        form.post(route("pds.setup.stop"), {
-            onError: () => {
-                finishConfirmation?.(false);
-                stopPopup.value = false;
-
-                setTimeout(() => {
-                    stopPopup.value = true;
-                }, 100);
-            },
-            onSuccess: () => {
-                finishConfirmation?.();
-                paginate.fetchData();
-                selectedRowIds.value = [];
-                selectedRows.value = [];
-                stopPopup.value = false;
-
-                setTimeout(() => {
-                    stopPopup.value = true;
-                }, 100);
-            },
-        });
+    if (form.processing) {
+        finishConfirmation?.(false);
+        return;
     }
+
+    form.post(route("pds.setup.stop"), {
+        onError: () => finishConfirmation?.(false),
+        onSuccess: () => {
+            finishConfirmation?.();
+            paginate.fetchData();
+            selectedRowIds.value = [];
+            selectedRows.value = [];
+        },
+    });
 };
 
 const showStop = (row: any) => {

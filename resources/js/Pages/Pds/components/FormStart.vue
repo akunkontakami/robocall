@@ -171,29 +171,30 @@ const submit = () => {
     clickId('show-start-pds')
 }
 
-const actionStart = () => {
-    if (!form.processing) {
-        form.id = Array.isArray(props.id) ? props.id[0] : props.id
-        form.ids = Array.isArray(props.id) ? props.id : [props.id]
-
-        if (form.call_abandon_rate == 0) {
-            showAlert("Call Abandon Rate cannot be set to zero")
-            return
-        }
-
-        form.post(route("pds.setup.start"), {
-            onSuccess: () => {
-                window.location.reload()
-            },
-            onError: () => {
-                showPopupStart.value = false
-                clickId('toggle-start-form')
-
-                setTimeout(() => {
-                    showPopupStart.value = true
-                }, 100);
-            }
-        });
+const actionStart = (finishConfirmation?: (close?: boolean) => void) => {
+    if (form.processing) {
+        finishConfirmation?.(false)
+        return
     }
+
+    form.id = Array.isArray(props.id) ? props.id[0] : props.id
+    form.ids = Array.isArray(props.id) ? props.id : [props.id]
+
+    if (form.call_abandon_rate == 0) {
+        finishConfirmation?.(false)
+        showAlert("Call Abandon Rate cannot be set to zero")
+        return
+    }
+
+    form.post(route("pds.setup.start"), {
+        onSuccess: () => {
+            finishConfirmation?.()
+            window.location.reload()
+        },
+        onError: () => {
+            finishConfirmation?.(false)
+            clickId('toggle-start-form')
+        }
+    });
 }
 </script>
