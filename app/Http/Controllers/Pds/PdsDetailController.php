@@ -43,7 +43,7 @@ class PdsDetailController extends Controller
             user()->company_id,
             $pds->marketing_campaign_id,
             $pds->id,
-        ))->unique('id')->values();
+        ))->values();
 
         return response()->json([
             'data' => $statuses,
@@ -58,7 +58,7 @@ class PdsDetailController extends Controller
             user()->company_id,
             $pds->marketing_campaign_id,
             $pds->id,
-        ))->unique('id')->values();
+        ))->values();
         $offices = $pdsList
             ->flatMap(fn ($pds) => $service->getOffices(
                 user()->company_id,
