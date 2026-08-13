@@ -532,7 +532,6 @@ class SetupPdsAction
             $pds->tenant_id,
             $pds->pds_name,
         )
-            ->onConnection('database')
             ->onQueue('dialer');
     }
 
