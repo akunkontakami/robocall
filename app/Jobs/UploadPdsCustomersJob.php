@@ -42,20 +42,12 @@ class UploadPdsCustomersJob implements ShouldQueue
             ->values()
             ->toArray();
 
-        logger('PDS ASSIGN : '.json_encode([
-            'pds_id' => $this->pdsId,
-            'tenant_id' => $this->tenantId,
-            'campaign_id' => $this->campaignId,
-            'total_data' => count($customers),
-        ]));
-
         $dialer = Dialer::post('/campaign-dialer/uploadJsonPDS', [
             'tenant_id' => $this->tenantId,
             'campaign_id' => $this->campaignId,
             'data' => $customers,
         ], true);
 
-        logger($dialer);
 
         if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
             throw new RuntimeException($dialer['errors']);
