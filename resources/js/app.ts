@@ -6,7 +6,7 @@ import { createApp, h, DefineComponent } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue,route } from '../../vendor/tightenco/ziggy/dist';
-// import { Ziggy } from "./ziggy"
+import { Ziggy } from "./ziggy"
 
 const appName = "Kontakami"
 window.route = (name?: string, params?: any , absolute?: boolean) => route(name, params, absolute, Ziggy)
