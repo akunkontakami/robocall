@@ -55,6 +55,12 @@ class UploadPdsCustomersJob implements ShouldQueue, ShouldBeUnique
             'campaign_id' => $this->campaignId,
             'data' => $customers,
         ], true);
+        logger('PDS ASSIGN : '.json_encode([
+            'tenant_id' => $this->tenantId,
+            'campaign_id' => $this->campaignId,
+            'data' => $customers,
+        ]));
+        logger($dialer);
 
         if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
             throw new RuntimeException($dialer['errors']);
