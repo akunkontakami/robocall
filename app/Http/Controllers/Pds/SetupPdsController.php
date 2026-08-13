@@ -48,9 +48,14 @@ class SetupPdsController extends Controller
     public function start(Request $request, SetupPdsAction $action)
     {
         try {
-            $action->start($request);
+            $startedCount = $action->start($request);
 
-            return back()->with('success', 'Successfully start PDS');
+            return back()->with(
+                'success',
+                $startedCount === 1
+                    ? 'PDS start queued successfully'
+                    : 'PDS start jobs queued successfully'
+            );
         } catch (BadRequestException $e) {
             return back()->with(['error' => $e->getMessage()]);
         }

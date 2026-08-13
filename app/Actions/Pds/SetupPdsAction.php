@@ -4,6 +4,7 @@ namespace App\Actions\Pds;
 
 use App\Helpers\Dialer;
 use App\Jobs\ReleasePdsCustomersJob;
+use App\Jobs\StartPdsJob;
 use App\Jobs\StopPdsJob;
 use App\Models\Data\ProductSubject;
 use App\Models\Data\Ticket;
@@ -128,6 +129,10 @@ class SetupPdsAction
             ->where('is_running', 0)
             ->get();
 
+        if ($pdsList->isEmpty()) {
+            throw new BadRequestException('No valid stopped PDS selected');
+        }
+
         foreach ($pdsList as $pds) {
             $customers = PdsCustomer::where('pds_id', $pds->id)->count();
             if ($customers == 0) {
@@ -139,59 +144,62 @@ class SetupPdsAction
                 throw ValidationException::withMessages(['call_factor' => 'Please assign agent before starting']);
             }
 
-            $this->startPds($request, $pds);
+            StartPdsJob::dispatch(
+                $pds->id,
+                $user->company_id,
+                $request->only([
+                    'call_factor',
+                    'call_wait',
+                    'call_abandon_rate',
+                    'call_limit',
+                    'call_retry_after',
+                    'call_retry_max',
+                ]),
+            )
+                ->onQueue('dialer');
         }
+
+        return $pdsList->count();
     }
 
-    private function startPds(Request $request, Pds $pds)
+    public function startPds(string $pdsId, string $companyId, array $settings): ?array
     {
-        return DB::transaction(function () use ($request, $pds) {
+        return DB::transaction(function () use ($pdsId, $companyId, $settings) {
+            $pds = Pds::where('id', $pdsId)
+                ->where('company_id', $companyId)
+                ->where('is_running', 0)
+                ->first();
+
+            if (!$pds) {
+                return null;
+            }
 
             $pds->update([
-                'call_factor' => $request->call_factor,
-                'call_wait' => $request->call_wait,
-                'call_abandon_rate' => $request->call_abandon_rate,
-                'call_limit' => $request->call_limit,
-                'call_retry_after' => $request->call_retry_after,
-                'call_retry_max' => $request->call_retry_max,
+                'call_factor' => $settings['call_factor'],
+                'call_wait' => $settings['call_wait'],
+                'call_abandon_rate' => $settings['call_abandon_rate'],
+                'call_limit' => $settings['call_limit'],
+                'call_retry_after' => $settings['call_retry_after'],
+                'call_retry_max' => $settings['call_retry_max'],
                 'is_running' => 1,
             ]);
 
-            $dialer = Dialer::post('/pds-start', [
+            $payload = [
                 'tenant_id' => $pds->tenant_id,
                 'campaign_id' => $pds->pds_name,
-                'CallFactor' => $request->call_factor,
-                'CallWait' => $request->call_wait,
-                'CallAbandonRate' => $request->call_abandon_rate,
-                'CallLimit' => $request->call_limit,
-                'CallRetryAfter' => $request->call_retry_after,
-                'CallRetryMax' => $request->call_retry_max,
-            ]);
+                'CallFactor' => $settings['call_factor'],
+                'CallWait' => $settings['call_wait'],
+                'CallAbandonRate' => $settings['call_abandon_rate'],
+                'CallLimit' => $settings['call_limit'],
+                'CallRetryAfter' => $settings['call_retry_after'],
+                'CallRetryMax' => $settings['call_retry_max'],
+            ];
 
             Log::info('PAYLOAD START PDS', [
-                'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name,
-                'CallFactor' => $request->call_factor,
-                'CallWait' => $request->call_wait,
-                'CallAbandonRate' => $request->call_abandon_rate,
-                'CallLimit' => $request->call_limit,
-                'CallRetryAfter' => $request->call_retry_after,
-                'CallRetryMax' => $request->call_retry_max,
+                ...$payload,
             ]);
 
-            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
-                $errorMessage = $dialer['errors'];
-
-                $messages = [];
-                $messages['call_factor'] = $errorMessage;
-
-                throw ValidationException::withMessages($messages);
-            }
-
-            return [
-                'pds' => $pds,
-                'dialer_response' => $dialer,
-            ];
+            return $payload;
         });
     }
 
@@ -236,7 +244,6 @@ class SetupPdsAction
 
         foreach ($pdsIds as $pdsId) {
             StopPdsJob::dispatch($pdsId, $user->company_id)
-                ->onConnection('database')
                 ->onQueue('dialer');
         }
 
@@ -441,7 +448,6 @@ class SetupPdsAction
 
         foreach ($pdsIds as $pdsId) {
             ReleasePdsCustomersJob::dispatch($pdsId, $user->company_id)
-                ->onConnection('database')
                 ->onQueue('dialer');
         }
 
