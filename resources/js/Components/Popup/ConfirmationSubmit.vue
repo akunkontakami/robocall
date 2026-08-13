@@ -1,5 +1,6 @@
 <template>
     <div
+        ref="confirmationRoot"
         x-show="confirmation"
         class="fixed top-0 left-0 z-[99] flex items-center justify-center w-screen h-screen"
         x-cloak
@@ -31,7 +32,7 @@
                 <IconClosePopup
                     class="cursor-pointer"
                     x-on:click="confirmation = false"
-                    id="btn-close-confirmation"
+                    data-confirmation-close
                 />
             </div>
             <div class="flex flex-col items-center">
@@ -78,16 +79,19 @@ defineProps<{
 }>();
 
 const progres = ref(false);
+const confirmationRoot = ref<HTMLElement | null>(null);
 
 const confirmAction = () => {
     progres.value = true;
-    emit("action", () => {
+    emit("action", (close = true) => {
         progres.value = false;
-        (
-            document.querySelector(
-                ".delete-confirmation #btn-close-confirmation"
-            ) as HTMLElement
-        )?.click();
+        if (close) {
+            (
+                confirmationRoot.value?.querySelector(
+                    "[data-confirmation-close]",
+                ) as HTMLElement | null
+            )?.click();
+        }
     });
 };
 </script>
