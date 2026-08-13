@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Pds;
 
 use App\Actions\Pds\SetupPdsAction;
 use App\Http\Controllers\Controller;
-use App\Models\Pds\Pds;
 use App\Services\Data\CampaignService;
 use App\Services\Data\TicketService;
 use App\Services\Pds\SetupPdsService;
@@ -37,63 +36,28 @@ class PdsDetailController extends Controller
 
     public function status(Request $request, $id)
     {
-        $pdsList = $this->selectedPds($request, $id);
-        $service = new TicketService();
-        $statuses = $pdsList->flatMap(fn ($pds) => $service->getStatus(
-            user()->company_id,
-            $pds->marketing_campaign_id,
-            $pds->id,
-        ))->values();
+        $data = (new SetupPdsService())->find(user()->company_id, $id, [0]);
 
         return response()->json([
-            'data' => $statuses,
-        ]);
-    }
-
-    public function options(Request $request, $id)
-    {
-        $pdsList = $this->selectedPds($request, $id);
-        $service = new TicketService();
-        $statuses = $pdsList->flatMap(fn ($pds) => $service->getStatus(
-            user()->company_id,
-            $pds->marketing_campaign_id,
-            $pds->id,
-        ))->values();
-        $offices = $pdsList
-            ->flatMap(fn ($pds) => $service->getOffices(
+            'data' => (new TicketService())->getStatus(
                 user()->company_id,
-                $pds->marketing_campaign_id,
-                $pds->id,
-            ))
-            ->values();
-
-        return response()->json([
-            'statuses' => $statuses,
-            'offices' => $offices,
-            'selected_pds' => $pdsList->map(fn ($pds) => [
-                'id' => $pds->id,
-                'campaign_id' => $pds->marketing_campaign_id,
-            ])->values(),
+                $data->marketing_campaign_id,
+                $data->id,
+                $request->input('type'),
+                $request->input('offices', []),
+                $request->input('risk_criteria', []),
+            ),
         ]);
     }
 
-    private function selectedPds(Request $request, $id)
+    public function options($id)
     {
-        $requestedIds = $request->input('ids', [$id]);
-        $requestedIds = is_array($requestedIds)
-            ? $requestedIds
-            : explode(',', (string) $requestedIds);
+        $data = (new SetupPdsService())->find(user()->company_id, $id, [0]);
+        $service = new TicketService();
 
-        $ids = collect($requestedIds)
-            ->push($id)
-            ->filter()
-            ->unique()
-            ->values();
-
-        return Pds::where('company_id', user()->company_id)
-            ->whereIn('id', $ids)
-            ->where('is_running', 0)
-            ->get();
+        return response()->json([
+            'offices' => $service->getOffices(user()->company_id, $data->marketing_campaign_id, $data->id),
+        ]);
     }
 
     public function spvAgent($id)

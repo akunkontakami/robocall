@@ -17,14 +17,14 @@ class TicketService
     {
     }
 
-    public function getStatus($companyId, $campaignId = '', $pdsId = '')
+    public function getStatus($companyId, $campaignId = '', $pdsId = '', $selectedType = null, $selectedOffices = null, $selectedRiskCriteria = null)
     {
         if (!$pdsId || !$campaignId) {
             return [];
         }
 
-        $offices = request('offices', []);
-        $type = Str::upper(request('type'));
+        $offices = $selectedOffices ?? request('offices', []);
+        $type = Str::upper($selectedType ?? request('type'));
 
         $riskMap = [
             'low_risk' => 'LOW',
@@ -32,7 +32,7 @@ class TicketService
             'high_risk' => 'HIGH',
         ];
 
-        $riskCriteria = collect(request('risk_criteria', []))
+        $riskCriteria = collect($selectedRiskCriteria ?? request('risk_criteria', []))
             ->map(function ($item) use ($riskMap) {
                 return [
                     'risk' => $riskMap[$item['risk']] ?? null,
@@ -153,14 +153,14 @@ class TicketService
             });
     }
 
-    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [], $selectedMobiles = [], $selectedAdditionals = [], $selectedRiskCriteria = [])
+    public function getCustByTicket($companyId, $campaignId = '', $pdsId = '', $status = [], $selectedMobiles = [], $selectedAdditionals = [], $selectedRiskCriteria = [], $selectedType = null, $selectedOffices = null)
     {
         if (!$pdsId || !$campaignId) {
             return [];
         }
 
-        $offices = request('offices', []);
-        $type = Str::upper(request('type'));
+        $offices = $selectedOffices ?? request('offices', []);
+        $type = Str::upper($selectedType ?? request('type'));
 
         $riskMap = [
             'low_risk' => 'LOW',
