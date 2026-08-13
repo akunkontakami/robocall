@@ -404,11 +404,11 @@ const actionBulkRelease = () => {
     actionRelease(true);
 };
 
-const actionBulkStop = () => {
+const actionBulkStop = (finishConfirmation?: (close?: boolean) => void) => {
     form.ids = selectedRows.value
         .filter((row: any) => row.is_running)
         .map((row: any) => row.id);
-    actionStop(true);
+    submitStop(true, finishConfirmation);
 };
 
 const showStart = (row: any) => {
@@ -489,12 +489,20 @@ const showRelease = (row: any) => {
     clickId("show-release");
 };
 
-const actionStop = (isBulk = false) => {
+const actionStop = (finishConfirmation?: (close?: boolean) => void) => {
+    submitStop(false, finishConfirmation);
+};
+
+const submitStop = (
+    isBulk: boolean,
+    finishConfirmation?: (close?: boolean) => void,
+) => {
     const stopPopup = isBulk ? showPopupBulkStop : showPopupStop;
 
     if (!form.processing) {
         form.post(route("pds.setup.stop"), {
             onError: () => {
+                finishConfirmation?.(false);
                 stopPopup.value = false;
 
                 setTimeout(() => {
@@ -502,6 +510,7 @@ const actionStop = (isBulk = false) => {
                 }, 100);
             },
             onSuccess: () => {
+                finishConfirmation?.();
                 paginate.fetchData();
                 selectedRowIds.value = [];
                 selectedRows.value = [];
