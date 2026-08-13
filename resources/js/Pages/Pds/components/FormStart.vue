@@ -187,6 +187,7 @@ const actionStart = () => {
             },
             onError: () => {
                 showPopupStart.value = false
+                clickId('toggle-start-form')
 
                 setTimeout(() => {
                     showPopupStart.value = true

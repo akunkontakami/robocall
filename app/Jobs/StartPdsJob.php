@@ -40,7 +40,7 @@ class StartPdsJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(SetupPdsAction $action): void
     {
-        $dialerPayload = $action->startPds(
+        $dialerPayload = $action->preparePdsStart(
             $this->pdsId,
             $this->companyId,
             $this->settings,
@@ -55,5 +55,11 @@ class StartPdsJob implements ShouldQueue, ShouldBeUnique
         if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
             throw new RuntimeException($dialer['errors']);
         }
+
+        $action->markPdsStarted(
+            $this->pdsId,
+            $this->companyId,
+            $this->settings,
+        );
     }
 }
