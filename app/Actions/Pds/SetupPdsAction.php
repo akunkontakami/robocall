@@ -128,23 +128,30 @@ class SetupPdsAction
         $pdsList = Pds::whereIn('id', $ids)
             ->where('company_id', $user->company_id)
             ->where('is_running', 0)
+            ->withCount(['customers', 'agents'])
             ->get();
 
-        if ($pdsList->isEmpty()) {
-            throw new BadRequestException('No valid stopped PDS selected');
+        if ($pdsList->count() !== $ids->count()) {
+            throw ValidationException::withMessages([
+                'ids' => 'One or more selected PDS are no longer available to start',
+            ]);
         }
 
         foreach ($pdsList as $pds) {
-            $customers = PdsCustomer::where('pds_id', $pds->id)->count();
-            if ($customers == 0) {
-                throw ValidationException::withMessages(['call_factor' => 'Please upload customer data before starting']);
+            if ($pds->customers_count == 0) {
+                throw ValidationException::withMessages([
+                    'call_factor' => 'Please upload customer data for '.$pds->pds_name.' before starting',
+                ]);
             }
 
-            $agents = PdsAgent::where('pds_id', $pds->id)->count();
-            if ($agents == 0) {
-                throw ValidationException::withMessages(['call_factor' => 'Please assign agent before starting']);
+            if ($pds->agents_count == 0) {
+                throw ValidationException::withMessages([
+                    'call_factor' => 'Please assign an active agent to '.$pds->pds_name.' before starting',
+                ]);
             }
+        }
 
+        foreach ($pdsList as $pds) {
             StartPdsJob::dispatch(
                 $pds->id,
                 $user->company_id,
@@ -163,44 +170,50 @@ class SetupPdsAction
         return $pdsList->count();
     }
 
-    public function startPds(string $pdsId, string $companyId, array $settings): ?array
+    public function preparePdsStart(string $pdsId, string $companyId, array $settings): ?array
     {
-        return DB::transaction(function () use ($pdsId, $companyId, $settings) {
-            $pds = Pds::where('id', $pdsId)
+        $pds = Pds::where('id', $pdsId)
+            ->where('company_id', $companyId)
+            ->where('is_running', 0)
+            ->first();
+
+        if (!$pds) {
+            return null;
+        }
+
+        $payload = [
+            'tenant_id' => $pds->tenant_id,
+            'campaign_id' => $pds->pds_name,
+            'CallFactor' => $settings['call_factor'],
+            'CallWait' => $settings['call_wait'],
+            'CallAbandonRate' => $settings['call_abandon_rate'],
+            'CallLimit' => $settings['call_limit'],
+            'CallRetryAfter' => $settings['call_retry_after'],
+            'CallRetryMax' => $settings['call_retry_max'],
+        ];
+
+        Log::info('PAYLOAD START PDS', [
+            ...$payload,
+        ]);
+
+        return $payload;
+    }
+
+    public function markPdsStarted(string $pdsId, string $companyId, array $settings): void
+    {
+        DB::transaction(function () use ($pdsId, $companyId, $settings) {
+            Pds::where('id', $pdsId)
                 ->where('company_id', $companyId)
                 ->where('is_running', 0)
-                ->first();
-
-            if (!$pds) {
-                return null;
-            }
-
-            $pds->update([
-                'call_factor' => $settings['call_factor'],
-                'call_wait' => $settings['call_wait'],
-                'call_abandon_rate' => $settings['call_abandon_rate'],
-                'call_limit' => $settings['call_limit'],
-                'call_retry_after' => $settings['call_retry_after'],
-                'call_retry_max' => $settings['call_retry_max'],
-                'is_running' => 1,
-            ]);
-
-            $payload = [
-                'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name,
-                'CallFactor' => $settings['call_factor'],
-                'CallWait' => $settings['call_wait'],
-                'CallAbandonRate' => $settings['call_abandon_rate'],
-                'CallLimit' => $settings['call_limit'],
-                'CallRetryAfter' => $settings['call_retry_after'],
-                'CallRetryMax' => $settings['call_retry_max'],
-            ];
-
-            Log::info('PAYLOAD START PDS', [
-                ...$payload,
-            ]);
-
-            return $payload;
+                ->update([
+                    'call_factor' => $settings['call_factor'],
+                    'call_wait' => $settings['call_wait'],
+                    'call_abandon_rate' => $settings['call_abandon_rate'],
+                    'call_limit' => $settings['call_limit'],
+                    'call_retry_after' => $settings['call_retry_after'],
+                    'call_retry_max' => $settings['call_retry_max'],
+                    'is_running' => 1,
+                ]);
         });
     }
 
