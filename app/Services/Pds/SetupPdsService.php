@@ -855,22 +855,22 @@ class SetupPdsService
                     ->on('last.last_created', '=', 'th.created_at')
             )
             ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')
-            ->when($needFilterPdsSide, function ($q) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
-                $q->join('pds_agents as pa_f', 'pa_f.user_id', '=', 'ca.agent_id')
-                    ->join('pds as p_f', function ($join) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
-                        $join->on('p_f.id', '=', 'pa_f.pds_id')
-                            ->where('p_f.company_id', $companyId);
-                        if ($campaignIds) {
-                            $join->whereIn('p_f.marketing_campaign_id', $campaignIds);
-                        }
-                        if ($spvIds) {
-                            $join->whereIn('p_f.spv_id', $spvIds);
-                        }
-                        if ($pdsIds) {
-                            $join->whereIn('p_f.id', $pdsIds);
-                        }
-                    });
-            })
+            // ->when($needFilterPdsSide, function ($q) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
+            //     $q->join('pds_agents as pa_f', 'pa_f.user_id', '=', 'ca.agent_id')
+            //         ->join('pds as p_f', function ($join) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
+            //             $join->on('p_f.id', '=', 'pa_f.pds_id')
+            //                 ->where('p_f.company_id', $companyId);
+            //             if ($campaignIds) {
+            //                 $join->whereIn('p_f.marketing_campaign_id', $campaignIds);
+            //             }
+            //             if ($spvIds) {
+            //                 $join->whereIn('p_f.spv_id', $spvIds);
+            //             }
+            //             if ($pdsIds) {
+            //                 $join->whereIn('p_f.id', $pdsIds);
+            //             }
+            //         });
+            // })
             ->where('th.company_id', $companyId)
             ->where('th.created_at', '>=', $start_date)
             ->where('th.created_at', '<=', $end_date . ' 23:59:59')
