@@ -914,7 +914,7 @@ class SetupPdsService
                 DB::raw("COUNT(DISTINCT th.ticket_id) as data_contacted"),
             ])
             ->groupBy(DB::raw('DATE(th.created_at)'), 'ca.agent_id');
-
+            dump($aggQuery->toSql(), $aggQuery->getBindings());
         $aggRowsList = $aggQuery->get();
         $aggByDateUser = [];
         $aggUserIds = [];
