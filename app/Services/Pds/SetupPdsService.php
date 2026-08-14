@@ -835,10 +835,36 @@ class SetupPdsService
 
         $start_date = @$filter['created_start'] ?: request('created_start', now()->toDateString());
         $end_date = @$filter['created_end'] ?: request('created_end', now()->toDateString());
-        $pdsIds = @$filter['pds'];
-        $campaignIds = @$filter['campaigns'];
-        $spvIds = @$filter['spv'];
-        $agentIds = @$filter['agent'];
+        
+        $normalizeFilterIds = function ($value) {
+            if ($value === null || $value === '') {
+                return null;
+            }
+            if (is_array($value)) {
+                $clean = array_values(array_filter($value, function ($v) {
+                    if ($v === null || $v === '') {
+                        return false;
+                    }
+                    if (is_string($v) && trim($v) === '') {
+                        return false;
+                    }
+                    return true;
+                }));
+                return count($clean) ? $clean : null;
+            }
+            $trimmed = trim((string) $value);
+            if ($trimmed === '') {
+                return null;
+            }
+            return [$trimmed];
+        };
+
+        $pdsIds = $normalizeFilterIds(@$filter['pds']);
+        $campaignIds = $normalizeFilterIds(@$filter['campaigns']);
+        $spvIds = $normalizeFilterIds(@$filter['spv']);
+        $agentIds = $normalizeFilterIds(@$filter['agent']);
+
+        $needFilterPdsSide = $pdsIds || $campaignIds || $spvIds;
 
         $aggQuery = DB::table('ticket_histories as th')
             ->joinSub(
@@ -852,7 +878,23 @@ class SetupPdsService
                 fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
                     ->on('last.last_created', '=', 'th.created_at')
             )
-            ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')            
+            ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')
+            ->when($needFilterPdsSide, function ($q) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
+                $q->join('pds_agents as pa_f', 'pa_f.user_id', '=', 'ca.agent_id')
+                    ->join('pds as p_f', function ($join) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
+                        $join->on('p_f.id', '=', 'pa_f.pds_id')
+                            ->where('p_f.company_id', $companyId);
+                        if ($campaignIds) {
+                            $join->whereIn('p_f.marketing_campaign_id', $campaignIds);
+                        }
+                        if ($spvIds) {
+                            $join->whereIn('p_f.spv_id', $spvIds);
+                        }
+                        if ($pdsIds) {
+                            $join->whereIn('p_f.id', $pdsIds);
+                        }
+                    });
+            })
             ->where('th.company_id', $companyId)
             ->where('th.created_at', '>=', $start_date)
             ->where('th.created_at', '<=', $end_date . ' 23:59:59')
@@ -906,7 +948,7 @@ class SetupPdsService
             ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%{$search}%")))
             ->orderBy('pds_agents.created_at', 'desc');
 
-         if ($limit === null) {
+        if ($limit === null) {
             $data = $baseQuery->get();
         } else {
             $data = $baseQuery->paginate($limit ?: 10);
@@ -987,9 +1029,6 @@ class SetupPdsService
         $expanded = collect([]);
         foreach ($items as $item) {
             $pdsId = $item->pds_id;
-            if ($pdsIds && !in_array((string) $pdsId, array_map('strval', $pdsIds), true)) {
-                continue;
-            }
             $pdsName = '';
             $campaignName = '';
             $spvName = '';
@@ -1104,36 +1143,10 @@ class SetupPdsService
                 ->get()
                 ->keyBy('user_id');
 
-            $allowedPdsQuery = \App\Models\Pds\Pds::with(['campaign', 'spv', 'spv.companyUser'])
+            $defaultPds = \App\Models\Pds\Pds::with(['campaign', 'spv', 'spv.companyUser'])
                 ->where('company_id', $companyId)
-                ->when($campaignIds, fn($q2) => $q2->whereIn('marketing_campaign_id', $campaignIds))
-                ->when($spvIds, fn($q2) => $q2->whereIn('spv_id', $spvIds))
-                ->when($pdsIds, fn($q2) => $q2->whereIn('id', $pdsIds));
-
-            $userToPds = collect([]);
-            if ($pdsIds || $campaignIds || $spvIds) {
-                $userToPds = DB::table('pds_agents as pa')
-                    ->joinSub(
-                        $allowedPdsQuery->select('id', 'pds_name', 'marketing_campaign_id', 'spv_id'),
-                        'p',
-                        'pa.pds_id',
-                        '=',
-                        'p.id'
-                    )
-                    ->whereIn('pa.user_id', $aggUserIds->all())
-                    ->select('pa.user_id', 'pa.pds_id')
-                    ->get()
-                    ->keyBy('user_id');
-            }
-
-            $pdsListForFallback = $allowedPdsQuery->get()->keyBy('id');
-            $defaultPds = $pdsListForFallback->first();
-            $sessionLogs = [];
-            foreach ($aggDates as $d) {
-                foreach ($pdsListForFallback as $pdsId => $pdsItem) {
-                    $sessionLogs[$pdsId . '_' . $d] = (new MonitoringPdsService())->pdsHistoryLogs($pdsItem->pds_name, $d, $d);
-                }
-            }
+                ->orderBy('created_at', 'desc')
+                ->first();
 
             foreach ($aggDates as $date) {
                 foreach ($aggUserIds as $userId) {
@@ -1143,28 +1156,11 @@ class SetupPdsService
                         continue;
                     }
 
-                    $mappedPdsId = null;
-                    if ($userToPds->isNotEmpty() && $userToPds->has($userId)) {
-                        $mappedPdsId = $userToPds->get($userId)->pds_id;
-                    }
-
-                    if ($pdsIds || $campaignIds || $spvIds) {
-                        if (!$mappedPdsId) {
-                            continue;
-                        }
-                    }
-
                     $cu = $companyUsers->get($userId);
                     $agentName = $cu ? $cu->name : ('Agent ' . substr($userId, 0, 8));
-
-                    $selectedPds = $mappedPdsId && isset($pdsListForFallback[$mappedPdsId])
-                        ? $pdsListForFallback[$mappedPdsId]
-                        : $defaultPds;
-
-                    $pdsName = $selectedPds->pds_name ?? 'Without PDS';
-                    $campaignName = $selectedPds->campaign?->name ?? '-';
-                    $spvName = $selectedPds->spv?->company_user?->name ?? $selectedPds->spv?->name ?? '-';
-                    $pdsId = $selectedPds->id ?? null;
+                    $pdsName = $defaultPds->pds_name ?? 'Without PDS';
+                    $campaignName = $defaultPds->campaign?->name ?? '-';
+                    $spvName = $defaultPds->spv?->company_user?->name ?? $defaultPds->spv?->name ?? '-';
 
                     $ptp = (int) ($agg->PTP ?? 0);
                     $callback = (int) ($agg->CallBack ?? 0);
@@ -1212,6 +1208,7 @@ class SetupPdsService
                     }
 
                     $sLog = null;
+                    $pdsId = $defaultPds->id ?? null;
                     if ($pdsId && isset($sessionLogs[$pdsId . '_' . $date])) {
                         $sLog = $sessionLogs[$pdsId . '_' . $date];
                     }
@@ -1256,21 +1253,16 @@ class SetupPdsService
             }
         }
 
-        if ($limit === null) {
-            $data = $items;
-        } else {
-            $perPage = (int) ($limit > 0 ? $limit : 10);
-            $page = (int) request('page', 1);
-            $total = $items->count();
-            $sliceOffset = ($page - 1) * $perPage;
-            $pageItems = $items->slice($sliceOffset, $perPage)->values();
-            $data = new \Illuminate\Pagination\LengthAwarePaginator(
-                $pageItems,
-                $total,
-                $perPage,
-                $page,
-                ['path' => request()->url(), 'query' => request()->query()]
-            );
+        if (method_exists($data, 'setCollection')) {
+            $data = $data instanceof \Illuminate\Pagination\AbstractPaginator
+                ? new \Illuminate\Pagination\LengthAwarePaginator(
+                    $items,
+                    $items->count(),
+                    $limit ?: 10,
+                    request('page', 1),
+                    ['path' => request()->url(), 'query' => request()->query()]
+                )
+                : $items;
         }
 
         return $data;
