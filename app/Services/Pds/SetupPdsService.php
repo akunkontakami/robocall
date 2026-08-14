@@ -835,34 +835,10 @@ class SetupPdsService
 
         $start_date = @$filter['created_start'] ?: request('created_start', now()->toDateString());
         $end_date = @$filter['created_end'] ?: request('created_end', now()->toDateString());
-
-        $normalizeFilterIds = function ($value) {
-            if ($value === null || $value === '') {
-                return null;
-            }
-            if (is_array($value)) {
-                $clean = array_values(array_filter($value, function ($v) {
-                    if ($v === null || $v === '') {
-                        return false;
-                    }
-                    if (is_string($v) && trim($v) === '') {
-                        return false;
-                    }
-                    return true;
-                }));
-                return count($clean) ? $clean : null;
-            }
-            $trimmed = trim((string) $value);
-            if ($trimmed === '') {
-                return null;
-            }
-            return [$trimmed];
-        };
-
-        $pdsIds = $normalizeFilterIds(@$filter['pds']);
-        $campaignIds = $normalizeFilterIds(@$filter['campaigns']);
-        $spvIds = $normalizeFilterIds(@$filter['spv']);
-        $agentIds = $normalizeFilterIds(@$filter['agent']);
+        $pdsIds = @$filter['pds'];
+        $campaignIds = @$filter['campaigns'];
+        $spvIds = @$filter['spv'];
+        $agentIds = @$filter['agent'];
 
         $needFilterPdsSide = $pdsIds || $campaignIds || $spvIds;
 
