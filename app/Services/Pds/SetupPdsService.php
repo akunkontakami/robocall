@@ -924,7 +924,12 @@ class SetupPdsService
                 'pds.spv.companyUser',
             ])
                 ->whereIn('pds_agents.user_id', $aggUserIds)
-                ->whereHas('pds', fn($q) => $q->where('company_id', $companyId))
+                ->whereHas('pds', function ($q) use ($companyId, $campaignIds, $spvIds, $pdsIds) {
+                    $q->where('company_id', $companyId)
+                        ->when($campaignIds, fn($q2) => $q2->whereIn('marketing_campaign_id', $campaignIds))
+                        ->when($spvIds, fn($q2) => $q2->whereIn('spv_id', $spvIds))
+                        ->when($pdsIds, fn($q2) => $q2->whereIn('id', $pdsIds));
+                })
                 ->orderBy('pds_agents.created_at', 'desc')
                 ->get();
 
@@ -1101,10 +1106,36 @@ class SetupPdsService
                 ->get()
                 ->keyBy('user_id');
 
-            $defaultPds = \App\Models\Pds\Pds::with(['campaign', 'spv', 'spv.companyUser'])
+            $allowedPdsQuery = \App\Models\Pds\Pds::with(['campaign', 'spv', 'spv.companyUser'])
                 ->where('company_id', $companyId)
-                ->orderBy('created_at', 'desc')
-                ->first();
+                ->when($campaignIds, fn($q2) => $q2->whereIn('marketing_campaign_id', $campaignIds))
+                ->when($spvIds, fn($q2) => $q2->whereIn('spv_id', $spvIds))
+                ->when($pdsIds, fn($q2) => $q2->whereIn('id', $pdsIds));
+
+            $userToPds = collect([]);
+            if ($pdsIds || $campaignIds || $spvIds) {
+                $userToPds = DB::table('pds_agents as pa')
+                    ->joinSub(
+                        $allowedPdsQuery->select('id', 'pds_name', 'marketing_campaign_id', 'spv_id'),
+                        'p',
+                        'pa.pds_id',
+                        '=',
+                        'p.id'
+                    )
+                    ->whereIn('pa.user_id', $aggUserIds->all())
+                    ->select('pa.user_id', 'pa.pds_id')
+                    ->get()
+                    ->keyBy('user_id');
+            }
+
+            $pdsListForFallback = $allowedPdsQuery->get()->keyBy('id');
+            $defaultPds = $pdsListForFallback->first();
+            $sessionLogs = [];
+            foreach ($aggDates as $d) {
+                foreach ($pdsListForFallback as $pdsId => $pdsItem) {
+                    $sessionLogs[$pdsId . '_' . $d] = (new MonitoringPdsService())->pdsHistoryLogs($pdsItem->pds_name, $d, $d);
+                }
+            }
 
             foreach ($aggDates as $date) {
                 foreach ($aggUserIds as $userId) {
@@ -1114,11 +1145,28 @@ class SetupPdsService
                         continue;
                     }
 
+                    $mappedPdsId = null;
+                    if ($userToPds->isNotEmpty() && $userToPds->has($userId)) {
+                        $mappedPdsId = $userToPds->get($userId)->pds_id;
+                    }
+
+                    if ($pdsIds || $campaignIds || $spvIds) {
+                        if (!$mappedPdsId) {
+                            continue;
+                        }
+                    }
+
                     $cu = $companyUsers->get($userId);
                     $agentName = $cu ? $cu->name : ('Agent ' . substr($userId, 0, 8));
-                    $pdsName = $defaultPds->pds_name ?? 'Without PDS';
-                    $campaignName = $defaultPds->campaign?->name ?? '-';
-                    $spvName = $defaultPds->spv?->company_user?->name ?? $defaultPds->spv?->name ?? '-';
+
+                    $selectedPds = $mappedPdsId && isset($pdsListForFallback[$mappedPdsId])
+                        ? $pdsListForFallback[$mappedPdsId]
+                        : $defaultPds;
+
+                    $pdsName = $selectedPds->pds_name ?? 'Without PDS';
+                    $campaignName = $selectedPds->campaign?->name ?? '-';
+                    $spvName = $selectedPds->spv?->company_user?->name ?? $selectedPds->spv?->name ?? '-';
+                    $pdsId = $selectedPds->id ?? null;
 
                     $ptp = (int) ($agg->PTP ?? 0);
                     $callback = (int) ($agg->CallBack ?? 0);
@@ -1166,7 +1214,6 @@ class SetupPdsService
                     }
 
                     $sLog = null;
-                    $pdsId = $defaultPds->id ?? null;
                     if ($pdsId && isset($sessionLogs[$pdsId . '_' . $date])) {
                         $sLog = $sessionLogs[$pdsId . '_' . $date];
                     }
