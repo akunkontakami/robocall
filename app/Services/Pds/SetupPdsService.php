@@ -840,8 +840,6 @@ class SetupPdsService
         $spvIds = @$filter['spv'];
         $agentIds = @$filter['agent'];
 
-        $needFilterPdsSide = $pdsIds || $campaignIds || $spvIds;
-
         $aggQuery = DB::table('ticket_histories as th')
             ->joinSub(
                 DB::table('ticket_histories')
@@ -854,23 +852,7 @@ class SetupPdsService
                 fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
                     ->on('last.last_created', '=', 'th.created_at')
             )
-            ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')
-            // ->when($needFilterPdsSide, function ($q) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
-            //     $q->join('pds_agents as pa_f', 'pa_f.user_id', '=', 'ca.agent_id')
-            //         ->join('pds as p_f', function ($join) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
-            //             $join->on('p_f.id', '=', 'pa_f.pds_id')
-            //                 ->where('p_f.company_id', $companyId);
-            //             if ($campaignIds) {
-            //                 $join->whereIn('p_f.marketing_campaign_id', $campaignIds);
-            //             }
-            //             if ($spvIds) {
-            //                 $join->whereIn('p_f.spv_id', $spvIds);
-            //             }
-            //             if ($pdsIds) {
-            //                 $join->whereIn('p_f.id', $pdsIds);
-            //             }
-            //         });
-            // })
+            ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')            
             ->where('th.company_id', $companyId)
             ->where('th.created_at', '>=', $start_date)
             ->where('th.created_at', '<=', $end_date . ' 23:59:59')
@@ -924,8 +906,13 @@ class SetupPdsService
             ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%{$search}%")))
             ->orderBy('pds_agents.created_at', 'desc');
 
-        $data = $baseQuery->get();
-        $items = $data;
+         if ($limit === null) {
+            $data = $baseQuery->get();
+        } else {
+            $data = $baseQuery->paginate($limit ?: 10);
+        }
+
+        $items = method_exists($data, 'getCollection') ? $data->getCollection() : $data;
 
         if ($items->isEmpty() && $aggUserIds->isNotEmpty()) {
             $fallbackAgents = PdsAgent::with([
@@ -937,12 +924,7 @@ class SetupPdsService
                 'pds.spv.companyUser',
             ])
                 ->whereIn('pds_agents.user_id', $aggUserIds)
-                ->whereHas('pds', function ($q) use ($companyId, $campaignIds, $spvIds, $pdsIds) {
-                    $q->where('company_id', $companyId)
-                        ->when($campaignIds, fn($q2) => $q2->whereIn('marketing_campaign_id', $campaignIds))
-                        ->when($spvIds, fn($q2) => $q2->whereIn('spv_id', $spvIds))
-                        ->when($pdsIds, fn($q2) => $q2->whereIn('id', $pdsIds));
-                })
+                ->whereHas('pds', fn($q) => $q->where('company_id', $companyId))
                 ->orderBy('pds_agents.created_at', 'desc')
                 ->get();
 
