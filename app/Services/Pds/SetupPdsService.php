@@ -1221,6 +1221,8 @@ class SetupPdsService
                     ['path' => request()->url(), 'query' => request()->query()]
                 )
                 : $items;
+        } else {
+            $data = $items;
         }
 
         return $data;
