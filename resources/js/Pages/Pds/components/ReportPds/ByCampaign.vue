@@ -104,7 +104,8 @@ const getUncontactedValue = (row: any) => {
     const contacted = Number(row.contacted ?? 0);
     const abandoned = Number(row.abandoned ?? 0);
 
-    return dataUtilize - contacted - abandoned;
+    const result = dataUtilize - contacted - abandoned;
+    return Math.abs(result);
 };
 
 const columns = computed(() => [
