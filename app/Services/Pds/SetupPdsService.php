@@ -906,13 +906,8 @@ class SetupPdsService
             ->when($search, fn($q) => $q->whereHas('pds', fn($q2) => $q2->where('pds_name', 'LIKE', "%{$search}%")))
             ->orderBy('pds_agents.created_at', 'desc');
 
-        if ($limit === null) {
-            $data = $baseQuery->get();
-        } else {
-            $data = $baseQuery->paginate($limit ?: 10);
-        }
-
-        $items = method_exists($data, 'getCollection') ? $data->getCollection() : $data;
+        $data = $baseQuery->get();
+        $items = $data;
 
         if ($items->isEmpty() && $aggUserIds->isNotEmpty()) {
             $fallbackAgents = PdsAgent::with([
@@ -1258,18 +1253,21 @@ class SetupPdsService
             }
         }
 
-        if (method_exists($data, 'setCollection')) {
-            $data = $data instanceof \Illuminate\Pagination\AbstractPaginator
-                ? new \Illuminate\Pagination\LengthAwarePaginator(
-                    $items,
-                    $items->count(),
-                    $limit ?: 10,
-                    request('page', 1),
-                    ['path' => request()->url(), 'query' => request()->query()]
-                )
-                : $items;
-        } else {
+        if ($limit === null) {
             $data = $items;
+        } else {
+            $perPage = (int) ($limit > 0 ? $limit : 10);
+            $page = (int) request('page', 1);
+            $total = $items->count();
+            $sliceOffset = ($page - 1) * $perPage;
+            $pageItems = $items->slice($sliceOffset, $perPage)->values();
+            $data = new \Illuminate\Pagination\LengthAwarePaginator(
+                $pageItems,
+                $total,
+                $perPage,
+                $page,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
         }
 
         return $data;
