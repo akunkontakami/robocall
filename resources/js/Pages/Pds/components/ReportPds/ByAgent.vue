@@ -38,37 +38,46 @@
                 </tr>
             </template>
 
-            <template v-for="group in groupedRows" :key="group.key">
-                <tr class="bg-[#F4F6FA]">
-                    <Td :colspan="columns.length" class="font-semibold text-[14px]">
-                        {{ group.title }}
+            <template v-for="dateGroup in groupedByDate" :key="dateGroup.date_key">
+                <tr class="bg-[#EEF2FF]">
+                    <Td :colspan="columns.length" class="font-bold text-[14px]">
+                        Tanggal: {{ dateGroup.date_label }}
                     </Td>
                 </tr>
 
-                <tr v-for="(row, index) in group.rows" :key="`${group.key}-${row.id}-${index}`">
-                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
-                        {{ row.session_start ?? '-' }}
-                    </Td>
-                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
-                        {{ row.session_end ?? '-' }}
-                    </Td>
-                    <Td>
-                        {{ row.agent }}
-                    </Td>
-                    <Td v-if="index === 0" :rowspan="group.rowspan" class="align-top">
-                        {{ row.data_utilize ?? 0 }}
-                    </Td>
-                    <template v-if="index === 0">
-                        <Td
-                            v-for="outbound in visibleOutbounds"
-                            :key="`${group.key}-${outbound}`"
-                            :rowspan="group.rowspan"
-                            class="align-top"
-                        >
-                            {{ row.ticket_status?.[outbound] ?? 0 }}
+                <template v-for="pdsGroup in dateGroup.pds_groups" :key="`${dateGroup.date_key}-${pdsGroup.key}`">
+                    <tr class="bg-[#F4F6FA]">
+                        <Td :colspan="columns.length" class="font-semibold text-[14px]">
+                            {{ pdsGroup.title }}
                         </Td>
+                    </tr>
+
+                    <template
+                        v-for="sessGroup in pdsGroup.session_groups"
+                        :key="`${dateGroup.date_key}-${pdsGroup.key}-${sessGroup.session_key}`"
+                    >
+                        <tr v-for="(row, index) in sessGroup.rows" :key="`${dateGroup.date_key}-${pdsGroup.key}-${sessGroup.session_key}-${row.id}-${index}`">
+                            <Td v-if="index === 0" :rowspan="sessGroup.rowspan" class="align-middle">
+                                {{ sessGroup.session_start }}
+                            </Td>
+                            <Td v-if="index === 0" :rowspan="sessGroup.rowspan" class="align-middle">
+                                {{ sessGroup.session_end }}
+                            </Td>
+                            <Td>
+                                {{ row.agent ?? '-' }}
+                            </Td>
+                            <Td>
+                                {{ Number(row.data_utilize ?? row.data_contacted ?? 0) }}
+                            </Td>
+                            <Td
+                                v-for="outbound in visibleOutbounds"
+                                :key="`${dateGroup.date_key}-${pdsGroup.key}-${sessGroup.session_key}-${row.id}-${outbound}`"
+                            >
+                                {{ findStatusValue(row, outbound) }}
+                            </Td>
+                        </tr>
                     </template>
-                </tr>
+                </template>
             </template>
         </Table>
     </div>
@@ -100,12 +109,77 @@ const paginate = usePaginate({
     route: route('pds.report.agent-datatable'),
 });
 
-const visibleOutbounds = computed(() => {
-    const rows = paginate.data.value ?? [];
+const keyNormalize = (s: string) => String(s ?? '').toLowerCase().replace(/[\s\-_()]/g, '');
 
-    return (props.outbounds ?? []).filter((outbound: string) =>
-        rows.some((row: any) => Number(row.ticket_status?.[outbound] ?? 0) !== 0)
-    );
+const EXCLUDED_STATUSES = new Set([
+    'visitrequestcontacted',
+    'visitrequest',
+    'contacted',
+    'vr',
+    'visitrequestcontacted',
+]);
+
+const CALL_STATUS_ALIASES: Record<string, string[]> = {
+    'PTP': ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
+    'CallBack': ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
+    'BPPartial': ['BP Partial', 'Bp Partial', 'BPPartial'],
+    'NBPA': ['NBP-A', 'NBP A', 'NBPA'],
+    'NBPB': ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
+    'NBPC': ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
+    'PaidinConfins': ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+};
+
+const CALL_STATUS_ORDER = ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins'];
+
+const findStatusValue = (row: any, statusName: string): number => {
+    if (!row || !row.ticket_status) return 0;
+    const direct = row.ticket_status[statusName];
+    if (direct !== undefined && direct !== null) return Number(direct) || 0;
+    const target = keyNormalize(statusName);
+    for (const key of Object.keys(row.ticket_status)) {
+        if (keyNormalize(key) === target) {
+            const v = row.ticket_status[key];
+            if (v !== undefined && v !== null) return Number(v) || 0;
+        }
+    }
+    return 0;
+};
+
+const propsOutboundNames = computed(() =>
+    (props.outbounds ?? []).map((outbound: any) =>
+        typeof outbound === "string" ? outbound : outbound?.name
+    ).filter(Boolean)
+);
+
+const filteredPropsOutboundNames = computed(() => {
+    const names: string[] = [];
+    propsOutboundNames.value.forEach((name: string) => {
+        const kn = keyNormalize(name);
+        if (EXCLUDED_STATUSES.has(kn)) return;
+        for (const aliasList of Object.values(CALL_STATUS_ALIASES)) {
+            for (const variant of aliasList) {
+                if (keyNormalize(variant) === kn) {
+                    names.push(name);
+                    return;
+                }
+            }
+        }
+    });
+    return names;
+});
+
+const visibleOutbounds = computed(() => {
+    const filtered = filteredPropsOutboundNames.value;
+
+    if (filtered && filtered.length) {
+        return filtered;
+    }
+
+    const firstRow = (paginate.data.value ?? [])[0];
+    if (firstRow && firstRow.ticket_status) {
+        return Object.keys(firstRow.ticket_status);
+    }
+    return CALL_STATUS_ORDER;
 });
 
 const columns = computed(() => [
@@ -116,32 +190,71 @@ const columns = computed(() => [
     ...visibleOutbounds.value,
 ]);
 
-const groupedRows = computed(() => {
-    const groups: Array<any> = [];
-    const groupMap = new Map<string, any>();
+const groupedByDate = computed(() => {
+    const dateGroups: any[] = [];
+    const dateMap = new Map<string, any>();
+    const allRows: any[] = paginate.data.value ?? [];
 
-    (paginate.data.value ?? []).forEach((row: any) => {
-        const groupKey = `${row.name ?? '-'}__${row.spv ?? '-'}`;
+    allRows.forEach((row: any) => {
+        const dateKey: string = row.date || (row.date_label ? String(new Date(row.date_label).toISOString()).slice(0, 10) : 'unknown');
+        const dateLabel: string = row.date_label || row.date || '-';
 
-        if (!groupMap.has(groupKey)) {
-            const group = {
-                key: groupKey,
-                title: `${row.name ?? '-'} - ${row.spv ?? '-'}`,
-                rows: [],
-                rowspan: 0,
+        if (!dateMap.has(dateKey)) {
+            const dg = {
+                date_key: dateKey,
+                date_label: dateLabel,
+                pds_groups: [] as any[],
+                _pds_map: new Map<string, any>(),
             };
-
-            groupMap.set(groupKey, group);
-            groups.push(group);
+            dateMap.set(dateKey, dg);
+            dateGroups.push(dg);
         }
 
-        groupMap.get(groupKey).rows.push(row);
+        const dateGroup = dateMap.get(dateKey);
+        const pdsKey = `${row.name ?? '-'}__${row.spv ?? '-'}`;
+
+        if (!dateGroup._pds_map.has(pdsKey)) {
+            const pdsG = {
+                key: pdsKey,
+                title: `${row.name ?? '-'} - ${row.spv ?? '-'}`,
+                session_groups: [] as any[],
+                _sess_map: new Map<string, any>(),
+            };
+            dateGroup._pds_map.set(pdsKey, pdsG);
+            dateGroup.pds_groups.push(pdsG);
+        }
+
+        const pdsGroup = dateGroup._pds_map.get(pdsKey);
+        const sStart = row.session_start ?? row.start_date + ' ' + row.start_time ?? '';
+        const sEnd = row.session_end ?? row.end_date + ' ' + row.end_time ?? '';
+        const sessKey = `${sStart}__${sEnd}`;
+
+        if (!pdsGroup._sess_map.has(sessKey)) {
+            const sg = {
+                session_key: sessKey,
+                session_start: row.start_date ? `${row.start_date} ${row.start_time ?? ''}` : (sStart || '-'),
+                session_end: row.end_date ? `${row.end_date} ${row.end_time ?? ''}` : (sEnd || '-'),
+                rows: [] as any[],
+                rowspan: 0,
+            };
+            pdsGroup._sess_map.set(sessKey, sg);
+            pdsGroup.session_groups.push(sg);
+        }
+
+        pdsGroup._sess_map.get(sessKey).rows.push(row);
     });
 
-    return groups.map((group) => ({
-        ...group,
-        rowspan: group.rows.length || 1,
-    }));
+    dateGroups.forEach((dg) => {
+        dg.pds_groups.forEach((pg: any) => {
+            pg.session_groups.forEach((sg: any) => {
+                sg.rowspan = sg.rows.length || 1;
+            });
+            delete pg._sess_map;
+        });
+        delete dg._pds_map;
+    });
+
+    return dateGroups;
 });
 
 const filterData = () => {
