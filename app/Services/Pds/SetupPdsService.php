@@ -835,10 +835,36 @@ class SetupPdsService
 
         $start_date = @$filter['created_start'] ?: request('created_start', now()->toDateString());
         $end_date = @$filter['created_end'] ?: request('created_end', now()->toDateString());
-        $pdsIds = @$filter['pds'];
-        $campaignIds = @$filter['campaigns'];
-        $spvIds = @$filter['spv'];
-        $agentIds = @$filter['agent'];
+
+        $normalizeFilterIds = function ($value) {
+            if ($value === null || $value === '') {
+                return null;
+            }
+            if (is_array($value)) {
+                $clean = array_values(array_filter($value, function ($v) {
+                    if ($v === null || $v === '') {
+                        return false;
+                    }
+                    if (is_string($v) && trim($v) === '') {
+                        return false;
+                    }
+                    return true;
+                }));
+                return count($clean) ? $clean : null;
+            }
+            $trimmed = trim((string) $value);
+            if ($trimmed === '') {
+                return null;
+            }
+            return [$trimmed];
+        };
+
+        $pdsIds = $normalizeFilterIds(@$filter['pds']);
+        $campaignIds = $normalizeFilterIds(@$filter['campaigns']);
+        $spvIds = $normalizeFilterIds(@$filter['spv']);
+        $agentIds = $normalizeFilterIds(@$filter['agent']);
+
+        $needFilterPdsSide = $pdsIds || $campaignIds || $spvIds;
 
         $aggQuery = DB::table('ticket_histories as th')
             ->joinSub(
@@ -853,6 +879,22 @@ class SetupPdsService
                     ->on('last.last_created', '=', 'th.created_at')
             )
             ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')
+            ->when($needFilterPdsSide, function ($q) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
+                $q->join('pds_agents as pa_f', 'pa_f.user_id', '=', 'ca.agent_id')
+                    ->join('pds as p_f', function ($join) use ($companyId, $pdsIds, $campaignIds, $spvIds) {
+                        $join->on('p_f.id', '=', 'pa_f.pds_id')
+                            ->where('p_f.company_id', $companyId);
+                        if ($campaignIds) {
+                            $join->whereIn('p_f.marketing_campaign_id', $campaignIds);
+                        }
+                        if ($spvIds) {
+                            $join->whereIn('p_f.spv_id', $spvIds);
+                        }
+                        if ($pdsIds) {
+                            $join->whereIn('p_f.id', $pdsIds);
+                        }
+                    });
+            })
             ->where('th.company_id', $companyId)
             ->where('th.created_at', '>=', $start_date)
             ->where('th.created_at', '<=', $end_date . ' 23:59:59')
@@ -987,6 +1029,9 @@ class SetupPdsService
         $expanded = collect([]);
         foreach ($items as $item) {
             $pdsId = $item->pds_id;
+            if ($pdsIds && !in_array((string) $pdsId, array_map('strval', $pdsIds), true)) {
+                continue;
+            }
             $pdsName = '';
             $campaignName = '';
             $spvName = '';
