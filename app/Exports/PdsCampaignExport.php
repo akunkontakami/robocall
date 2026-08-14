@@ -147,8 +147,8 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
                 (string) ($row['data_utilize'] ?? 0),
                 (string) ($row['data_unutilize'] ?? 0),
                 (string) ($row['attempt'] ?? 0),
-                (string) $this->contactedValue($row),
-                (string) ($row['uncontacted'] ?? 0),
+                (string) ($row['contacted'] ?? 0),
+                (string) $this->uncontactedValue($row),
                 (string) ($row['abandoned'] ?? 0),
             ], $statusColumns, [
                 $this->durationPdsValue($row),
@@ -183,11 +183,14 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
         return $this->visibleOutbounds = $visibleOutbounds;
     }
 
-    private function contactedValue(array $row): int
+    private function uncontactedValue(array $row): int
     {
-        return collect(self::CONTACTED_STATUSES)->sum(function ($status) use ($row) {
-            return (int) ($row['ticket_status'][$status] ?? 0);
-        });
+        $dataUtilize = (int) ($row['data_utilize'] ?? 0);
+        $contacted = (int) ($row['contacted'] ?? 0);
+        $abandoned = (int) ($row['abandoned'] ?? 0);
+
+        $result = $dataUtilize - $contacted - $abandoned;
+        return abs($result);
     }
 
     private function durationPdsValue(array $row): string
