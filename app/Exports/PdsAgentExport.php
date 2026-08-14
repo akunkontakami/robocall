@@ -142,25 +142,8 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                 $currentRow++;
 
                 foreach ($pdsGroup['session_groups'] as $sessGroup) {
-                    $sessionStart = '';
-                    $sessionEnd = '';
-                    if (!empty($sessGroup['rows'][0])) {
-                        $firstRow = $sessGroup['rows'][0];
-                        if (!empty($firstRow['start_date'])) {
-                            $sessionStart = trim((string) $firstRow['start_date'] . ' ' . ($firstRow['start_time'] ?? ''));
-                        }
-                        if ($sessionStart === '' || $sessionStart === ' ') {
-                            $sessionStart = (string) ($sessGroup['session_start'] ?? $firstRow['session_start'] ?? '-');
-                        }
-                        if (!empty($firstRow['end_date'])) {
-                            $sessionEnd = trim((string) $firstRow['end_date'] . ' ' . ($firstRow['end_time'] ?? ''));
-                        }
-                        if ($sessionEnd === '' || $sessionEnd === ' ') {
-                            $sessionEnd = (string) ($sessGroup['session_end'] ?? $firstRow['session_end'] ?? '-');
-                        }
-                    }
-
                     $startSessionDataRow = $currentRow;
+                    $rowCount = count($sessGroup['rows']);
 
                     foreach ($sessGroup['rows'] as $index => $row) {
                         $statusColumns = [];
@@ -169,8 +152,8 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                         }
 
                         $rows[] = array_merge([
-                            $index === 0 ? $sessionStart : '',
-                            $index === 0 ? $sessionEnd : '',
+                            $index === 0 ? $sessGroup['session_start'] : '',
+                            $index === 0 ? $sessGroup['session_end'] : '',
                             (string) ($row['agent'] ?? '-'),
                             (string) ($row['data_utilize'] ?? $row['data_contacted'] ?? 0),
                         ], $statusColumns);
@@ -179,7 +162,7 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                     }
 
                     $endSessionDataRow = $currentRow - 1;
-                    if (count($sessGroup['rows']) > 1) {
+                    if ($rowCount > 1) {
                         $this->groupLayouts[] = [
                             'type' => 'session_merge',
                             'start_row' => $startSessionDataRow,
@@ -227,30 +210,23 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
             $dateLabel = !empty($row['date_label']) ? (string) $row['date_label'] : ($dateKey !== 'unknown' ? $dateKey : '-');
 
             if (!isset($dateMap[$dateKey])) {
-                $dateGroup = [
+                $dateMap[$dateKey] = [
                     'date_key' => $dateKey,
                     'date_label' => $dateLabel,
-                    'pds_groups' => [],
                     '_pds_map' => [],
                 ];
-                $dateMap[$dateKey] = $dateGroup;
-                $dateGroups[] = &$dateGroup;
-                unset($dateGroup);
+                $dateGroups[] = &$dateMap[$dateKey];
             }
 
             $dateGroup = &$dateMap[$dateKey];
             $pdsKey = ($row['name'] ?? '-') . '__' . ($row['spv'] ?? '-');
 
             if (!isset($dateGroup['_pds_map'][$pdsKey])) {
-                $pdsG = [
+                $dateGroup['_pds_map'][$pdsKey] = [
                     'key' => $pdsKey,
                     'title' => ($row['name'] ?? '-') . ' - ' . ($row['spv'] ?? '-'),
-                    'session_groups' => [],
                     '_sess_map' => [],
                 ];
-                $dateGroup['_pds_map'][$pdsKey] = $pdsG;
-                $dateGroup['pds_groups'][] = &$pdsG;
-                unset($pdsG);
             }
 
             $pdsGroup = &$dateGroup['_pds_map'][$pdsKey];
@@ -260,30 +236,45 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
             $sessKey = $sStart . '__' . $sEnd;
 
             if (!isset($pdsGroup['_sess_map'][$sessKey])) {
-                $sg = [
+                $pdsGroup['_sess_map'][$sessKey] = [
                     'session_key' => $sessKey,
                     'session_start' => $sStart ?: '-',
                     'session_end' => $sEnd ?: '-',
                     'rows' => [],
                 ];
-                $pdsGroup['_sess_map'][$sessKey] = $sg;
-                $pdsGroup['session_groups'][] = &$sg;
-                unset($sg);
             }
 
             $pdsGroup['_sess_map'][$sessKey]['rows'][] = $row;
             unset($dateGroup, $pdsGroup);
         }
 
-        foreach ($dateGroups as &$dg) {
-            foreach ($dg['pds_groups'] as &$pg) {
-                unset($pg['_sess_map']);
+        $result = [];
+        foreach ($dateMap as $dateKey => $dg) {
+            $pdsGroups = [];
+            foreach ($dg['_pds_map'] as $pdsKey => $pg) {
+                $sessionGroups = [];
+                foreach ($pg['_sess_map'] as $sessKey => $sg) {
+                    $sessionGroups[] = [
+                        'session_key' => $sg['session_key'],
+                        'session_start' => $sg['session_start'],
+                        'session_end' => $sg['session_end'],
+                        'rows' => $sg['rows'],
+                    ];
+                }
+                $pdsGroups[] = [
+                    'key' => $pg['key'],
+                    'title' => $pg['title'],
+                    'session_groups' => $sessionGroups,
+                ];
             }
-            unset($dg['_pds_map']);
+            $result[] = [
+                'date_key' => $dg['date_key'],
+                'date_label' => $dg['date_label'],
+                'pds_groups' => $pdsGroups,
+            ];
         }
-        unset($dg, $pg);
 
-        return $dateGroups;
+        return $result;
     }
 
     private function keyNormalize(string $s): string
