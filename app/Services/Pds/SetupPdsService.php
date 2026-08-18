@@ -726,26 +726,13 @@ class SetupPdsService
 
             $ticketStatus = DB::table('ticket_histories as th')
                 ->where('th.company_id', $companyId)
-                ->joinSub(
-                    DB::table('ticket_histories')
-                        ->select('ticket_id', DB::raw('MAX(created_at) as last_created'))
-                        ->where('company_id', $companyId)
-                        ->where('created_at', '>=', $sessionStart)
-                        ->where('created_at', '<=', $sessionEnd)
-                        ->groupBy('ticket_id'),
-                    'last',
-                    fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
-                        ->on('last.last_created', '=', 'th.created_at')
-                )
                 ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')
+                ->join('tickets', 'tickets.id', '=', 'th.ticket_id')
                 ->when($resolvedCampaignId, function ($q) use ($resolvedCampaignId) {
-                    $q->join('tickets', 'tickets.id', '=', 'th.ticket_id')
-                        ->where('tickets.marketing_campaign_id', $resolvedCampaignId);
+                    $q->where('tickets.marketing_campaign_id', $resolvedCampaignId);
                 })
-                ->where('th.created_at', '>=', $sessionStart)
-                ->where('th.created_at', '<=', $sessionEnd)
-                ->where('ca.category', 'Incoming Call')
-                ->where('ca.pstn_id', '!=', null)
+                ->where('ca.start_at', '>=', $sessionStart)
+                ->where('ca.start_at', '<=', $sessionEnd)
                 ->when(!empty($dialedNumbers), function ($q) use ($dialedNumbers) {
                     $q->whereIn(
                         DB::raw('JSON_UNQUOTE(JSON_EXTRACT(ca.sip_extension, \'$.destination\'))'),
@@ -753,8 +740,9 @@ class SetupPdsService
                     );
                 })
                 ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
+
             $ticketStatus->groupBy('th.status');
-              dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+            // dump($ticketStatus->toSql(), $ticketStatus->getBindings());
             $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
 
