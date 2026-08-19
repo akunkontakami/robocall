@@ -63,7 +63,7 @@
                     required
                     @change="changeType(current)"
                 >
-                    <option value="" disabled>Select Type</option>
+                    <option value="" selected>Select Type</option>
                     <option value="HO">HO</option>
                     <option value="Branch">Branch</option>
                 </Select>
