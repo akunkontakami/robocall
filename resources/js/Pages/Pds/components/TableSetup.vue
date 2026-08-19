@@ -30,6 +30,7 @@
                     @change="toggleRowSelection(row, $event)"
                     class="w-4 h-4 accent-yellow cursor-pointer mt-[-15px]"
                     aria-label="Select PDS customers"
+                    v-if="row.total_agent > 0"
                 />
             </Td>
             <Td>
