@@ -326,7 +326,9 @@ const paginate = usePaginate({
 });
 
 const selectableRows = computed(() =>
-    paginate.data.value.filter((row: any) => !row.is_running),
+    paginate.data.value.filter(
+        (row: any) => !row.is_running && row.total_agent > 0,
+    ),
 );
 const allRowsSelected = computed(
     () =>
