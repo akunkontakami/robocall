@@ -34,6 +34,7 @@ Route::middleware(['app-auth'])
         Route::post('/pds/setup/delete', [SetupPdsController::class, 'delete'])->name('pds.setup.delete');
         Route::post('/pds/setup/stop', [SetupPdsController::class, 'stop'])->name('pds.setup.stop');
         Route::post('/pds/setup/release', [SetupPdsController::class, 'release'])->name('pds.setup.release');
+        Route::post('/pds/setup/bulk-assign', [SetupPdsController::class, 'bulkAssign'])->name('pds.setup.bulk-assign');
         Route::get('/pds/setup/datatable', [SetupPdsController::class, 'datatable'])->name('pds.setup.datatable');
 
         Route::get('/pds/monitoring', [MonitoringPdsController::class, 'monitoring'])->name('pds.monitoring');
@@ -57,6 +58,7 @@ Route::middleware(['app-auth'])
         Route::get('/pds/detail/{id}/spv-agent', [PdsDetailController::class, 'spvAgent'])->name('pds.detail.spv-agent');
 
         Route::get('/pds/detail/{id}/fetch-status', [PdsDetailController::class, 'status'])->name('pds.detail.status');
+        Route::get('/pds/detail/{id}/options', [PdsDetailController::class, 'options'])->name('pds.detail.options');
 
         // robocall
         Route::inertia('/robocall/dashboard', 'Robocall/Index')->name('robocall.dashboard');

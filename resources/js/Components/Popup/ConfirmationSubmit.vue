@@ -4,6 +4,14 @@
         class="fixed top-0 left-0 z-[99] flex items-center justify-center w-screen h-screen"
         x-cloak
     >
+        <button
+            ref="closeTrigger"
+            type="button"
+            class="hidden"
+            x-on:click="confirmation = false"
+            aria-hidden="true"
+            tabindex="-1"
+        ></button>
         <div
             x-show="confirmation"
             x-transition:enter="ease-out duration-300"
@@ -31,7 +39,7 @@
                 <IconClosePopup
                     class="cursor-pointer"
                     x-on:click="confirmation = false"
-                    id="btn-close-confirmation"
+                    data-confirmation-close
                 />
             </div>
             <div class="flex flex-col items-center">
@@ -78,16 +86,15 @@ defineProps<{
 }>();
 
 const progres = ref(false);
+const closeTrigger = ref<HTMLButtonElement | null>(null);
 
 const confirmAction = () => {
     progres.value = true;
-    emit("action", () => {
+    emit("action", (close = true) => {
         progres.value = false;
-        (
-            document.querySelector(
-                ".delete-confirmation #btn-close-confirmation"
-            ) as HTMLElement
-        )?.click();
+        if (close) {
+            closeTrigger.value?.click();
+        }
     });
 };
 </script>

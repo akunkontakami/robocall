@@ -25,7 +25,6 @@
         <tr v-for="(row, i) in paginate.data.value" :key="row.id">
             <Td class="w-[20px] pt-2 pe-[14px]">
                 <input
-                    v-if="row.total_data > 0 || row.is_running"
                     type="checkbox"
                     :checked="isRowSelected(row)"
                     @change="toggleRowSelection(row, $event)"
@@ -167,7 +166,20 @@
         >
             Stop PDS
         </ButtonYellow>
+        <ButtonYellow type="button" @click="showBulkAssign" v-if="hasAssignSelection">
+            Assign Customer
+        </ButtonYellow>
+        <ButtonYellow type="button" @click="showBulkStart" v-if="hasStartSelection">
+            Start PDS
+        </ButtonYellow>
     </div>
+
+    <BulkAssignCustomer
+        v-if="showBulkAssignPopup"
+        :rows="assignableRows"
+        @close="showBulkAssignPopup = false"
+        @success="onBulkAssignSuccess"
+    />
 
     <div x-data="{confirmation:false}" v-if="showPopupBulkRelease">
         <a hidden id="show-bulk-release" x-on:click="confirmation=true"></a>
@@ -249,6 +261,7 @@
 <script setup lang="ts">
 import IconPowerOff from "@/Components/Icon/Etc/IconPowerOff.vue";
 import ButtonYellow from "@/Components/Button/ButtonYellow.vue";
+import BulkAssignCustomer from "./BulkAssignCustomer.vue";
 import ConfirmationSubmit from "@/Components/Popup/ConfirmationSubmit.vue";
 import Popup from "@/Components/Popup/Index.vue";
 import Table from "@/Components/Table/Table.vue";
@@ -259,7 +272,7 @@ import { usePaginate } from "@/Plugins/Hooks/usePaginate";
 import { router, useForm } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 
-const emits = defineEmits(["showStartPds"]);
+const emits = defineEmits(["showStartPds", "showBulkStartPds"]);
 
 const showPopupRelease = ref(true);
 const showPopupBulkRelease = ref(true);
@@ -276,6 +289,16 @@ const hasReleaseSelection = computed(() =>
 const hasStopSelection = computed(() =>
     selectedRows.value.some((row: any) => row.is_running),
 );
+const assignableRows = computed(() => selectedRows.value.filter((row: any) => !row.is_running && row.total_data === 0 && row.campaign_status === "active"));
+const hasAssignSelection = computed(() => assignableRows.value.length > 0);
+const showBulkAssignPopup = ref(false);
+const startableRows = computed(() => selectedRows.value.filter((row: any) =>
+    !row.is_running &&
+    row.campaign_status === "active" &&
+    row.total_data > 0 &&
+    row.total_agent > 0,
+));
+const hasStartSelection = computed(() => startableRows.value.length > 0);
 
 const columns = ref([
     "",
@@ -302,9 +325,7 @@ const paginate = usePaginate({
 });
 
 const selectableRows = computed(() =>
-    paginate.data.value.filter(
-        (row: any) => row.total_data > 0 || row.is_running,
-    ),
+    paginate.data.value.filter((row: any) => !row.is_running),
 );
 const allRowsSelected = computed(
     () =>
@@ -367,18 +388,27 @@ const showBulkStopConfirmation = () => {
     clickId("show-bulk-stop");
 };
 
-const actionBulkRelease = () => {
+const showBulkAssign = () => { showBulkAssignPopup.value = true; };
+const showBulkStart = () => { emits("showBulkStartPds", startableRows.value); };
+const onBulkAssignSuccess = () => {
+    showBulkAssignPopup.value = false;
+    selectedRowIds.value = [];
+    selectedRows.value = [];
+    paginate.fetchData();
+};
+
+const actionBulkRelease = (finishConfirmation?: (close?: boolean) => void) => {
     form.ids = selectedRows.value
         .filter((row: any) => row.total_data > 0)
         .map((row: any) => row.id);
-    actionRelease(true);
+    submitRelease(true, finishConfirmation);
 };
 
-const actionBulkStop = () => {
+const actionBulkStop = (finishConfirmation?: (close?: boolean) => void) => {
     form.ids = selectedRows.value
         .filter((row: any) => row.is_running)
         .map((row: any) => row.id);
-    actionStop(true);
+    submitStop(true, finishConfirmation);
 };
 
 const showStart = (row: any) => {
@@ -393,52 +423,43 @@ const showStart = (row: any) => {
     }
 };
 
-const actionDelete = () => {
-    if (!form.processing) {
-        form.post(route("pds.setup.delete"), {
-            onError: () => {
-                showPopupDelete.value = false;
-
-                setTimeout(() => {
-                    showPopupDelete.value = true;
-                }, 100);
-            },
-            onSuccess: () => {
-                paginate.fetchData();
-                showPopupDelete.value = false;
-
-                setTimeout(() => {
-                    showPopupDelete.value = true;
-                }, 100);
-            },
-        });
+const actionDelete = (finishConfirmation?: (close?: boolean) => void) => {
+    if (form.processing) {
+        finishConfirmation?.(false);
+        return;
     }
+
+    form.post(route("pds.setup.delete"), {
+        onError: () => finishConfirmation?.(false),
+        onSuccess: () => {
+            finishConfirmation?.();
+            paginate.fetchData();
+        },
+    });
 };
 
-const actionRelease = (isBulk = false) => {
-    const releasePopup = isBulk ? showPopupBulkRelease : showPopupRelease;
+const actionRelease = (finishConfirmation?: (close?: boolean) => void) => {
+    submitRelease(false, finishConfirmation);
+};
 
-    if (!form.processing) {
-        form.post(route("pds.setup.release"), {
-            onError: () => {
-                releasePopup.value = false;
-
-                setTimeout(() => {
-                    releasePopup.value = true;
-                }, 100);
-            },
-            onSuccess: () => {
-                paginate.fetchData();
-                selectedRowIds.value = [];
-                selectedRows.value = [];
-                releasePopup.value = false;
-
-                setTimeout(() => {
-                    releasePopup.value = true;
-                }, 100);
-            },
-        });
+const submitRelease = (
+    isBulk: boolean,
+    finishConfirmation?: (close?: boolean) => void,
+) => {
+    if (form.processing) {
+        finishConfirmation?.(false);
+        return;
     }
+
+    form.post(route("pds.setup.release"), {
+        onError: () => finishConfirmation?.(false),
+        onSuccess: () => {
+            finishConfirmation?.();
+            paginate.fetchData();
+            selectedRowIds.value = [];
+            selectedRows.value = [];
+        },
+    });
 };
 
 const showDelete = (row: any) => {
@@ -459,30 +480,28 @@ const showRelease = (row: any) => {
     clickId("show-release");
 };
 
-const actionStop = (isBulk = false) => {
-    const stopPopup = isBulk ? showPopupBulkStop : showPopupStop;
+const actionStop = (finishConfirmation?: (close?: boolean) => void) => {
+    submitStop(false, finishConfirmation);
+};
 
-    if (!form.processing) {
-        form.post(route("pds.setup.stop"), {
-            onError: () => {
-                stopPopup.value = false;
-
-                setTimeout(() => {
-                    stopPopup.value = true;
-                }, 100);
-            },
-            onSuccess: () => {
-                paginate.fetchData();
-                selectedRowIds.value = [];
-                selectedRows.value = [];
-                stopPopup.value = false;
-
-                setTimeout(() => {
-                    stopPopup.value = true;
-                }, 100);
-            },
-        });
+const submitStop = (
+    isBulk: boolean,
+    finishConfirmation?: (close?: boolean) => void,
+) => {
+    if (form.processing) {
+        finishConfirmation?.(false);
+        return;
     }
+
+    form.post(route("pds.setup.stop"), {
+        onError: () => finishConfirmation?.(false),
+        onSuccess: () => {
+            finishConfirmation?.();
+            paginate.fetchData();
+            selectedRowIds.value = [];
+            selectedRows.value = [];
+        },
+    });
 };
 
 const showStop = (row: any) => {

@@ -217,4 +217,15 @@ watch(search, (newValue, oldValue) => {
         return row.value.toLowerCase().includes(searchValue);
     });
 });
+
+watch(
+    () => props.items,
+    (items) => {
+        const searchValue = search.value.toLowerCase();
+        itemList.value = (items || []).filter((row: any) =>
+            row.value.toLowerCase().includes(searchValue),
+        );
+    },
+    { deep: true },
+);
 </script>

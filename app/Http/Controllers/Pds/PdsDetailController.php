@@ -34,12 +34,29 @@ class PdsDetailController extends Controller
         ]);
     }
 
-    public function status($id)
+    public function status(Request $request, $id)
     {
         $data = (new SetupPdsService())->find(user()->company_id, $id, [0]);
 
         return response()->json([
-            'data' => (new TicketService())->getStatus(user()->company_id, $data->marketing_campaign_id, $data->id),
+            'data' => (new TicketService())->getStatus(
+                user()->company_id,
+                $data->marketing_campaign_id,
+                $data->id,
+                $request->input('type'),
+                $request->input('offices', []),
+                $request->input('risk_criteria', []),
+            ),
+        ]);
+    }
+
+    public function options($id)
+    {
+        $data = (new SetupPdsService())->find(user()->company_id, $id, [0]);
+        $service = new TicketService();
+
+        return response()->json([
+            'offices' => $service->getOffices(user()->company_id, $data->marketing_campaign_id, $data->id),
         ]);
     }
 

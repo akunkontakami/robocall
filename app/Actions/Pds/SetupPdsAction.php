@@ -4,7 +4,9 @@ namespace App\Actions\Pds;
 
 use App\Helpers\Dialer;
 use App\Jobs\ReleasePdsCustomersJob;
+use App\Jobs\StartPdsJob;
 use App\Jobs\StopPdsJob;
+use App\Jobs\UploadPdsCustomersJob;
 use App\Models\Data\ProductSubject;
 use App\Models\Data\Ticket;
 use App\Models\Data\TicketForm;
@@ -13,7 +15,6 @@ use App\Models\Pds\Pds;
 use App\Models\Pds\PdsAgent;
 use App\Models\Pds\PdsCustomer;
 use App\Services\Data\TicketService;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -102,7 +103,9 @@ class SetupPdsAction
     public function start(Request $request)
     {
         $request->validate([
-            'id' => 'required|exists:pds,id',
+            'id' => 'nullable|exists:pds,id',
+            'ids' => 'nullable|array',
+            'ids.*' => 'exists:pds,id',
             'call_factor' => 'required',
             'call_wait' => 'required',
             'call_abandon_rate' => 'required',
@@ -111,68 +114,105 @@ class SetupPdsAction
             'call_retry_max' => 'required',
         ]);
 
-        $customers = PdsCustomer::where('pds_id', $request->id)->count();
-
-        if ($customers == 0) {
-            throw ValidationException::withMessages(['call_factor' => 'Please upload customer data before starting']);
-        }
-
-        $agents = PdsAgent::where('pds_id', $request->id)->count();
-
-        if ($agents == 0) {
-            throw ValidationException::withMessages(['call_factor' => 'Please assign agent before starting']);
-        }
-
         $user = user();
+        $ids = collect($request->input('ids', [$request->input('id')]))
+            ->filter()
+            ->unique()
+            ->values();
 
-        return DB::transaction(function () use ($request) {
-            $pds = Pds::where('id', $request->id)->first();
+        if ($ids->isEmpty()) {
+            throw new BadRequestException('PDS is required');
+        }
 
-            $pds->update([
-                'call_factor' => $request->call_factor,
-                'call_wait' => $request->call_wait,
-                'call_abandon_rate' => $request->call_abandon_rate,
-                'call_limit' => $request->call_limit,
-                'call_retry_after' => $request->call_retry_after,
-                'call_retry_max' => $request->call_retry_max,
-                'is_running' => 1,
+        $pdsList = Pds::whereIn('id', $ids)
+            ->where('company_id', $user->company_id)
+            ->where('is_running', 0)
+            ->withCount(['customers', 'agents'])
+            ->get();
+
+        if ($pdsList->count() !== $ids->count()) {
+            throw ValidationException::withMessages([
+                'ids' => 'One or more selected PDS are no longer available to start',
             ]);
+        }
 
-            $dialer = Dialer::post('/pds-start', [
-                'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name,
-                'CallFactor' => $request->call_factor,
-                'CallWait' => $request->call_wait,
-                'CallAbandonRate' => $request->call_abandon_rate,
-                'CallLimit' => $request->call_limit,
-                'CallRetryAfter' => $request->call_retry_after,
-                'CallRetryMax' => $request->call_retry_max,
-            ]);
-
-            Log::info('PAYLOAD START PDS', [
-                'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name,
-                'CallFactor' => $request->call_factor,
-                'CallWait' => $request->call_wait,
-                'CallAbandonRate' => $request->call_abandon_rate,
-                'CallLimit' => $request->call_limit,
-                'CallRetryAfter' => $request->call_retry_after,
-                'CallRetryMax' => $request->call_retry_max,
-            ]);
-
-            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
-                $errorMessage = $dialer['errors'];
-
-                $messages = [];
-                $messages['call_factor'] = $errorMessage;
-
-                throw ValidationException::withMessages($messages);
+        foreach ($pdsList as $pds) {
+            if ($pds->customers_count == 0) {
+                throw ValidationException::withMessages([
+                    'call_factor' => 'Please upload customer data for '.$pds->pds_name.' before starting',
+                ]);
             }
 
-            return [
-                'pds' => $pds,
-                'dialer_response' => $dialer,
-            ];
+            if ($pds->agents_count == 0) {
+                throw ValidationException::withMessages([
+                    'call_factor' => 'Please assign an active agent to '.$pds->pds_name.' before starting',
+                ]);
+            }
+        }
+
+        foreach ($pdsList as $pds) {
+            StartPdsJob::dispatch(
+                $pds->id,
+                $user->company_id,
+                $request->only([
+                    'call_factor',
+                    'call_wait',
+                    'call_abandon_rate',
+                    'call_limit',
+                    'call_retry_after',
+                    'call_retry_max',
+                ]),
+            )
+                ->onQueue('dialer');
+        }
+
+        return $pdsList->count();
+    }
+
+    public function preparePdsStart(string $pdsId, string $companyId, array $settings): ?array
+    {
+        $pds = Pds::where('id', $pdsId)
+            ->where('company_id', $companyId)
+            ->where('is_running', 0)
+            ->first();
+
+        if (!$pds) {
+            return null;
+        }
+
+        $payload = [
+            'tenant_id' => $pds->tenant_id,
+            'campaign_id' => $pds->pds_name,
+            'CallFactor' => $settings['call_factor'],
+            'CallWait' => $settings['call_wait'],
+            'CallAbandonRate' => $settings['call_abandon_rate'],
+            'CallLimit' => $settings['call_limit'],
+            'CallRetryAfter' => $settings['call_retry_after'],
+            'CallRetryMax' => $settings['call_retry_max'],
+        ];
+
+        Log::info('PAYLOAD START PDS', [
+            ...$payload,
+        ]);
+
+        return $payload;
+    }
+
+    public function markPdsStarted(string $pdsId, string $companyId, array $settings): void
+    {
+        DB::transaction(function () use ($pdsId, $companyId, $settings) {
+            Pds::where('id', $pdsId)
+                ->where('company_id', $companyId)
+                ->where('is_running', 0)
+                ->update([
+                    'call_factor' => $settings['call_factor'],
+                    'call_wait' => $settings['call_wait'],
+                    'call_abandon_rate' => $settings['call_abandon_rate'],
+                    'call_limit' => $settings['call_limit'],
+                    'call_retry_after' => $settings['call_retry_after'],
+                    'call_retry_max' => $settings['call_retry_max'],
+                    'is_running' => 1,
+                ]);
         });
     }
 
@@ -217,7 +257,6 @@ class SetupPdsAction
 
         foreach ($pdsIds as $pdsId) {
             StopPdsJob::dispatch($pdsId, $user->company_id)
-                ->onConnection('database')
                 ->onQueue('dialer');
         }
 
@@ -338,11 +377,35 @@ class SetupPdsAction
         ]);
 
         $user = user();
+        $pds = Pds::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->where('is_running', 0)
+            ->whereDoesntHave('customers')
+            ->first();
 
-        return DB::transaction(function () use ($request, $user, $id) {
-            $pds = Pds::where('id', $id)->first();
-            $customers = (new TicketService())->getCustByTicket($user->company_id, $pds->marketing_campaign_id, $pds->id, $request->status, $request->mobile ?? [], $request->additional ?? [], $request->risk_criteria ?? []);
+        if (!$pds) {
+            throw new BadRequestException('PDS is not available for customer assignment');
+        }
 
+        $customers = (new TicketService())->getCustByTicket(
+            $user->company_id,
+            $pds->marketing_campaign_id,
+            $pds->id,
+            $request->status,
+            $request->mobile ?? [],
+            $request->additional ?? [],
+            $request->risk_criteria ?? [],
+            $request->type,
+            $request->offices ?? [],
+        );
+
+        if (empty($customers)) {
+            throw ValidationException::withMessages([
+                'status' => 'No customers match the selected filters',
+            ]);
+        }
+
+        DB::transaction(function () use ($customers, $user, $pds) {
             foreach ($customers as $key => $value) {
                 PdsCustomer::create([
                     'company_id' => $user->company_id,
@@ -351,27 +414,124 @@ class SetupPdsAction
                     'phone' => $value['phone'],
                 ]);
             }
+        });
 
-            $dialer = Dialer::post('/campaign-dialer/uploadJsonPDS', [
-                'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name,
-                'data' => $customers,
-            ]);
+        $this->queueCustomerUpload($pds, $customers);
+    }
 
-            Log::info('PAYLOAD PDS '.Carbon::now()->format('Y-m-d H:i:s'), [
-                'tenant_id' => $pds->tenant_id,
-                'campaign_id' => $pds->pds_name,
-                'data' => $customers,
-            ]);
+    public function bulkAssign(Request $request): int
+    {
+        $validated = $request->validate([
+            'assignments' => 'required|array|min:1',
+            'assignments.*.pds_id' => 'required|distinct|exists:pds,id',
+            'assignments.*.type' => 'required|in:HO,Branch',
+            'assignments.*.status' => 'required|array|min:1',
+            'assignments.*.offices' => 'nullable|array',
+            'assignments.*.mobile' => 'nullable|array',
+            'assignments.*.additional' => 'nullable|array',
+            'assignments.*.risk_criteria' => 'nullable|array',
+        ]);
 
-            if (!empty($dialer['errors']) && is_string($dialer['errors'])) {
-                $errorMessage = $dialer['errors'];
+        $user = user();
+        $assignments = collect($validated['assignments']);
+        $pdsList = Pds::whereIn('id', $assignments->pluck('pds_id'))
+            ->where('company_id', $user->company_id)
+            ->where('is_running', 0)
+            ->whereDoesntHave('customers')
+            ->get()
+            ->keyBy('id');
+        $prepared = [];
+        $reservedCustomers = collect();
 
-                throw new BadRequestException($errorMessage);
+        foreach ($assignments as $index => $assignment) {
+            $pds = $pdsList->get($assignment['pds_id']);
 
-                return;
+            if (!$pds) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.pds_id" => 'PDS is not available for customer assignment',
+                ]);
+            }
+
+            if ($assignment['type'] === 'Branch' && empty($assignment['offices'])) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.offices" => 'Office is required for Branch type',
+                ]);
+            }
+
+            if (empty($assignment['mobile']) && empty($assignment['additional'])) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.mobile" => 'Select at least one phone field',
+                ]);
+            }
+
+            $customers = (new TicketService())->getCustByTicket(
+                $user->company_id,
+                $pds->marketing_campaign_id,
+                $pds->id,
+                $assignment['status'],
+                $assignment['mobile'] ?? [],
+                $assignment['additional'] ?? [],
+                $assignment['risk_criteria'] ?? [],
+                $assignment['type'],
+                $assignment['offices'] ?? [],
+            );
+
+            if (empty($customers)) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.status" => 'No customers match the selected filters for '.$pds->pds_name,
+                ]);
+            }
+
+            $customerKeys = collect($customers)
+                ->map(fn (array $customer) => $customer['customer_id'].'|'.$customer['phone']);
+
+            if ($customerKeys->intersect($reservedCustomers)->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    "assignments.$index.status" => 'The filters for '.$pds->pds_name.' overlap customers selected for an earlier PDS. Adjust its status, office, or criteria.',
+                ]);
+            }
+
+            $reservedCustomers = $reservedCustomers
+                ->merge($customerKeys)
+                ->unique();
+
+            $prepared[] = compact('pds', 'customers');
+        }
+
+        DB::transaction(function () use ($prepared, $user) {
+            foreach ($prepared as $item) {
+                foreach ($item['customers'] as $customer) {
+                    PdsCustomer::create([
+                        'company_id' => $user->company_id,
+                        'pds_id' => $item['pds']->id,
+                        'ticket_id' => $customer['customer_id'],
+                        'phone' => $customer['phone'],
+                    ]);
+                }
             }
         });
+
+        foreach ($prepared as $item) {
+            $this->queueCustomerUpload($item['pds'], $item['customers']);
+        }
+
+        return count($prepared);
+    }
+
+    private function queueCustomerUpload(Pds $pds, array $customers): void
+    {
+        Log::info('QUEUE PAYLOAD PDS', [
+            'tenant_id' => $pds->tenant_id,
+            'campaign_id' => $pds->pds_name,
+            'total_data' => count($customers),
+        ]);
+
+        UploadPdsCustomersJob::dispatch(
+            $pds->id,
+            $pds->tenant_id,
+            $pds->pds_name,
+        )
+            ->onQueue('dialer');
     }
 
     public function release(Request $request, $ids)
@@ -415,7 +575,6 @@ class SetupPdsAction
 
         foreach ($pdsIds as $pdsId) {
             ReleasePdsCustomersJob::dispatch($pdsId, $user->company_id)
-                ->onConnection('database')
                 ->onQueue('dialer');
         }
 
