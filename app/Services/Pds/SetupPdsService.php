@@ -704,7 +704,7 @@ class SetupPdsService
 
     // Build PDS name lookup for multi-PDS rows (pds_name == campaign_id on dialer)
     $pdsNameLookup = $selectedPdsList->pluck('pds_name', 'pds_name')->filter();
-    
+
     $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup) {
         $dataSize     = $row['DataSize'] ?? 0;
         $dataUtilize  = $row['DataDialed'] ?? 0;
@@ -724,7 +724,9 @@ class SetupPdsService
             ? array_filter(array_map('trim', explode(',', $row['CustomerId'])))
             : [];
 
-        // === QUERY BARU: calls JOIN ticket_histories by ticket_id ===
+        // === QUERY: calls JOIN ticket_histories by ticket_id ===
+        // Tidak pakai GROUP BY di SQL (biar tidak kena ONLY_FULL_GROUP_BY),
+        // dedup per ticket_id dilakukan di PHP setelah data diambil.
         $ticketStatus = DB::table('calls as ca')
             ->join('ticket_histories as th', 'th.ticket_id', '=', 'ca.ticket_id')
             ->where('ca.start_at', '>=', $sessionStart)
@@ -733,10 +735,12 @@ class SetupPdsService
                 $q->whereIn('ca.ticket_id', $CustomerId);
             })
             ->select('th.status', 'ca.ticket_id')
-            ->groupBy('ca.ticket_id')
-            ->get();
+            ->orderByDesc('th.created_at') // ambil status TERBARU per ticket; sesuaikan nama kolom jika berbeda
+            ->get()
+            ->unique('ticket_id')
+            ->values();
 
-         dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+        // dump($ticketStatus->toSql(), $ticketStatus->getBindings());
 
         // total matched call = jumlah ticket unik yang match
         $matchedCallTotal = $ticketStatus->count();
