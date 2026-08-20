@@ -735,6 +735,12 @@ class SetupPdsService
             })
             ->distinct()
             ->pluck('ca.ticket_id');
+            dd([
+                'sessionStart' => $sessionStart,
+                'sessionEnd'   => $sessionEnd,
+                'CustomerId'   => $CustomerId,
+                'matchedTicketIds' => $matchedTicketIds,
+            ]);
 
         $matchedCallTotal = $matchedTicketIds->count();
 
