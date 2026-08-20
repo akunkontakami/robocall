@@ -94,9 +94,26 @@ const paginate = usePaginate({
 const visibleOutbounds = computed(() => {
     const rows = paginate.data.value ?? [];
 
-    return (props.outbounds ?? []).filter((outbound: string) =>
+    const fromProps = (props.outbounds ?? []).filter((outbound: string) =>
         rows.some((row: any) => Number(row.ticket_status?.[outbound] ?? 0) !== 0)
     );
+
+    const fromPropsSet = new Set(fromProps.map(s => String(s).toLowerCase()));
+    const extra: string[] = [];
+    const extraSeen = new Set<string>();
+
+    rows.forEach((row: any) => {
+        const ts = row.ticket_status ?? {};
+        Object.keys(ts).forEach((key) => {
+            const norm = String(key).toLowerCase();
+            if (!fromPropsSet.has(norm) && !extraSeen.has(norm) && Number(ts[key] ?? 0) !== 0) {
+                extraSeen.add(norm);
+                extra.push(key);
+            }
+        });
+    });
+
+    return [...fromProps, ...extra];
 });
 
 const getUncontactedValue = (row: any) => {

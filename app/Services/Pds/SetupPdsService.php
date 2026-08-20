@@ -750,19 +750,42 @@ class SetupPdsService
                 ->values();
         }
 
-        // dump($matchedTicketIds->count(), $ticketStatus->count());
-        dd([
-            'sessionStart'       => $sessionStart,
-            'sessionEnd'         => $sessionEnd,
-            'CustomerId_count'   => count($CustomerId),
-            'CustomerId'         => $CustomerId,
-            'matchedTicketIds'   => $matchedTicketIds->count(),
-            'matchedTicketIds_list' => $matchedTicketIds->toArray(),
-            'ticketStatus_raw'   => $ticketStatus->toArray(), // ini yang mau kamu cek, list status per ticket
-            'ticketStatus_count' => $ticketStatus->count(),
-        ]);
-        // sum per status dilakukan di sini (di collection, bukan lagi di SQL)
         $ticketStatus = $ticketStatus->groupBy('status')->map->count();
+
+        $campaignNormalizer = function ($rawStatus) {
+            $canonicalMap = [
+                'Promised to Pay (PTP)' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP', 'ptp'],
+                'Call Back'             => ['Call Back', 'Callback', 'CallBack', 'CALL BACK', 'call back'],
+                'BP Partial'            => ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date', 'bp partial'],
+                'NBP-A'                 => ['NBP-A', 'NBP A', 'NBPA', 'nbp-a', 'nbpa'],
+                'NBP-B (Salah Sambung)' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung', 'nbp-b', 'nbpb'],
+                'NBP-C (Invalid Number)'=> ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number', 'nbp-c', 'nbpc'],
+                'Paid in Confins'       => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins', 'paid in confins'],
+                'KP'                    => ['KP', 'Kp', 'kp'],
+                'Visit Request'         => ['Visit Request', 'VisitRequest', 'VR', 'visit request'],
+                'Visit Request - Contacted' => ['Visit Request - Contacted', 'Visit Request-Contacted', 'VR - Contacted', 'Contacted', 'Visit Request Contacted', 'visit request - contacted'],
+            ];
+            $normRaw = mb_strtolower(trim($rawStatus));
+            foreach ($canonicalMap as $canonical => $variants) {
+                foreach ($variants as $v) {
+                    if (mb_strtolower(trim($v)) === $normRaw) {
+                        return $canonical;
+                    }
+                }
+            }
+            return $rawStatus;
+        };
+
+        $normalized = collect();
+        foreach ($ticketStatus as $rawKey => $count) {
+            $canonicalKey = $campaignNormalizer($rawKey);
+            if ($normalized->has($canonicalKey)) {
+                $normalized[$canonicalKey] += $count;
+            } else {
+                $normalized[$canonicalKey] = $count;
+            }
+        }
+        $ticketStatus = $normalized->toArray();
 
         $duration = 0;
         if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
@@ -988,6 +1011,8 @@ class SetupPdsService
                 DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'NBP-B (Salah Sambung)' THEN th.ticket_id END) as NBPB"),
                 DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'NBP-C (Invalid Number)' THEN th.ticket_id END) as NBPC"),
                 DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'Paid in Confins' THEN th.ticket_id END) as PaidinConfins"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'KP' THEN th.ticket_id END) as KP"),
+                DB::raw("COUNT(DISTINCT CASE WHEN th.status = 'Visit Request' THEN th.ticket_id END) as VisitRequest"),
                 DB::raw("COUNT(DISTINCT th.ticket_id) as data_contacted"),
             ])
             ->groupBy(DB::raw('DATE(th.created_at)'), 'ca.agent_id');
@@ -1067,26 +1092,34 @@ class SetupPdsService
             'NBPB' => 'NBP-B (Salah Sambung)',
             'NBPC' => 'NBP-C (Invalid Number)',
             'PaidinConfins' => 'Paid in Confins',
+            'KP' => 'KP',
+            'VisitRequest' => 'Visit Request',
         ];
 
         $keyEquivalents = [
             'PTP' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
             'CallBack' => ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
-            'BPPartial' => ['BP Partial', 'Bp Partial', 'BPPartial'],
+            'BPPartial' => ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date'],
             'NBPA' => ['NBP-A', 'NBP A', 'NBPA'],
             'NBPB' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
             'NBPC' => ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
             'PaidinConfins' => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+            'KP' => ['KP', 'Kp', 'kp'],
+            'VisitRequest' => ['Visit Request', 'VisitRequest', 'VR', 'visit request'],
         ];
 
         $queryStatusOrder = array_keys($fixedStatusOrder);
         $outboundsFiltered = collect($outbounds)->filter(function ($name) use ($keyEquivalents) {
-            if (in_array($name, ['Visit Request - Contacted', 'Visit Request', 'Contacted', 'VR'], true)) {
+            if (in_array($name, ['Visit Request - Contacted', 'Contacted'], true)) {
+                return false;
+            }
+            $normName = mb_strtolower(trim($name));
+            if (str_contains($normName, 'contacted')) {
                 return false;
             }
             foreach ($keyEquivalents as $canonicalKey => $variants) {
                 foreach ($variants as $variant) {
-                    if (mb_strtolower(trim($variant)) === mb_strtolower(trim($name))) {
+                    if (mb_strtolower(trim($variant)) === $normName) {
                         return true;
                     }
                 }
@@ -1122,6 +1155,8 @@ class SetupPdsService
                 $nbpb = (int) ($agg->NBPB ?? 0);
                 $nbpc = (int) ($agg->NBPC ?? 0);
                 $pic = (int) ($agg->PaidinConfins ?? 0);
+                $kp = (int) ($agg->KP ?? 0);
+                $vr = (int) ($agg->VisitRequest ?? 0);
                 $dataContacted = (int) ($agg->data_contacted ?? 0);
 
                 $valueMap = [
@@ -1132,6 +1167,8 @@ class SetupPdsService
                     'NBPB' => $nbpb,
                     'NBPC' => $nbpc,
                     'PaidinConfins' => $pic,
+                    'KP' => $kp,
+                    'VisitRequest' => $vr,
                 ];
 
                 $displayNames = [];
@@ -1182,6 +1219,8 @@ class SetupPdsService
                     'NBPB' => $nbpb,
                     'NBPC' => $nbpc,
                     'PaidinConfins' => $pic,
+                    'KP' => $kp,
+                    'VisitRequest' => $vr,
                     'data_contacted' => $dataContacted,
                     'data_utilize' => (int) ($dataContacted > 0 ? $dataContacted : array_sum($valueMap)),
                     'companyUser' => (object) ['name' => $agentName ?: ('Agent ' . substr($item->user_id, 0, 8))],
@@ -1273,6 +1312,8 @@ class SetupPdsService
                         $nbpb = (int) ($agg->NBPB ?? 0);
                         $nbpc = (int) ($agg->NBPC ?? 0);
                         $pic = (int) ($agg->PaidinConfins ?? 0);
+                        $kp = (int) ($agg->KP ?? 0);
+                        $vr = (int) ($agg->VisitRequest ?? 0);
                         $dataContacted = (int) ($agg->data_contacted ?? 0);
 
                         $valueMap = [
@@ -1283,6 +1324,8 @@ class SetupPdsService
                             'NBPB' => $nbpb,
                             'NBPC' => $nbpc,
                             'PaidinConfins' => $pic,
+                            'KP' => $kp,
+                            'VisitRequest' => $vr,
                         ];
 
                         $displayNames = [];
@@ -1335,6 +1378,8 @@ class SetupPdsService
                             'NBPB' => $nbpb,
                             'NBPC' => $nbpc,
                             'PaidinConfins' => $pic,
+                            'KP' => $kp,
+                            'VisitRequest' => $vr,
                             'data_contacted' => $dataContacted,
                             'data_utilize' => (int) ($dataContacted > 0 ? $dataContacted : array_sum($valueMap)),
                             'companyUser' => (object) ['name' => $agentName],

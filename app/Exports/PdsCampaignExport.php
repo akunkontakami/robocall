@@ -163,6 +163,7 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
         }
 
         $visibleOutbounds = [];
+        $seen = [];
 
         foreach ($this->outbounds as $outbound) {
             $statusName = is_array($outbound) ? ($outbound['name'] ?? null) : $outbound;
@@ -176,6 +177,23 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
             });
 
             if ($hasValue) {
+                $norm = mb_strtolower(trim($statusName));
+                $seen[$norm] = true;
+                $visibleOutbounds[] = $statusName;
+            }
+        }
+
+        foreach ($this->data as $row) {
+            $ticketCounts = $row['ticket_status'] ?? [];
+            foreach ($ticketCounts as $statusName => $count) {
+                if ((int) $count === 0) {
+                    continue;
+                }
+                $norm = mb_strtolower(trim($statusName));
+                if (isset($seen[$norm])) {
+                    continue;
+                }
+                $seen[$norm] = true;
                 $visibleOutbounds[] = $statusName;
             }
         }
