@@ -54,11 +54,13 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
             array_merge(
                 ['SessionStart', 'SessionEnd', 'Deskcoll', 'Data Contacted'],
                 $visibleOutbounds ? ['Call Status'] : [],
-                array_fill(0, max(count($visibleOutbounds) - 1, 0), '')
+                array_fill(0, max(count($visibleOutbounds) - 1, 0), ''),
+                ['No Status']
             ),
             array_merge(
                 ['', '', '', ''],
-                $visibleOutbounds
+                $visibleOutbounds,
+                ['']
             ),
         ];
     }
@@ -71,17 +73,21 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                 $sheet = $event->sheet->getDelegate();
 
                 $visibleOutboundCount = count($this->visibleOutboundNames());
-                $lastColumnIndex = 4 + $visibleOutboundCount;
+                $noStatusColumnIndex = 4 + $visibleOutboundCount + 1;
+                $lastColumnIndex = $noStatusColumnIndex;
                 $lastColumnLetter = $this->excelColumn($lastColumnIndex);
+                $callStatusEndColumn = $this->excelColumn(4 + $visibleOutboundCount);
+                $noStatusColumnLetter = $this->excelColumn($noStatusColumnIndex);
 
                 $sheet->mergeCells('A1:A2');
                 $sheet->mergeCells('B1:B2');
                 $sheet->mergeCells('C1:C2');
                 $sheet->mergeCells('D1:D2');
+                $sheet->mergeCells("{$noStatusColumnLetter}1:{$noStatusColumnLetter}2");
 
                 if ($visibleOutboundCount > 0) {
                     $sheet->mergeCells(
-                        'E1:' . $this->excelColumn($lastColumnIndex) . '1'
+                        'E1:' . $callStatusEndColumn . '1'
                     );
                 }
 
@@ -151,12 +157,14 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                             $statusColumns[] = (string) $this->findStatusValue($row, $statusName);
                         }
 
+                        $noStatusValue = (string) $this->findStatusValue($row, 'No Status');
+
                         $rows[] = array_merge([
                             $index === 0 ? $sessGroup['session_start'] : '',
                             $index === 0 ? $sessGroup['session_end'] : '',
                             (string) ($row['agent'] ?? '-'),
                             (string) ($row['data_utilize'] ?? $row['data_contacted'] ?? 0),
-                        ], $statusColumns);
+                        ], $statusColumns, [$noStatusValue]);
 
                         $currentRow++;
                     }
@@ -284,6 +292,27 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
 
     private function findStatusValue(array $row, string $statusName): int
     {
+        $target = $this->keyNormalize($statusName);
+        $normNoStatus = $this->keyNormalize('No Status');
+
+        if ($target === $normNoStatus) {
+            $ticketStatus = $row['ticket_status'] ?? [];
+            if (is_array($ticketStatus)) {
+                foreach ($ticketStatus as $k => $v) {
+                    if ($this->keyNormalize((string) $k) === $normNoStatus && $v !== null && $v !== '') {
+                        return (int) $v;
+                    }
+                }
+            }
+            if (array_key_exists('NoStatus', $row) && $row['NoStatus'] !== null && $row['NoStatus'] !== '') {
+                return (int) $row['NoStatus'];
+            }
+            if (array_key_exists('no_status', $row) && $row['no_status'] !== null && $row['no_status'] !== '') {
+                return (int) $row['no_status'];
+            }
+            return 0;
+        }
+
         $ticketStatus = $row['ticket_status'] ?? [];
         if (!is_array($ticketStatus)) {
             return 0;
@@ -294,13 +323,34 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                 return (int) $v;
             }
         }
-        $target = $this->keyNormalize($statusName);
         foreach ($ticketStatus as $key => $value) {
             if ($this->keyNormalize((string) $key) === $target) {
                 if ($value !== null && $value !== '') {
                     return (int) $value;
                 }
                 return 0;
+            }
+        }
+        $aliases = $this->callStatusAliases();
+        foreach ($aliases as $aliasName => $variants) {
+            foreach ($variants as $variant) {
+                if ($this->keyNormalize($variant) === $target || $this->keyNormalize($aliasName) === $target) {
+                    $keyInTs = null;
+                    foreach (array_keys($ticketStatus) as $k) {
+                        $nk = $this->keyNormalize((string) $k);
+                        if ($nk === $this->keyNormalize($variant) || $nk === $this->keyNormalize($aliasName)) {
+                            $keyInTs = $k;
+                            break;
+                        }
+                    }
+                    if ($keyInTs !== null) {
+                        $v = $ticketStatus[$keyInTs];
+                        if ($v !== null && $v !== '') {
+                            return (int) $v;
+                        }
+                        return 0;
+                    }
+                }
             }
         }
         return 0;
@@ -316,17 +366,20 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
             'NBPB' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
             'NBPC' => ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
             'PaidinConfins' => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+            'KP' => ['KP', 'Kp', 'kp'],
+            'VisitRequestContacted' => ['Visit Request - Contacted', 'Visit Request-Contacted', 'VR - Contacted', 'Visit Request Contacted', 'Contacted', 'visit request - contacted'],
+            'VisitRequest' => ['Visit Request', 'VisitRequest', 'VR', 'visit request'],
         ];
     }
 
     private function callStatusOrder(): array
     {
-        return ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins'];
+        return ['PTP', 'CallBack', 'VisitRequestContacted', 'BPPartial', 'NBPA', 'PaidinConfins', 'KP', 'NBPB', 'NBPC', 'VisitRequest'];
     }
 
     private function excludedStatuses(): array
     {
-        return ['visitrequestcontacted', 'visitrequest', 'contacted', 'vr'];
+        return [];
     }
 
     private function visibleOutboundNames(): array

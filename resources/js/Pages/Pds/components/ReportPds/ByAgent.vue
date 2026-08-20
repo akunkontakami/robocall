@@ -113,7 +113,9 @@ const paginate = usePaginate({
 
 const keyNormalize = (s: string) => String(s ?? '').toLowerCase().replace(/[\s\-_()]/g, '');
 
-const EXCLUDED_STATUSES = new Set<string>([]);
+const EXCLUDED_STATUSES = new Set<string>([
+    keyNormalize('Contacted'),
+]);
 
 const CALL_STATUS_ALIASES: Record<string, string[]> = {
     'PTP': ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP', 'ptp'],
@@ -216,27 +218,49 @@ const visibleOutbounds = computed(() => {
             const norm = keyNormalize(key);
             if (EXCLUDED_STATUSES.has(norm)) return;
             if (fromPropsSet.has(norm) || extraSeen.has(norm)) return;
-            if (Number(ts[key] ?? 0) === 0) return;
             extraSeen.add(norm);
             extra.push(key);
         });
     });
 
-    const combined: string[] = [...filtered, ...extra];
-    if (combined && combined.length) {
-        return combined;
+    // Build alias-key -> canonical variant map (first variant = label)
+    const aliasToLabel: Record<string, string> = {};
+    for (const [alias, variants] of Object.entries(CALL_STATUS_ALIASES)) {
+        if (variants && variants.length) aliasToLabel[alias] = variants[0];
+    }
+
+    // Ensure every canonical status in CALL_STATUS_ORDER is always present
+    const mandatoryLabels = CALL_STATUS_ORDER
+        .map((alias: string) => aliasToLabel[alias])
+        .filter(Boolean);
+    const mandatorySet = new Set(mandatoryLabels.map((s: string) => keyNormalize(s)));
+
+    const seenCombined = new Set<string>();
+    const ordered: string[] = [];
+    const pushUnique = (name: string) => {
+        const n = keyNormalize(name);
+        if (!n) return;
+        if (seenCombined.has(n)) return;
+        seenCombined.add(n);
+        ordered.push(name);
+    };
+
+    // 1) Filtered from props (preserve order)
+    for (const s of filtered) pushUnique(s);
+    // 2) Mandatory from CALL_STATUS_ORDER (always show)
+    for (const s of mandatoryLabels) pushUnique(s);
+    // 3) Extra from rows
+    for (const s of extra) pushUnique(s);
+
+    if (ordered.length) {
+        return ordered;
     }
 
     const firstRow = allRows[0];
     if (firstRow && firstRow.ticket_status) {
         return Object.keys(firstRow.ticket_status).filter((k: string) => !EXCLUDED_STATUSES.has(keyNormalize(k)));
     }
-    return CALL_STATUS_ORDER.map((a: string) => {
-        for (const [alias, variants] of Object.entries(CALL_STATUS_ALIASES)) {
-            if (alias === a && variants.length) return variants[0];
-        }
-        return a;
-    });
+    return mandatoryLabels;
 });
 
 const columns = computed(() => [
