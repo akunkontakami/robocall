@@ -751,7 +751,7 @@ class SetupPdsService
         }
 
         // dump($matchedTicketIds->count(), $ticketStatus->count());
-
+        dump($ticketStatus->toSql(), $ticketStatus->getBindings());
         // sum per status dilakukan di sini (di collection, bukan lagi di SQL)
         $ticketStatus = $ticketStatus->groupBy('status')->map->count();
 
