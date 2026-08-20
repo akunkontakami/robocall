@@ -113,24 +113,22 @@ const paginate = usePaginate({
 
 const keyNormalize = (s: string) => String(s ?? '').toLowerCase().replace(/[\s\-_()]/g, '');
 
-const EXCLUDED_STATUSES = new Set([
-    'visitrequestcontacted',
-    'contacted',
-]);
+const EXCLUDED_STATUSES = new Set<string>([]);
 
 const CALL_STATUS_ALIASES: Record<string, string[]> = {
-    'PTP': ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
-    'CallBack': ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
-    'BPPartial': ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date'],
-    'NBPA': ['NBP-A', 'NBP A', 'NBPA'],
-    'NBPB': ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
-    'NBPC': ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
-    'PaidinConfins': ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+    'PTP': ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP', 'ptp'],
+    'CallBack': ['Call Back', 'Callback', 'CallBack', 'CALL BACK', 'call back', 'Call back'],
+    'BPPartial': ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date', 'bp partial', 'BP partial'],
+    'NBPA': ['NBP-A', 'NBP A', 'NBPA', 'nbp-a', 'nbpa'],
+    'NBPB': ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung', 'nbp-b', 'nbpb', 'NBP B (Salah Sambung)'],
+    'NBPC': ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number', 'nbp-c', 'nbpc'],
+    'PaidinConfins': ['Paid in Confins', 'Paid In Confins', 'PaidinConfins', 'paid in confins'],
     'KP': ['KP', 'Kp', 'kp'],
-    'VisitRequest': ['Visit Request', 'VisitRequest', 'VR', 'visit request'],
+    'VisitRequestContacted': ['Visit Request - Contacted', 'Visit Request-Contacted', 'VR - Contacted', 'Visit Request Contacted', 'Contacted', 'visit request - contacted', 'visitrequestcontacted'],
+    'VisitRequest': ['Visit Request', 'VisitRequest', 'VR', 'visit request', 'visitrequest'],
 };
 
-const CALL_STATUS_ORDER = ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins', 'KP', 'VisitRequest'];
+const CALL_STATUS_ORDER = ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins', 'KP', 'VisitRequestContacted', 'VisitRequest'];
 
 const findStatusValue = (row: any, statusName: string): number => {
     if (!row) return 0;
@@ -149,6 +147,10 @@ const findStatusValue = (row: any, statusName: string): number => {
     if (target === keyNormalize('Visit Request')) {
         if (row.ticket_status && row.ticket_status['Visit Request'] !== undefined) return Number(row.ticket_status['Visit Request']) || 0;
         if (row.VisitRequest !== undefined) return Number(row.VisitRequest) || 0;
+    }
+    if (target === keyNormalize('Visit Request - Contacted')) {
+        if (row.ticket_status && row.ticket_status['Visit Request - Contacted'] !== undefined) return Number(row.ticket_status['Visit Request - Contacted']) || 0;
+        if (row.VisitRequestContacted !== undefined) return Number(row.VisitRequestContacted) || 0;
     }
 
     if (row.ticket_status) {

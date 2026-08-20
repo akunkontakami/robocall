@@ -1145,32 +1145,96 @@ class SetupPdsService
         }
 
         $fixedStatusOrder = [
-            'PTP' => 'PTP',
-            'CallBack' => 'CallBack',
+            'PTP' => 'Promised to Pay (PTP)',
+            'CallBack' => 'Call Back',
             'BPPartial' => 'BP Partial',
             'NBPA' => 'NBP-A',
             'NBPB' => 'NBP-B (Salah Sambung)',
             'NBPC' => 'NBP-C (Invalid Number)',
             'PaidinConfins' => 'Paid in Confins',
             'KP' => 'KP',
-            'VisitRequest' => 'Visit Request',
             'VisitRequestContacted' => 'Visit Request - Contacted',
+            'VisitRequest' => 'Visit Request',
         ];
 
         $keyEquivalents = [
-            'PTP' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
-            'CallBack' => ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
-            'BPPartial' => ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date'],
-            'NBPA' => ['NBP-A', 'NBP A', 'NBPA'],
-            'NBPB' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
-            'NBPC' => ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
-            'PaidinConfins' => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+            'PTP' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP', 'ptp'],
+            'CallBack' => ['Call Back', 'Callback', 'CallBack', 'CALL BACK', 'call back', 'Call back'],
+            'BPPartial' => ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date', 'bp partial', 'BP partial'],
+            'NBPA' => ['NBP-A', 'NBP A', 'NBPA', 'nbp-a', 'nbpa'],
+            'NBPB' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung', 'nbp-b', 'nbpb', 'NBP B (Salah Sambung)'],
+            'NBPC' => ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number', 'nbp-c', 'nbpc'],
+            'PaidinConfins' => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins', 'paid in confins', 'Paid In Confins'],
             'KP' => ['KP', 'Kp', 'kp'],
-            'VisitRequest' => ['Visit Request', 'VisitRequest', 'VR', 'visit request'],
-            'VisitRequestContacted' => ['Visit Request - Contacted', 'Visit Request-Contacted', 'VR - Contacted', 'Contacted', 'Visit Request Contacted'],
+            'VisitRequestContacted' => ['Visit Request - Contacted', 'Visit Request-Contacted', 'VR - Contacted', 'Visit Request Contacted', 'Contacted', 'visit request - contacted', 'visitrequestcontacted'],
+            'VisitRequest' => ['Visit Request', 'VisitRequest', 'VR', 'visit request', 'visitrequest'],
         ];
 
+        $sqlCaseFor = function ($canonicalKey) use ($keyEquivalents) {
+            $variants = $keyEquivalents[$canonicalKey] ?? [];
+            $sqlParts = [];
+            foreach ($variants as $variant) {
+                $escaped = str_replace("'", "''", $variant);
+                $sqlParts[] = "th.status = '{$escaped}'";
+            }
+            if (empty($sqlParts)) {
+                return '0 = 1';
+            }
+            return implode(' OR ', $sqlParts);
+        };
+
+        // === TAHAP 2: query agregasi, filter pakai ticket_id hasil API (bukan join pds_agents/pds) ===
+        $aggQuery = DB::table('ticket_histories as th')
+            ->joinSub(
+                DB::table('ticket_histories')
+                    ->select('ticket_id', DB::raw('MAX(created_at) as last_created'))
+                    ->where('company_id', $companyId)
+                    ->where('created_at', '>=', $start_date . ' 06:00:00')
+                    ->where('created_at', '<=', $end_date . ' 23:59:59')
+                    ->groupBy('ticket_id'),
+                'last',
+                fn($join) => $join->on('last.ticket_id', '=', 'th.ticket_id')
+                    ->on('last.last_created', '=', 'th.created_at')
+            )
+            ->join('calls as ca', 'th.id', '=', 'ca.ticket_history_id')
+            ->where('th.company_id', $companyId)
+            ->where('th.created_at', '>=', $start_date . ' 06:00:00')
+            ->where('th.created_at', '<=', $end_date . ' 23:59:59')
+            ->when($eligibleTicketIds !== null, fn($q) => $q->whereIn('th.ticket_id', $eligibleTicketIds))
+            ->when($agentIds, fn($q) => $q->whereIn('ca.agent_id', $agentIdsStr))
+            ->select([
+                'ca.agent_id as user_id',
+                DB::raw('DATE(th.created_at) as ticket_date'),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('PTP')}) THEN th.ticket_id END) as PTP"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('CallBack')}) THEN th.ticket_id END) as CallBack"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('BPPartial')}) THEN th.ticket_id END) as BPPartial"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('NBPA')}) THEN th.ticket_id END) as NBPA"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('NBPB')}) THEN th.ticket_id END) as NBPB"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('NBPC')}) THEN th.ticket_id END) as NBPC"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('PaidinConfins')}) THEN th.ticket_id END) as PaidinConfins"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('KP')}) THEN th.ticket_id END) as KP"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('VisitRequestContacted')}) THEN th.ticket_id END) as VisitRequestContacted"),
+                DB::raw("COUNT(DISTINCT CASE WHEN ({$sqlCaseFor('VisitRequest')}) THEN th.ticket_id END) as VisitRequest"),
+                DB::raw("COUNT(DISTINCT th.ticket_id) as data_contacted"),
+            ])
+            ->groupBy(DB::raw('DATE(th.created_at)'), 'ca.agent_id');
+        // dump($aggQuery->toSql(), $aggQuery->getBindings());
+        $aggRowsList = $aggQuery->get();
+        $aggByDateUser = [];
+        $aggUserIds = [];
+        foreach ($aggRowsList as $row) {
+            $userId = $row->user_id;
+            $date = $row->ticket_date;
+            $aggByDateUser[$date . '_' . $userId] = $row;
+            if (!in_array($userId, $aggUserIds, true)) {
+                $aggUserIds[] = $userId;
+            }
+        }
+        $aggUserIds = collect($aggUserIds)->filter()->values();
+        $aggDates = $aggRowsList->pluck('ticket_date')->unique()->sort()->values()->all();
+
         $queryStatusOrder = array_keys($fixedStatusOrder);
+
         $outboundsFiltered = collect($outbounds)->filter(function ($name) use ($keyEquivalents) {
             $normName = mb_strtolower(trim($name));
             foreach ($keyEquivalents as $canonicalKey => $variants) {
@@ -1182,6 +1246,31 @@ class SetupPdsService
             }
             return false;
         })->values()->all();
+
+        $outboundsSeen = [];
+        foreach ($outboundsFiltered as $name) {
+            $normName = mb_strtolower(trim($name));
+            $outboundsSeen[$normName] = true;
+        }
+        foreach ($queryStatusOrder as $alias) {
+            $variants = $keyEquivalents[$alias] ?? [];
+            $hasNonZero = false;
+            foreach ($aggRowsList as $aRow) {
+                if ((int) ($aRow->{$alias} ?? 0) > 0) {
+                    $hasNonZero = true;
+                    break;
+                }
+            }
+            if (!$hasNonZero) {
+                continue;
+            }
+            $primaryName = $variants[0] ?? ($fixedStatusOrder[$alias] ?? $alias);
+            $normPrimary = mb_strtolower(trim($primaryName));
+            if (!isset($outboundsSeen[$normPrimary])) {
+                $outboundsFiltered[] = $primaryName;
+                $outboundsSeen[$normPrimary] = true;
+            }
+        }
 
         $buildRow = function ($agg) use ($queryStatusOrder, $fixedStatusOrder, $keyEquivalents, $outboundsFiltered) {
             $ptp = (int) ($agg->PTP ?? 0);
@@ -1205,8 +1294,8 @@ class SetupPdsService
                 'NBPC' => $nbpc,
                 'PaidinConfins' => $pic,
                 'KP' => $kp,
-                'VisitRequest' => $vr,
                 'VisitRequestContacted' => $vrc,
+                'VisitRequest' => $vr,
             ];
 
             $noStatus = max($dataContacted - array_sum($valueMap), 0);
@@ -1230,14 +1319,21 @@ class SetupPdsService
             }
             $ticketStatus['No Status'] = $noStatus;
 
-            $outboundsFinal = array_values($displayNames);
+            $outboundsFinal = [];
+            $outboundsFinalSeen = [];
+            foreach ($outboundsFiltered as $name) {
+                $norm = mb_strtolower(trim($name));
+                if (!isset($outboundsFinalSeen[$norm])) {
+                    $outboundsFinal[] = $name;
+                    $outboundsFinalSeen[$norm] = true;
+                }
+            }
             if (empty($outboundsFinal)) {
                 $outboundsFinal = collect($queryStatusOrder)
                     ->map(fn($alias) => $fixedStatusOrder[$alias] ?? $alias)
                     ->values()
                     ->all();
             }
-            $outboundsFinal[] = 'No Status';
 
             return [
                 'ptp' => $ptp,
