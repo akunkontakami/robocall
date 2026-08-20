@@ -1029,17 +1029,37 @@ class SetupPdsService
                 ? array_filter(array_map('trim', explode(',', $row['CustomerId'])))
                 : [];
 
+            $agentName = $row['AgentName']
+                ?? $row['Agent']
+                ?? $row['DeskColl']
+                ?? $row['DeskCollectorName']
+                ?? $row['AgentID']
+                ?? null;
+
+            // === Resolve extension / agent IDs for this agent (filter per-agent di calls table) ===
+            $agentExtensions = [];
+            if ($agentName !== null && trim((string)$agentName) !== '') {
+                $agentExtensions = DB::table('cms_extension')
+                    ->where('agent_login', trim((string)$agentName))
+                    ->pluck('agent_id')
+                    ->all();
+            }
+
             // === QUERY (fixed, 2 tahap, hindari row explosion / memory exhausted) ===
 
             // 1) Cari ticket_id unik yang match kondisi calls (TANPA join, hindari cross-multiplication)
+            //    KOREKSI: tambahkan filter ca.agent_id per agent biar tidak aggregate semua agen
             $matchedTicketIds = DB::table('calls as ca')
                 ->where('ca.start_at', '>=', $sessionStart)
                 ->where('ca.start_at', '<=', $sessionEnd)
+                ->when(!empty($agentExtensions), function ($q) use ($agentExtensions) {
+                    $q->whereIn('ca.agent_id', $agentExtensions);
+                })
                 ->when(!empty($CustomerId), function ($q) use ($CustomerId) {
                     $q->whereIn('ca.ticket_id', $CustomerId);
                 })
                 ->distinct()
-                ->pluck('ca.ticket_id', 'ca.agent_id', 'ca.start_at');
+                ->pluck('ca.ticket_id');
 
 
             $matchedCallTotal = $matchedTicketIds->count();
@@ -1047,11 +1067,16 @@ class SetupPdsService
             $customerIds = array_values(array_filter(array_map('strval', $CustomerId)));
             $matchedIdsArr = array_values(array_filter(array_map('strval', $matchedTicketIds->all())));
             $matchedIdsLookup = array_fill_keys(array_map('strtolower', $matchedIdsArr), true);
-            $noStatusCount = 0;
-            foreach ($customerIds as $cid) {
-                if (!isset($matchedIdsLookup[strtolower(trim($cid))])) {
-                    $noStatusCount++;
+            if (count($customerIds) > 0) {
+                $noStatusCount = 0;
+                foreach ($customerIds as $cid) {
+                    if (!isset($matchedIdsLookup[strtolower(trim($cid))])) {
+                        $noStatusCount++;
+                    }
                 }
+            } else {
+                // Jika CustomerId kosong: No Status = DialContacted (dialer) - total matched tickets
+                $noStatusCount = max(0, (int) $contacted - $matchedCallTotal);
             }
 
             // 2) Ambil status TERBARU per ticket_id, hanya untuk ticket yang matched di atas
@@ -1131,12 +1156,9 @@ class SetupPdsService
             $endDateLabel = $rawSessionEnd ? Carbon::parse($rawSessionEnd)->format('d M Y') : '';
             $endTimeLabel = $rawSessionEnd ? Carbon::parse($rawSessionEnd)->format('H.i') : '';
 
-            $agentName = $row['AgentName']
-                ?? $row['Agent']
-                ?? $row['DeskColl']
-                ?? $row['DeskCollectorName']
-                ?? $row['AgentID']
-                ?? '-';
+            $agentName = !empty($agentName) && trim((string)$agentName) !== ''
+                ? (is_string($agentName) ? $agentName : (string)$agentName)
+                : '-';
 
             return [
                 'id'             => md5(($row['campaign_id'] ?? '') . '|' . ($rawSessionStart ?? '') . '|' . ($rawSessionEnd ?? '') . '|' . $agentName),

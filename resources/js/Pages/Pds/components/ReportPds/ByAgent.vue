@@ -68,7 +68,7 @@
                                 {{ row.agent ?? '-' }}
                             </Td>
                             <Td>
-                                {{ Number(row.data_utilize ?? row.data_contacted ?? 0) }}
+                                {{ Number(row.contacted ?? row.data_contacted ?? 0) }}
                             </Td>
                             <Td
                                 v-for="outbound in visibleOutbounds"

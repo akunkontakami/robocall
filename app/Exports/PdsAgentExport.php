@@ -163,7 +163,7 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                             $index === 0 ? $sessGroup['session_start'] : '',
                             $index === 0 ? $sessGroup['session_end'] : '',
                             (string) ($row['agent'] ?? '-'),
-                            (string) ($row['data_utilize'] ?? $row['data_contacted'] ?? 0),
+                            (string) ($row['contacted'] ?? $row['data_contacted'] ?? 0),
                         ], $statusColumns, [$noStatusValue]);
 
                         $currentRow++;
@@ -379,7 +379,7 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
 
     private function excludedStatuses(): array
     {
-        return [];
+        return [$this->keyNormalize('Contacted')];
     }
 
     private function visibleOutboundNames(): array
