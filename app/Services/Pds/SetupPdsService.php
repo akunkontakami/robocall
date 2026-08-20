@@ -735,14 +735,18 @@ class SetupPdsService
             })
             ->distinct()
             ->pluck('ca.ticket_id');
-            dd([
-                'sessionStart' => $sessionStart,
-                'sessionEnd'   => $sessionEnd,
-                'CustomerId'   => $CustomerId,
-                'matchedTicketIds' => $matchedTicketIds,
-            ]);
+            
 
         $matchedCallTotal = $matchedTicketIds->count();
+        dd([
+    'sessionStart' => $sessionStart,
+    'sessionEnd'   => $sessionEnd,
+    'CustomerId_count' => count($CustomerId),
+    'CustomerId' => $CustomerId,
+    'matchedTicketIds_count' => $matchedCallTotal,
+    'matchedTicketIds' => $matchedTicketIds->toArray(),
+    'missing_ids' => array_values(array_diff($CustomerId, $matchedTicketIds->toArray())),
+]);
 
         // 2) Ambil status TERBARU per ticket_id, hanya untuk ticket yang matched di atas
         $ticketStatus = collect();
