@@ -1003,6 +1003,9 @@ class SetupPdsService
                         if ($spvIdsStr) {
                             $join->whereIn('p_f.spv_id', $spvIdsStr);
                         }
+                        if ($pdsIdsStr) {
+                            $join->whereIn('p_f.id', $pdsIdsStr);
+                        }
                         
                     });
             })
