@@ -1003,9 +1003,7 @@ class SetupPdsService
                         if ($spvIdsStr) {
                             $join->whereIn('p_f.spv_id', $spvIdsStr);
                         }
-                        if ($pdsIdsStr) {
-                            $join->whereIn('p_f.id', $pdsIdsStr);
-                        }
+                        
                     });
             })
             ->where('th.company_id', $companyId)
@@ -1029,7 +1027,7 @@ class SetupPdsService
                 DB::raw("COUNT(DISTINCT th.ticket_id) as data_contacted"),
             ])
             ->groupBy(DB::raw('DATE(th.created_at)'), 'ca.agent_id');
-            dump($aggQuery->toSql(), $aggQuery->getBindings());
+            // dump($aggQuery->toSql(), $aggQuery->getBindings());
         $aggRowsList = $aggQuery->get();
         $aggByDateUser = [];
         $aggUserIds = [];
