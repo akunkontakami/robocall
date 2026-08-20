@@ -720,8 +720,8 @@ class SetupPdsService
             $sessionStart = $tanggalStart . ' 06:00:00';
             $sessionEnd   = $tanggalEnd   . ' 23:00:00';
 
-            $dialedNumbers = isset($row['DialedNumbers'])
-                ? array_filter(array_map('trim', explode(',', $row['DialedNumbers'])))
+            $CustomerId = isset($row['CustomerId'])
+                ? array_filter(array_map('trim', explode(',', $row['CustomerId'])))
                 : [];
 
             $ticketStatus = DB::table('ticket_histories as th')
@@ -733,16 +733,15 @@ class SetupPdsService
                 })
                 ->where('ca.start_at', '>=', $sessionStart)
                 ->where('ca.start_at', '<=', $sessionEnd)
-                ->when(!empty($dialedNumbers), function ($q) use ($dialedNumbers) {
+                ->when(!empty($CustomerId), function ($q) use ($CustomerId) {
                     $q->whereIn(
-                        DB::raw('JSON_UNQUOTE(JSON_EXTRACT(ca.sip_extension, \'$.destination\'))'),
-                        $dialedNumbers
+                        DB::raw('tickets.id'),$CustomerId
                     );
                 })
                 ->selectRaw('th.status, COUNT(DISTINCT th.ticket_id) as total');
 
             $ticketStatus->groupBy('th.status');
-            // dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+            dump($ticketStatus->toSql(), $ticketStatus->getBindings());
             $ticketStatus = $ticketStatus->pluck('total', 'th.status');
             $matchedCallTotal = (int) $ticketStatus->sum();
 
