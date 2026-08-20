@@ -724,26 +724,33 @@ class SetupPdsService
             ? array_filter(array_map('trim', explode(',', $row['CustomerId'])))
             : [];
 
-        // === QUERY: calls JOIN ticket_histories by ticket_id ===
-        // Tidak pakai GROUP BY di SQL (biar tidak kena ONLY_FULL_GROUP_BY),
-        // dedup per ticket_id dilakukan di PHP setelah data diambil.
-        $ticketStatus = DB::table('calls as ca')
-            ->join('ticket_histories as th', 'th.ticket_id', '=', 'ca.ticket_id')
+        // === QUERY (fixed, 2 tahap, hindari row explosion / memory exhausted) ===
+
+        // 1) Cari ticket_id unik yang match kondisi calls (TANPA join, hindari cross-multiplication)
+        $matchedTicketIds = DB::table('calls as ca')
             ->where('ca.start_at', '>=', $sessionStart)
             ->where('ca.start_at', '<=', $sessionEnd)
             ->when(!empty($CustomerId), function ($q) use ($CustomerId) {
                 $q->whereIn('ca.ticket_id', $CustomerId);
             })
-            ->select('th.status', 'ca.ticket_id')
-            ->orderByDesc('th.created_at') // ambil status TERBARU per ticket; sesuaikan nama kolom jika berbeda
-            ->get()
-            ->unique('ticket_id')
-            ->values();
+            ->distinct()
+            ->pluck('ca.ticket_id');
 
-        // dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+        $matchedCallTotal = $matchedTicketIds->count();
 
-        // total matched call = jumlah ticket unik yang match
-        $matchedCallTotal = $ticketStatus->count();
+        // 2) Ambil status TERBARU per ticket_id, hanya untuk ticket yang matched di atas
+        $ticketStatus = collect();
+        if ($matchedCallTotal > 0) {
+            $ticketStatus = DB::table('ticket_histories as th')
+                ->whereIn('th.ticket_id', $matchedTicketIds)
+                ->select('th.status', 'th.ticket_id')
+                ->orderByDesc('th.created_at') // sesuaikan nama kolom timestamp kalau bukan created_at
+                ->get()
+                ->unique('ticket_id')
+                ->values();
+        }
+
+        // dump($matchedTicketIds->count(), $ticketStatus->count());
 
         // sum per status dilakukan di sini (di collection, bukan lagi di SQL)
         $ticketStatus = $ticketStatus->groupBy('status')->map->count();
