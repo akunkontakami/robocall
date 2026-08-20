@@ -738,7 +738,7 @@ class SetupPdsService
             
 
         $matchedCallTotal = $matchedTicketIds->count();
-
+        
         // 2) Ambil status TERBARU per ticket_id, hanya untuk ticket yang matched di atas
         $ticketStatus = collect();
         if ($matchedCallTotal > 0) {
@@ -751,13 +751,14 @@ class SetupPdsService
                 ->values();
         }
         dd([
-    'sessionStart' => $sessionStart,
-    'sessionEnd'   => $sessionEnd,
-    'CustomerId_count' => count($CustomerId),
-    'CustomerId' => $CustomerId,
-    'matchedTicketIds_count' => $matchedCallTotal,
-    'matchedTicketIds' => $matchedTicketIds->toArray(),
-    'missing_ids' => array_values(array_diff($CustomerId, $matchedTicketIds->toArray())),
+    'sessionStart'       => $sessionStart,
+    'sessionEnd'         => $sessionEnd,
+    'CustomerId_count'   => count($CustomerId),
+    'CustomerId'         => $CustomerId,
+    'matchedTicketIds'   => $matchedTicketIds->count(),
+    'matchedTicketIds_list' => $matchedTicketIds->toArray(),
+    'ticketStatus_raw'   => $ticketStatus->toArray(), // ini yang mau kamu cek, list status per ticket
+    'ticketStatus_count' => $ticketStatus->count(),
 ]);
         $ticketStatus = $ticketStatus->groupBy('status')->map(function ($group) {
             return $group->count();
