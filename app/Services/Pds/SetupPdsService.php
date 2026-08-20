@@ -751,7 +751,16 @@ class SetupPdsService
         }
 
         // dump($matchedTicketIds->count(), $ticketStatus->count());
-        dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+        dd([
+            'sessionStart'       => $sessionStart,
+            'sessionEnd'         => $sessionEnd,
+            'CustomerId_count'   => count($CustomerId),
+            'CustomerId'         => $CustomerId,
+            'matchedTicketIds'   => $matchedTicketIds->count(),
+            'matchedTicketIds_list' => $matchedTicketIds->toArray(),
+            'ticketStatus_raw'   => $ticketStatus->toArray(), // ini yang mau kamu cek, list status per ticket
+            'ticketStatus_count' => $ticketStatus->count(),
+        ]);
         // sum per status dilakukan di sini (di collection, bukan lagi di SQL)
         $ticketStatus = $ticketStatus->groupBy('status')->map->count();
 
