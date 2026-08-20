@@ -27,6 +27,7 @@
                     <Th v-if="visibleOutbounds.length" :colspan="visibleOutbounds.length" class="text-center border-x">
                         Call Status(Contract)
                     </Th>
+                    <Th rowspan="2">No Status</Th>
                     <Th rowspan="2">Duration PDS</Th>
                 </tr>
                 <tr class="bg-[#F4F6FA]">
@@ -61,6 +62,7 @@
                 <Td v-for="(outbound, i) in visibleOutbounds" :key="outbound">
                     {{ row.ticket_status?.[outbound] ?? 0 }}
                 </Td>
+                <Td>{{ row.no_status }}</Td>
                 <Td>{{ row.duration_pds }}</Td>
             </tr>
         </Table>
@@ -138,6 +140,7 @@ const columns = computed(() => [
     "Uncontacted",
     "Abandon",
     ...visibleOutbounds.value,
+    'No Status',
     "Duration PDS",
 ]);
 

@@ -65,12 +65,14 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
                 array_fill(0, count($customerColumns) - 1, ''),
                 $visibleOutbounds ? ['Call Status(Contract)'] : [],
                 array_fill(0, max(count($visibleOutbounds) - 1, 0), ''),
+                ['No Status'],
                 ['Duration PDS']
             ),
             array_merge(
                 array_fill(0, count($primaryColumns), ''),
                 $customerColumns,
                 $visibleOutbounds,
+                [''],
                 ['']
             ),
         ];
@@ -108,9 +110,15 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
                         $this->excelColumn($callStatusStartIndex) . '1:' .
                         $this->excelColumn($callStatusEndIndex) . '1'
                     );
+                } else {
+                    $callStatusEndIndex = $customerEndIndex;
                 }
 
-                $durationColumnIndex = $customerEndIndex + $visibleOutboundCount + 1;
+                $noStatusColumnIndex = $callStatusEndIndex + 1;
+                $noStatusColumn = $this->excelColumn($noStatusColumnIndex);
+                $sheet->mergeCells("{$noStatusColumn}1:{$noStatusColumn}2");
+
+                $durationColumnIndex = $noStatusColumnIndex + 1;
                 $durationColumn = $this->excelColumn($durationColumnIndex);
                 $sheet->mergeCells("{$durationColumn}1:{$durationColumn}2");
 
@@ -151,6 +159,8 @@ class PdsCampaignExport implements FromArray, WithHeadings, WithEvents
                 (string) $this->uncontactedValue($row),
                 (string) ($row['abandoned'] ?? 0),
             ], $statusColumns, [
+                (string) ($row['no_status'] ?? 0),
+            ], [
                 $this->durationPdsValue($row),
             ]);
         }, $this->data);

@@ -739,27 +739,27 @@ class SetupPdsService
 
         $matchedCallTotal = $matchedTicketIds->count();
         
+        $customerIds = array_values(array_filter(array_map('strval', $CustomerId)));
+        $matchedIdsArr = array_values(array_filter(array_map('strval', $matchedTicketIds->all())));
+        $matchedIdsLookup = array_fill_keys(array_map('strtolower', $matchedIdsArr), true);
+        $noStatusCount = 0;
+        foreach ($customerIds as $cid) {
+            if (!isset($matchedIdsLookup[strtolower(trim($cid))])) {
+                $noStatusCount++;
+            }
+        }
+
         // 2) Ambil status TERBARU per ticket_id, hanya untuk ticket yang matched di atas
         $ticketStatus = collect();
         if ($matchedCallTotal > 0) {
             $ticketStatus = DB::table('ticket_histories as th')
                 ->whereIn('th.ticket_id', $matchedTicketIds)
                 ->select('th.status', 'th.ticket_id')
-                ->orderByDesc('th.created_at') // sesuaikan nama kolom timestamp kalau bukan created_at
+                ->orderByDesc('th.created_at')
                 ->get()
                 ->unique('ticket_id')
                 ->values();
         }
-        dd([
-    'sessionStart'       => $sessionStart,
-    'sessionEnd'         => $sessionEnd,
-    'CustomerId_count'   => count($CustomerId),
-    'CustomerId'         => $CustomerId,
-    'matchedTicketIds'   => $matchedTicketIds->count(),
-    'matchedTicketIds_list' => $matchedTicketIds->toArray(),
-    'ticketStatus_raw'   => $ticketStatus->toArray(), // ini yang mau kamu cek, list status per ticket
-    'ticketStatus_count' => $ticketStatus->count(),
-]);
         $ticketStatus = $ticketStatus->groupBy('status')->map(function ($group) {
             return $group->count();
         });
@@ -819,7 +819,7 @@ class SetupPdsService
             'name'           => $campaignName,
             'session_start'  => $row['SessionStart'] ?? null,
             'session_end'    => $row['SessionEnd'] ?? null,
-            'total_agent'    => null, // belum ada sumber data
+            'total_agent'    => null,
             'data_size'      => $dataSize,
             'data_utilize'   => $dataUtilize,
             'data_unutilize' => max($dataSize - $dataUtilize, 0),
@@ -828,8 +828,9 @@ class SetupPdsService
             'uncontacted'    => max($dataUtilize - $contacted - $abandoned, 0),
             'abandoned'      => $abandoned,
             'ticket_status'  => $ticketStatus,
+            'no_status'      => $noStatusCount,
             'duration_pds'   => gmdate('H:i:s', $duration),
-            '_matched_call_total' => $matchedCallTotal,
+            '_matched_call_total' => $matchedCallTotal + $noStatusCount,
         ];
     });
 
