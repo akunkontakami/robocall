@@ -1009,8 +1009,7 @@ class SetupPdsService
             ->where('th.company_id', $companyId)
             ->where('th.created_at', '>=', $start_date . ' 06:00:00')
             ->where('th.created_at', '<=', $end_date . ' 23:59:59')
-            ->where('ca.category', 'Incoming Call')
-            ->whereNotNull('ca.pstn_id')
+            
             ->when($agentIds, fn($q) => $q->whereIn('ca.agent_id', $agentIdsStr))
             ->select([
                 'ca.agent_id as user_id',
@@ -1027,7 +1026,7 @@ class SetupPdsService
                 DB::raw("COUNT(DISTINCT th.ticket_id) as data_contacted"),
             ])
             ->groupBy(DB::raw('DATE(th.created_at)'), 'ca.agent_id');
-            dump($aggQuery->toSql(), $aggQuery->getBindings());
+            // dump($aggQuery->toSql(), $aggQuery->getBindings());
         $aggRowsList = $aggQuery->get();
         $aggByDateUser = [];
         $aggUserIds = [];
