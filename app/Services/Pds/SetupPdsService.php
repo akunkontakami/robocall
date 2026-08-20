@@ -881,11 +881,17 @@ class SetupPdsService
         ];
     }
 
-    public function getByAgents($companyId, $start_date, $end_date, $campaignId = null, $pdsId = null, $search = null, $limit = null, $page = null)
+    public function getByAgents($companyId, $search, $filter, $limit)
     {
-        $page = max((int) ($page ?: 1), 1);
-        $limit = (int) ($limit ?: 10);
+        $page = max((int) request('page', 1), 1);
+        $isExport = $limit === null;
+        $limit = $isExport ? null : (int) ($limit ?: 10);
         $id = $companyId ?: '';
+
+        $start_date = $filter['created_start'] ?? now()->toDateString();
+        $end_date = $filter['created_end'] ?? now()->toDateString();
+        $campaignId = $filter['campaigns'] ?? null;
+        $pdsId = $filter['pds'] ?? null;
 
         // Normalize campaignId to single value (take first if array)
         if (is_array($campaignId)) {
@@ -925,8 +931,8 @@ class SetupPdsService
         }
 
         foreach ($pdsNames as $pdsName) {
-            // With multiple PDSes, always do full pagination to aggregate all data
-            if ($shouldFilterFromLocalQuery || $multiplePds) {
+            // With multiple PDSes, export, or local filtering - always do full pagination to aggregate all data
+            if ($shouldFilterFromLocalQuery || $multiplePds || $isExport) {
                 $dialerPage = 1;
                 $dialerPerPage = 100;
 
@@ -937,8 +943,10 @@ class SetupPdsService
                         'tenant_id'  => user()->tenant_id,
                         'start_date' => $start_date,
                         'end_date'   => $end_date,
-                        'limit'      => $limit,
                     ];
+                    if ($limit !== null) {
+                        $query['limit'] = $limit;
+                    }
 
                     if ($pdsName) {
                         $query['campaign_id'] = $pdsName;
@@ -1112,9 +1120,30 @@ class SetupPdsService
 
         $needLocalPagination = $shouldFilterFromLocalQuery || $multiplePds;
 
-        if ($needLocalPagination) {
+        if ($needLocalPagination || $isExport) {
             $data = $data->filter(fn($row) => (int) ($row['_matched_call_total'] ?? 0) > 0)->values();
             $total = $data->count();
+
+            if ($isExport) {
+                $data = $data
+                    ->map(function ($row) {
+                        unset($row['_matched_call_total']);
+
+                        return $row;
+                    })
+                    ->values();
+
+                return [
+                    'data'          => $data,
+                    'current_page'  => 1,
+                    'last_page'     => 1,
+                    'from'          => $total > 0 ? 1 : 0,
+                    'to'            => $total,
+                    'total'         => $total,
+                    'per_page'      => $total,
+                ];
+            }
+
             $lastPage = max((int) ceil($total / $limit), 1);
             $currentPage = min($page, $lastPage);
             $from = $total > 0 ? (($currentPage - 1) * $limit) + 1 : 0;
