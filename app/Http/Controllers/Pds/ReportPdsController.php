@@ -56,14 +56,14 @@ class ReportPdsController extends Controller
         $filter['created_start'] = request('created_start', now()->toDateString());
         $filter['created_end'] = request('created_end', now()->toDateString());
 
-        return ReportAgentResource::collection(
-            (new SetupPdsService())->getByAgents(
-                companyId: user()->company_id,
-                search: request('search', ''),
-                filter: $filter,
-                limit: request('limit', 10),
-            )
+        $data = (new SetupPdsService())->getByAgents(
+            companyId: user()->company_id,
+            search: request('search', ''),
+            filter: $filter,
+            limit: request('limit', 10),
         );
+
+        return response()->json($data);
     }
 
     public function trackingDatatable()
@@ -105,17 +105,14 @@ class ReportPdsController extends Controller
         $filter['created_start'] = request('created_start', now()->toDateString());
         $filter['created_end'] = request('created_end', now()->toDateString());
 
-        $dataCollection = ReportAgentResource::collection(
-            (new SetupPdsService())->getByAgents(
-                companyId: user()->company_id,
-                search: request('search', ''),
-                filter: $filter,
-                limit: null
-            )
+        $response = (new SetupPdsService())->getByAgents(
+            companyId: user()->company_id,
+            search: request('search', ''),
+            filter: $filter,
+            limit: null
         );
 
-        $wrapped = $dataCollection->toArray($request);
-        $data = $wrapped['data'] ?? $wrapped;
+        $data = $response['data'] ?? [];
 
         $filename = 'pds_agent_' . now()->format('Ymd_His') . '.xlsx';
 

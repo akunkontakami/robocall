@@ -905,14 +905,16 @@ class SetupPdsService
         $selectedPdsList = collect();
         if (!empty($pdsIds)) {
             $selectedPdsList = Pds::query()
-                ->select(['id', 'pds_name', 'marketing_campaign_id'])
+                ->select(['id', 'pds_name', 'marketing_campaign_id', 'spv_id'])
+                ->with(['spv', 'spv.companyUser'])
                 ->whereIn('id', $pdsIds)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId));
             $selectedPdsList = $selectedPdsList->get();
         } elseif ($campaignId) {
             // Filter by campaign (marketing_campaign_id) -> resolve matching PDS names
             $selectedPdsList = Pds::query()
-                ->select(['id', 'pds_name', 'marketing_campaign_id'])
+                ->select(['id', 'pds_name', 'marketing_campaign_id', 'spv_id'])
+                ->with(['spv', 'spv.companyUser'])
                 ->where('marketing_campaign_id', $campaignId)
                 ->when($companyId, fn($q) => $q->where('company_id', $companyId));
             $selectedPdsList = $selectedPdsList->get();
@@ -989,7 +991,26 @@ class SetupPdsService
         // Build PDS name lookup for multi-PDS rows (pds_name == campaign_id on dialer)
         $pdsNameLookup = $selectedPdsList->pluck('pds_name', 'pds_name')->filter();
 
-        $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup) {
+        // Build PDS metadata lookup: spv name per campaign_id (pds_name)
+        $pdsSpvLookup = $selectedPdsList->mapWithKeys(function ($p) {
+            $spvName = $p->spv->companyUser->name
+                ?? $p->spv->name
+                ?? $p->spv->username
+                ?? ($p->spv->name ?? null)
+                ?? '-';
+            return [$p->pds_name => $spvName];
+        })->all();
+
+        // Default SPV fallback (first PDS) for single-selection
+        $defaultSpv = $selectedPds
+            ? ($selectedPds->spv->companyUser->name
+                ?? $selectedPds->spv->name
+                ?? $selectedPds->spv->username
+                ?? ($selectedPds->spv->name ?? null)
+                ?? '-')
+            : '-';
+
+        $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup, $pdsSpvLookup, $defaultSpv) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
             $contacted    = $row['DialContacted'] ?? 0;
@@ -1098,14 +1119,43 @@ class SetupPdsService
                 $campaignName = $selectedPds?->pds_name ?? ($row['campaign_id'] ?? null);
             }
 
+            $campaignKeyForSpv = is_string($campaignName) ? $campaignName : '';
+            $spvName = $pdsSpvLookup[$campaignKeyForSpv] ?? $defaultSpv;
+
+            $rawSessionStart = $row['SessionStart'] ?? null;
+            $rawSessionEnd = $row['SessionEnd'] ?? null;
+            $dateVal = $rawSessionStart ? Carbon::parse($rawSessionStart)->format('Y-m-d') : '';
+            $dateLabel = $rawSessionStart ? Carbon::parse($rawSessionStart)->format('d M Y') : '';
+            $startDateLabel = $rawSessionStart ? Carbon::parse($rawSessionStart)->format('d M Y') : '';
+            $startTimeLabel = $rawSessionStart ? Carbon::parse($rawSessionStart)->format('H.i') : '';
+            $endDateLabel = $rawSessionEnd ? Carbon::parse($rawSessionEnd)->format('d M Y') : '';
+            $endTimeLabel = $rawSessionEnd ? Carbon::parse($rawSessionEnd)->format('H.i') : '';
+
+            $agentName = $row['AgentName']
+                ?? $row['Agent']
+                ?? $row['DeskColl']
+                ?? $row['DeskCollectorName']
+                ?? $row['AgentID']
+                ?? '-';
+
             return [
+                'id'             => md5(($row['campaign_id'] ?? '') . '|' . ($rawSessionStart ?? '') . '|' . ($rawSessionEnd ?? '') . '|' . $agentName),
                 'campaign'       => $campaignName,
                 'name'           => $campaignName,
-                'session_start'  => $row['SessionStart'] ?? null,
-                'session_end'    => $row['SessionEnd'] ?? null,
+                'spv'            => $spvName,
+                'agent'          => is_string($agentName) ? $agentName : (string) $agentName,
+                'date'           => $dateVal,
+                'date_label'     => $dateLabel,
+                'start_date'     => $startDateLabel,
+                'start_time'     => $startTimeLabel,
+                'end_date'       => $endDateLabel,
+                'end_time'       => $endTimeLabel,
+                'session_start'  => $rawSessionStart,
+                'session_end'    => $rawSessionEnd,
                 'total_agent'    => null,
                 'data_size'      => $dataSize,
                 'data_utilize'   => $dataUtilize,
+                'data_contacted' => $contacted,
                 'data_unutilize' => max($dataSize - $dataUtilize, 0),
                 'attempt'        => $row['DialCount'] ?? 0,
                 'contacted'      => $contacted,
