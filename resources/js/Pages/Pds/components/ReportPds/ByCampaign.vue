@@ -98,7 +98,7 @@ const visibleOutbounds = computed(() => {
         rows.some((row: any) => Number(row.ticket_status?.[outbound] ?? 0) !== 0)
     );
 
-    const fromPropsSet = new Set(fromProps.map(s => String(s).toLowerCase()));
+    const fromPropsSet = new Set(fromProps.map((s: string) => String(s).toLowerCase()));
     const extra: string[] = [];
     const extraSeen = new Set<string>();
 
