@@ -23,6 +23,7 @@
                     <Th v-if="visibleOutbounds.length" :colspan="visibleOutbounds.length" class="text-center border-x">
                         Call Status
                     </Th>
+                    <Th rowspan="2">No Status</Th>
                 </tr>
                 <tr v-if="visibleOutbounds.length" class="bg-[#F4F6FA]">
                     <Th
@@ -75,6 +76,7 @@
                             >
                                 {{ findStatusValue(row, outbound) }}
                             </Td>
+                            <Td>{{ findStatusValue(row, 'No Status') }}</Td>
                         </tr>
                     </template>
                 </template>
@@ -113,37 +115,67 @@ const keyNormalize = (s: string) => String(s ?? '').toLowerCase().replace(/[\s\-
 
 const EXCLUDED_STATUSES = new Set([
     'visitrequestcontacted',
-    'visitrequest',
     'contacted',
-    'vr',
-    'visitrequestcontacted',
 ]);
 
 const CALL_STATUS_ALIASES: Record<string, string[]> = {
     'PTP': ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP'],
     'CallBack': ['Call Back', 'Callback', 'CallBack', 'CALL BACK'],
-    'BPPartial': ['BP Partial', 'Bp Partial', 'BPPartial'],
+    'BPPartial': ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date'],
     'NBPA': ['NBP-A', 'NBP A', 'NBPA'],
     'NBPB': ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung'],
     'NBPC': ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number'],
     'PaidinConfins': ['Paid in Confins', 'Paid In Confins', 'PaidinConfins'],
+    'KP': ['KP', 'Kp', 'kp'],
+    'VisitRequest': ['Visit Request', 'VisitRequest', 'VR', 'visit request'],
 };
 
-const CALL_STATUS_ORDER = ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins'];
+const CALL_STATUS_ORDER = ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins', 'KP', 'VisitRequest'];
 
 const findStatusValue = (row: any, statusName: string): number => {
-    if (!row || !row.ticket_status) return 0;
-    const direct = row.ticket_status[statusName];
-    if (direct !== undefined && direct !== null) return Number(direct) || 0;
+    if (!row) return 0;
     const target = keyNormalize(statusName);
-    for (const key of Object.keys(row.ticket_status)) {
-        if (keyNormalize(key) === target) {
-            const v = row.ticket_status[key];
-            if (v !== undefined && v !== null) return Number(v) || 0;
+
+    if (target === keynormalize_NoStatus) {
+        if (row.ticket_status && row.ticket_status['No Status'] !== undefined) return Number(row.ticket_status['No Status']) || 0;
+        if (row.NoStatus !== undefined) return Number(row.NoStatus) || 0;
+        if (row.no_status !== undefined) return Number(row.no_status) || 0;
+        return 0;
+    }
+    if (target === keyNormalize('KP')) {
+        if (row.ticket_status && row.ticket_status['KP'] !== undefined) return Number(row.ticket_status['KP']) || 0;
+        if (row.KP !== undefined) return Number(row.KP) || 0;
+    }
+    if (target === keyNormalize('Visit Request')) {
+        if (row.ticket_status && row.ticket_status['Visit Request'] !== undefined) return Number(row.ticket_status['Visit Request']) || 0;
+        if (row.VisitRequest !== undefined) return Number(row.VisitRequest) || 0;
+    }
+
+    if (row.ticket_status) {
+        const direct = row.ticket_status[statusName];
+        if (direct !== undefined && direct !== null) return Number(direct) || 0;
+        for (const key of Object.keys(row.ticket_status)) {
+            if (keyNormalize(key) === target) {
+                const v = row.ticket_status[key];
+                if (v !== undefined && v !== null) return Number(v) || 0;
+            }
+        }
+        for (const [aliasName, variants] of Object.entries(CALL_STATUS_ALIASES)) {
+            for (const variant of variants) {
+                if (keyNormalize(variant) === target || keyNormalize(aliasName) === target) {
+                    const keyInTs = Object.keys(row.ticket_status).find(k =>
+                        keyNormalize(k) === keyNormalize(variant) || keyNormalize(k) === keyNormalize(aliasName)
+                    );
+                    if (keyInTs !== undefined) {
+                        return Number(row.ticket_status[keyInTs]) || 0;
+                    }
+                }
+            }
         }
     }
     return 0;
 };
+const keynormalize_NoStatus = keyNormalize('No Status');
 
 const propsOutboundNames = computed(() =>
     (props.outbounds ?? []).map((outbound: any) =>
@@ -170,16 +202,39 @@ const filteredPropsOutboundNames = computed(() => {
 
 const visibleOutbounds = computed(() => {
     const filtered = filteredPropsOutboundNames.value;
+    const allRows: any[] = paginate.data.value ?? [];
 
-    if (filtered && filtered.length) {
-        return filtered;
+    const fromPropsSet = new Set(filtered.map((s: string) => keyNormalize(s)));
+    const extra: string[] = [];
+    const extraSeen = new Set<string>();
+
+    allRows.forEach((row: any) => {
+        const ts = row.ticket_status ?? {};
+        Object.keys(ts).forEach((key) => {
+            const norm = keyNormalize(key);
+            if (EXCLUDED_STATUSES.has(norm)) return;
+            if (fromPropsSet.has(norm) || extraSeen.has(norm)) return;
+            if (Number(ts[key] ?? 0) === 0) return;
+            extraSeen.add(norm);
+            extra.push(key);
+        });
+    });
+
+    const combined: string[] = [...filtered, ...extra];
+    if (combined && combined.length) {
+        return combined;
     }
 
-    const firstRow = (paginate.data.value ?? [])[0];
+    const firstRow = allRows[0];
     if (firstRow && firstRow.ticket_status) {
-        return Object.keys(firstRow.ticket_status);
+        return Object.keys(firstRow.ticket_status).filter((k: string) => !EXCLUDED_STATUSES.has(keyNormalize(k)));
     }
-    return CALL_STATUS_ORDER;
+    return CALL_STATUS_ORDER.map((a: string) => {
+        for (const [alias, variants] of Object.entries(CALL_STATUS_ALIASES)) {
+            if (alias === a && variants.length) return variants[0];
+        }
+        return a;
+    });
 });
 
 const columns = computed(() => [
@@ -188,6 +243,7 @@ const columns = computed(() => [
     "Deskcoll",
     "Data Contacted",
     ...visibleOutbounds.value,
+    "No Status",
 ]);
 
 const groupedByDate = computed(() => {
