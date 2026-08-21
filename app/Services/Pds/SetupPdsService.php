@@ -1010,7 +1010,31 @@ class SetupPdsService
                 ?? '-')
             : '-';
 
-        $data = $dialerRows->map(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup, $pdsSpvLookup, $defaultSpv) {
+        $campaignNormalizer = function ($rawStatus) {
+            $canonicalMap = [
+                'Promised to Pay (PTP)' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP', 'ptp'],
+                'Call Back'             => ['Call Back', 'Callback', 'CallBack', 'CALL BACK', 'call back'],
+                'BP Partial'            => ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date', 'bp partial'],
+                'NBP-A'                 => ['NBP-A', 'NBP A', 'NBPA', 'nbp-a', 'nbpa'],
+                'NBP-B (Salah Sambung)' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung', 'nbp-b', 'nbpb'],
+                'NBP-C (Invalid Number)' => ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number', 'nbp-c', 'nbpc'],
+                'Paid in Confins'       => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins', 'paid in confins'],
+                'KP'                    => ['KP', 'Kp', 'kp'],
+                'Visit Request'         => ['Visit Request', 'VisitRequest', 'VR', 'visit request'],
+                'Visit Request - Contacted' => ['Visit Request - Contacted', 'Visit Request-Contacted', 'VR - Contacted', 'Contacted', 'Visit Request Contacted', 'visit request - contacted'],
+            ];
+            $normRaw = mb_strtolower(trim($rawStatus));
+            foreach ($canonicalMap as $canonical => $variants) {
+                foreach ($variants as $v) {
+                    if (mb_strtolower(trim($v)) === $normRaw) {
+                        return $canonical;
+                    }
+                }
+            }
+            return $rawStatus;
+        };
+
+        $data = $dialerRows->flatMap(function ($row) use ($companyId, $start_date, $end_date, $resolvedCampaignId, $selectedPds, $multiplePds, $pdsNameLookup, $pdsSpvLookup, $defaultSpv, $campaignNormalizer) {
             $dataSize     = $row['DataSize'] ?? 0;
             $dataUtilize  = $row['DataDialed'] ?? 0;
             $contacted    = $row['DialContacted'] ?? 0;
@@ -1018,10 +1042,8 @@ class SetupPdsService
             $sessionStart = $row['SessionStart'] ?? $start_date;
             $sessionEnd   = $row['SessionEnd']   ?? $end_date;
 
-            // ambil hanya bagian tanggal (YYYY-MM-DD)
             $tanggalStart = date('Y-m-d', strtotime($sessionStart));
             $tanggalEnd   = date('Y-m-d', strtotime($sessionEnd));
-            // set jam tetap: 06:00:00 dan 21:00:00
             $sessionStart = $tanggalStart . ' 06:00:00';
             $sessionEnd   = $tanggalEnd   . ' 23:00:00';
 
@@ -1029,35 +1051,21 @@ class SetupPdsService
                 ? array_filter(array_map('trim', explode(',', $row['CustomerId'])))
                 : [];
 
-            $agentName = $row['AgentName']
+            $dialerAgentName = $row['AgentName']
                 ?? $row['Agent']
                 ?? $row['DeskColl']
                 ?? $row['DeskCollectorName']
                 ?? $row['AgentID']
                 ?? null;
 
-            // === Resolve extension / agent IDs for this agent (filter per-agent di calls table) ===
-            $agentExtensions = [];
-            if ($agentName !== null && trim((string)$agentName) !== '') {
-                $agentExtensions = DB::table('cms_extension')
-                    ->join('company_users', 'company_users.user_id', '=', 'cms_extension.agent_id')
-                    ->where('cms_extension.agent_login', trim((string)$agentName))
-                    ->pluck('cms_extension.agent_id')
-                    ->all();
-            }
-            // 1) Cari ticket_id unik yang match kondisi calls (TANPA join, hindari cross-multiplication)
             $matchedTicketIds = DB::table('calls as ca')
                 ->where('ca.start_at', '>=', $sessionStart)
                 ->where('ca.start_at', '<=', $sessionEnd)
-                ->when(!empty($agentExtensions), function ($q) use ($agentExtensions) {
-                    $q->whereIn('ca.agent_id', $agentExtensions);
-                })
                 ->when(!empty($CustomerId), function ($q) use ($CustomerId) {
                     $q->whereIn('ca.ticket_id', $CustomerId);
                 })
                 ->distinct()
                 ->pluck('ca.ticket_id');
-
 
             $matchedCallTotal = $matchedTicketIds->count();
 
@@ -1065,126 +1073,56 @@ class SetupPdsService
             $matchedIdsArr = array_values(array_filter(array_map('strval', $matchedTicketIds->all())));
             $matchedIdsLookup = array_fill_keys(array_map('strtolower', $matchedIdsArr), true);
             if (count($customerIds) > 0) {
-                $noStatusCount = 0;
+                $noStatusCountGlobal = 0;
                 foreach ($customerIds as $cid) {
                     if (!isset($matchedIdsLookup[strtolower(trim($cid))])) {
-                        $noStatusCount++;
+                        $noStatusCountGlobal++;
                     }
                 }
             } else {
-                // Jika CustomerId kosong: No Status = DialContacted (dialer) - total matched tickets
-                $noStatusCount = max(0, (int) $contacted - $matchedCallTotal);
+                $noStatusCountGlobal = max(0, (int) $contacted - $matchedCallTotal);
             }
 
-            // 2) Ambil status TERBARU per ticket_id, hanya untuk ticket yang matched di atas
-            $ticketStatus = collect();
-            $dbAgentFromTicket = null;
+            $allTicketsWithAgent = collect();
+            $incomingTicketIdsArr = [];
             if ($matchedCallTotal > 0) {
-                $ticketStatus = DB::table('ticket_histories as th')
+                $latestTh = DB::table('ticket_histories as th')
+                    ->select(DB::raw('MAX(created_at) as max_created, ticket_id'))
+                    ->whereIn('th.ticket_id', $matchedTicketIds)
+                    ->groupBy('th.ticket_id');
+
+                $allTicketsWithAgent = DB::table('ticket_histories as th')
+                    ->joinSub($latestTh, 'latest_th', function ($j) {
+                        $j->on('th.ticket_id', '=', 'latest_th.ticket_id')
+                          ->on('th.created_at', '=', 'latest_th.max_created');
+                    })
                     ->join('company_users', 'company_users.user_id', '=', 'th.agent_id')
                     ->join('calls', 'calls.ticket_id', '=', 'th.ticket_id')
                     ->whereIn('th.ticket_id', $matchedTicketIds)
                     ->where('calls.category', '=', 'Incoming Call')
-                    ->select('th.status', 'calls.category', 'th.ticket_id', 'company_users.name as agent_username','company_users.code as agent_name','th.agent_id as agent_id','company_users.name as DeskCollectorName')
-                    // ->groupBy('th.ticket_id')
+                    ->select(
+                        'th.status',
+                        'th.ticket_id',
+                        'company_users.name as agent_username',
+                        'company_users.code as agent_name',
+                        'th.agent_id as agent_id',
+                        'company_users.name as DeskCollectorName'
+                    )
                     ->orderByDesc('th.created_at')
                     ->get()
                     ->unique('ticket_id')
                     ->values();
 
-                $matchedTicketIdsArr = array_values(array_filter(array_map('strval', $matchedTicketIds->all())));
-                $statusTicketIdsArr = array_values(array_filter(array_map('strval', $ticketStatus->pluck('ticket_id')->all())));
-                $statusIdsLookup = array_fill_keys(array_map('strtolower', $statusTicketIdsArr), true);
+                $incomingTicketIdsArr = array_values(array_filter(array_map('strval', $allTicketsWithAgent->pluck('ticket_id')->all())));
+                $incomingIdsLookup = array_fill_keys(array_map('strtolower', $incomingTicketIdsArr), true);
                 $noStatusFromCategory = 0;
-                foreach ($matchedTicketIdsArr as $mtid) {
-                    if (!isset($statusIdsLookup[strtolower(trim($mtid))])) {
+                foreach ($matchedIdsArr as $mtid) {
+                    if (!isset($incomingIdsLookup[strtolower(trim($mtid))])) {
                         $noStatusFromCategory++;
                     }
                 }
-                $noStatusCount += $noStatusFromCategory;
-                    
-                $firstAgentRow = $ticketStatus->first(function ($r) {
-                    return !empty($r->agent_name) || !empty($r->agent_username) || !empty($r->DeskCollectorName);
-                });
-                if ($firstAgentRow) {
-                    $dbAgentFromTicket = (object) [
-                        'agent_name' => $firstAgentRow->agent_name ?? null,
-                        'agent_username' => $firstAgentRow->agent_username ?? null,
-                        'DeskCollectorName' => $firstAgentRow->DeskCollectorName ?? null,
-                    ];
-                }
+                $noStatusCountGlobal += $noStatusFromCategory;
             }
-
-            // 2b) Fallback: ambil agent dari tabel calls jika ticket_histories belum nemu agent data
-            $dbAgentFromCalls = null;
-            if ($matchedCallTotal > 0 && !$dbAgentFromTicket) {
-                $callAgentRow = DB::table('calls as ca')
-                    ->join('company_users', 'company_users.user_id', '=', 'ca.agent_id')
-                    ->whereIn('ca.ticket_id', $matchedTicketIds)
-                    ->select('company_users.name as agent_name', 'company_users.code as agent_username', 'company_users.name as DeskCollectorName')
-                    ->orderByDesc('ca.start_at')
-                    ->first();
-                if ($callAgentRow) {
-                    $dbAgentFromCalls = (object)[
-                        'agent_name' => $callAgentRow->agent_name ?? null,
-                        'agent_username' => $callAgentRow->agent_username ?? null,
-                        'DeskCollectorName' => $callAgentRow->DeskCollectorName ?? null,
-                    ];
-                }
-            }
-
-            
-            // ========== OVERRIDE $agentName DARI DB (DeskColl) JIKA API DIALER TIDAK PUNYA ==========
-            $agentFromDb = $dbAgentFromTicket ?? $dbAgentFromCalls;
-            if ($agentFromDb) {
-                $agentDbResolved = $agentFromDb->agent_username    // company_users.name (nama agent, contoh: Ari Firdaus)
-                    ?? $agentFromDb->DeskCollectorName             // company_users.name (alias lain)
-                    ?? $agentFromDb->agent_name                    // company_users.code (kode agent, contoh: D136) - fallback terakhir
-                    ?? null;
-                if ($agentDbResolved && trim((string)$agentDbResolved) !== '') {
-                    $agentName = $agentDbResolved;
-                }
-            }
-            // ======================================================================================
-
-            $ticketStatus = $ticketStatus->groupBy('status')->map(function ($group) {
-                return $group->count();
-            });
-
-            $campaignNormalizer = function ($rawStatus) {
-                $canonicalMap = [
-                    'Promised to Pay (PTP)' => ['Promised to Pay (PTP)', 'Promised to Pay', 'PTP', 'ptp'],
-                    'Call Back'             => ['Call Back', 'Callback', 'CallBack', 'CALL BACK', 'call back'],
-                    'BP Partial'            => ['BP Partial', 'Bp Partial', 'BPPartial', 'Hold Date', 'bp partial'],
-                    'NBP-A'                 => ['NBP-A', 'NBP A', 'NBPA', 'nbp-a', 'nbpa'],
-                    'NBP-B (Salah Sambung)' => ['NBP-B (Salah Sambung)', 'NBP-B', 'NBP B', 'NBPB', 'Salah Sambung', 'nbp-b', 'nbpb'],
-                    'NBP-C (Invalid Number)' => ['NBP-C (Invalid Number)', 'NBP-C', 'NBP C', 'NBPC', 'Invalid Number', 'nbp-c', 'nbpc'],
-                    'Paid in Confins'       => ['Paid in Confins', 'Paid In Confins', 'PaidinConfins', 'paid in confins'],
-                    'KP'                    => ['KP', 'Kp', 'kp'],
-                    'Visit Request'         => ['Visit Request', 'VisitRequest', 'VR', 'visit request'],
-                    'Visit Request - Contacted' => ['Visit Request - Contacted', 'Visit Request-Contacted', 'VR - Contacted', 'Contacted', 'Visit Request Contacted', 'visit request - contacted'],
-                ];
-                $normRaw = mb_strtolower(trim($rawStatus));
-                foreach ($canonicalMap as $canonical => $variants) {
-                    foreach ($variants as $v) {
-                        if (mb_strtolower(trim($v)) === $normRaw) {
-                            return $canonical;
-                        }
-                    }
-                }
-                return $rawStatus;
-            };
-
-            $normalized = collect();
-            foreach ($ticketStatus as $rawKey => $count) {
-                $canonicalKey = $campaignNormalizer($rawKey);
-                if ($normalized->has($canonicalKey)) {
-                    $normalized[$canonicalKey] += $count;
-                } else {
-                    $normalized[$canonicalKey] = $count;
-                }
-            }
-            $ticketStatus = $normalized->toArray();
 
             $duration = 0;
             if (!empty($row['SessionStart']) && !empty($row['SessionEnd'])) {
@@ -1194,7 +1132,6 @@ class SetupPdsService
                 );
             }
 
-            // When multiple PDS selected, use row's campaign_id from API instead of single PDS name
             if ($multiplePds) {
                 $campaignName = $pdsNameLookup[$row['campaign_id'] ?? ''] ?? ($row['campaign_id'] ?? null);
             } else {
@@ -1213,38 +1150,139 @@ class SetupPdsService
             $endDateLabel = $rawSessionEnd ? Carbon::parse($rawSessionEnd)->format('d M Y') : '';
             $endTimeLabel = $rawSessionEnd ? Carbon::parse($rawSessionEnd)->format('H.i') : '';
 
-            $agentName = !empty($agentName) && trim((string)$agentName) !== ''
-                ? (is_string($agentName) ? $agentName : (string)$agentName)
-                : '-';
+            $sessionRows = [];
 
-            return [
-                'id'             => md5(($row['campaign_id'] ?? '') . '|' . ($rawSessionStart ?? '') . '|' . ($rawSessionEnd ?? '') . '|' . $agentName),
-                'campaign'       => $campaignName,
-                'name'           => $campaignName,
-                'spv'            => $spvName,
-                'agent'          => is_string($agentName) ? $agentName : (string) $agentName,
-                'date'           => $dateVal,
-                'date_label'     => $dateLabel,
-                'start_date'     => $startDateLabel,
-                'start_time'     => $startTimeLabel,
-                'end_date'       => $endDateLabel,
-                'end_time'       => $endTimeLabel,
-                'session_start'  => $rawSessionStart,
-                'session_end'    => $rawSessionEnd,
-                'total_agent'    => null,
-                'data_size'      => $dataSize,
-                'data_utilize'   => $dataUtilize,
-                'data_contacted' => $contacted,
-                'data_unutilize' => max($dataSize - $dataUtilize, 0),
-                'attempt'        => $row['DialCount'] ?? 0,
-                'contacted'      => $contacted,
-                'uncontacted'    => max($dataUtilize - $contacted - $abandoned, 0),
-                'abandoned'      => $abandoned,
-                'ticket_status'  => $ticketStatus,
-                'no_status'      => $noStatusCount,
-                'duration_pds'   => gmdate('H:i:s', $duration),
-                '_matched_call_total' => $matchedCallTotal + $noStatusCount,
-            ];
+            if ($allTicketsWithAgent->count() > 0) {
+                $groupedByAgent = $allTicketsWithAgent->groupBy(function ($t) {
+                    return $t->agent_id
+                        ?? ($t->DeskCollectorName ?? ($t->agent_username ?? 'unknown'));
+                });
+
+                foreach ($groupedByAgent as $_agentKey => $agentTickets) {
+                    $firstTicket = $agentTickets->first();
+                    $rowAgentName = $firstTicket->agent_username
+                        ?? $firstTicket->DeskCollectorName
+                        ?? $firstTicket->agent_name
+                        ?? $dialerAgentName
+                        ?? '-';
+
+                    $rawStatusCounts = $agentTickets->groupBy('status')->map(fn($g) => $g->count());
+                    $normalizedStatus = collect();
+                    foreach ($rawStatusCounts as $rawKey => $count) {
+                        $canonicalKey = $campaignNormalizer($rawKey);
+                        if ($normalizedStatus->has($canonicalKey)) {
+                            $normalizedStatus[$canonicalKey] += $count;
+                        } else {
+                            $normalizedStatus[$canonicalKey] = $count;
+                        }
+                    }
+
+                    $agentTotal = $agentTickets->count();
+                    $sessionRows[] = [
+                        'id'             => md5(($row['campaign_id'] ?? '') . '|' . ($rawSessionStart ?? '') . '|' . ($rawSessionEnd ?? '') . '|' . $rowAgentName . '|' . ($_agentKey ?? '')),
+                        'campaign'       => $campaignName,
+                        'name'           => $campaignName,
+                        'spv'            => $spvName,
+                        'agent'          => is_string($rowAgentName) ? $rowAgentName : (string) $rowAgentName,
+                        'date'           => $dateVal,
+                        'date_label'     => $dateLabel,
+                        'start_date'     => $startDateLabel,
+                        'start_time'     => $startTimeLabel,
+                        'end_date'       => $endDateLabel,
+                        'end_time'       => $endTimeLabel,
+                        'session_start'  => $rawSessionStart,
+                        'session_end'    => $rawSessionEnd,
+                        'total_agent'    => null,
+                        'data_size'      => $dataSize,
+                        'data_utilize'   => $dataUtilize,
+                        'data_contacted' => $contacted,
+                        'data_unutilize' => max($dataSize - $dataUtilize, 0),
+                        'attempt'        => $row['DialCount'] ?? 0,
+                        'contacted'      => $agentTotal,
+                        'uncontacted'    => max($dataUtilize - $contacted - $abandoned, 0),
+                        'abandoned'      => $abandoned,
+                        'ticket_status'  => $normalizedStatus->toArray(),
+                        'no_status'      => 0,
+                        'duration_pds'   => gmdate('H:i:s', $duration),
+                        '_matched_call_total' => $agentTotal,
+                    ];
+                }
+            }
+
+            if ($noStatusCountGlobal > 0) {
+                $fallbackAgentName = $dialerAgentName;
+                if (!$fallbackAgentName && $allTicketsWithAgent->count() > 0) {
+                    $f = $allTicketsWithAgent->first();
+                    $fallbackAgentName = $f->agent_username ?? $f->DeskCollectorName ?? $f->agent_name ?? '-';
+                }
+                if (!$fallbackAgentName) {
+                    $fallbackAgentName = '-';
+                }
+                $sessionRows[] = [
+                    'id'             => md5(($row['campaign_id'] ?? '') . '|' . ($rawSessionStart ?? '') . '|' . ($rawSessionEnd ?? '') . '|' . $fallbackAgentName . '|nostatus'),
+                    'campaign'       => $campaignName,
+                    'name'           => $campaignName,
+                    'spv'            => $spvName,
+                    'agent'          => is_string($fallbackAgentName) ? $fallbackAgentName : (string) $fallbackAgentName,
+                    'date'           => $dateVal,
+                    'date_label'     => $dateLabel,
+                    'start_date'     => $startDateLabel,
+                    'start_time'     => $startTimeLabel,
+                    'end_date'       => $endDateLabel,
+                    'end_time'       => $endTimeLabel,
+                    'session_start'  => $rawSessionStart,
+                    'session_end'    => $rawSessionEnd,
+                    'total_agent'    => null,
+                    'data_size'      => $dataSize,
+                    'data_utilize'   => $dataUtilize,
+                    'data_contacted' => $contacted,
+                    'data_unutilize' => max($dataSize - $dataUtilize, 0),
+                    'attempt'        => $row['DialCount'] ?? 0,
+                    'contacted'      => $noStatusCountGlobal,
+                    'uncontacted'    => max($dataUtilize - $contacted - $abandoned, 0),
+                    'abandoned'      => $abandoned,
+                    'ticket_status'  => [],
+                    'no_status'      => $noStatusCountGlobal,
+                    'duration_pds'   => gmdate('H:i:s', $duration),
+                    '_matched_call_total' => $noStatusCountGlobal,
+                ];
+            }
+
+            if (count($sessionRows) === 0) {
+                $finalAgent = ($dialerAgentName && trim((string)$dialerAgentName) !== '')
+                    ? (is_string($dialerAgentName) ? $dialerAgentName : (string)$dialerAgentName)
+                    : '-';
+                $sessionRows[] = [
+                    'id'             => md5(($row['campaign_id'] ?? '') . '|' . ($rawSessionStart ?? '') . '|' . ($rawSessionEnd ?? '') . '|' . $finalAgent),
+                    'campaign'       => $campaignName,
+                    'name'           => $campaignName,
+                    'spv'            => $spvName,
+                    'agent'          => $finalAgent,
+                    'date'           => $dateVal,
+                    'date_label'     => $dateLabel,
+                    'start_date'     => $startDateLabel,
+                    'start_time'     => $startTimeLabel,
+                    'end_date'       => $endDateLabel,
+                    'end_time'       => $endTimeLabel,
+                    'session_start'  => $rawSessionStart,
+                    'session_end'    => $rawSessionEnd,
+                    'total_agent'    => null,
+                    'data_size'      => $dataSize,
+                    'data_utilize'   => $dataUtilize,
+                    'data_contacted' => $contacted,
+                    'data_unutilize' => max($dataSize - $dataUtilize, 0),
+                    'attempt'        => $row['DialCount'] ?? 0,
+                    'contacted'      => 0,
+                    'uncontacted'    => max($dataUtilize - $contacted - $abandoned, 0),
+                    'abandoned'      => $abandoned,
+                    'ticket_status'  => [],
+                    'no_status'      => max($noStatusCountGlobal, (int) $contacted),
+                    'duration_pds'   => gmdate('H:i:s', $duration),
+                    '_matched_call_total' => 0,
+                ];
+            }
+
+            return $sessionRows;
         });
 
         $needLocalPagination = $shouldFilterFromLocalQuery || $multiplePds;
