@@ -1085,7 +1085,7 @@ class SetupPdsService
                     ->whereIn('th.ticket_id', $matchedTicketIds)
                     ->select('th.status', 'th.ticket_id', 'company_users.name as agent_username','company_users.code as agent_name','th.agent_id as agent_id','company_users.name as DeskCollectorName')
                     ->orderByDesc('th.created_at');
-                    var_dump($ticketStatus->toSql(), $ticketStatus->getBindings());
+                    dd($ticketStatus->toSql(), $ticketStatus->getBindings());
                     $ticketStatus = $ticketStatus->get()
                     ->unique('ticket_id')
                     ->values();
