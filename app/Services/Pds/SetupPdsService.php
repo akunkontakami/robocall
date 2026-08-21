@@ -1119,14 +1119,7 @@ class SetupPdsService
                 }
             }
 
-            if ($shouldDump) {
-                dump('=== MAP ROW #' . $dumpCount . ' - Agent info extracted from DB ===');
-                dump([
-                    'ticket_histories agent' => $dbAgentFromTicket,
-                    'calls agent fallback' => $dbAgentFromCalls,
-                ]);
-            }
-
+            
             // ========== OVERRIDE $agentName DARI DB (DeskColl) JIKA API DIALER TIDAK PUNYA ==========
             $agentFromDb = $dbAgentFromTicket ?? $dbAgentFromCalls;
             if ($agentFromDb) {
@@ -1135,9 +1128,6 @@ class SetupPdsService
                     ?? $agentFromDb->DeskCollectorName
                     ?? null;
                 if ($agentDbResolved && trim((string)$agentDbResolved) !== '') {
-                    if ($shouldDump) {
-                        dump('=== MAP ROW #' . $dumpCount . ' - $agentName OVERRIDEN from DB. Before: ' . json_encode($agentName ?? '__NULL__') . ' | After: ' . $agentDbResolved . ' ===');
-                    }
                     $agentName = $agentDbResolved;
                 }
             }
