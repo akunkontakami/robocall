@@ -374,7 +374,7 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
 
     private function callStatusOrder(): array
     {
-        return ['PTP', 'CallBack', 'VisitRequestContacted', 'BPPartial', 'NBPA', 'PaidinConfins', 'KP', 'NBPB', 'NBPC', 'VisitRequest'];
+        return ['PTP', 'CallBack', 'BPPartial', 'NBPA', 'NBPB', 'NBPC', 'PaidinConfins', 'KP', 'VisitRequestContacted', 'VisitRequest'];
     }
 
     private function excludedStatuses(): array
@@ -398,7 +398,7 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
             ->values()
             ->all();
 
-        $names = [];
+        $filtered = [];
         foreach ($rawNames as $name) {
             $kn = $this->keyNormalize((string) $name);
             if (in_array($kn, $excluded, true)) {
@@ -414,22 +414,73 @@ class PdsAgentExport implements FromArray, WithHeadings, WithEvents
                 }
             }
             if ($found) {
-                $names[] = (string) $name;
+                $filtered[] = (string) $name;
             }
         }
 
-        if (empty($names)) {
-            $firstRow = $this->data[0] ?? null;
-            if ($firstRow && !empty($firstRow['ticket_status']) && is_array($firstRow['ticket_status'])) {
-                $names = array_keys($firstRow['ticket_status']);
+        $fromPropsSet = [];
+        foreach ($filtered as $s) {
+            $fromPropsSet[$this->keyNormalize($s)] = true;
+        }
+
+        $extra = [];
+        $extraSeen = [];
+        foreach ($this->data as $row) {
+            $ts = $row['ticket_status'] ?? [];
+            if (!is_array($ts)) continue;
+            foreach (array_keys($ts) as $key) {
+                $norm = $this->keyNormalize((string) $key);
+                if (in_array($norm, $excluded, true)) continue;
+                if (isset($fromPropsSet[$norm]) || isset($extraSeen[$norm])) continue;
+                $extraSeen[$norm] = true;
+                $extra[] = (string) $key;
             }
         }
 
-        if (empty($names)) {
-            $names = $order;
+        $aliasToLabel = [];
+        foreach ($aliases as $alias => $variants) {
+            if (!empty($variants)) {
+                $aliasToLabel[$alias] = $variants[0];
+            }
         }
 
-        return $this->visibleOutbounds = $names;
+        $mandatoryLabels = [];
+        foreach ($order as $alias) {
+            if (isset($aliasToLabel[$alias])) {
+                $mandatoryLabels[] = $aliasToLabel[$alias];
+            }
+        }
+
+        $seenCombined = [];
+        $ordered = [];
+        $pushUnique = function ($name) use (&$ordered, &$seenCombined) {
+            $n = $this->keyNormalize((string) $name);
+            if (!$n) return;
+            if (isset($seenCombined[$n])) return;
+            $seenCombined[$n] = true;
+            $ordered[] = (string) $name;
+        };
+
+        foreach ($filtered as $s) $pushUnique($s);
+        foreach ($mandatoryLabels as $s) $pushUnique($s);
+        foreach ($extra as $s) $pushUnique($s);
+
+        if (!empty($ordered)) {
+            return $this->visibleOutbounds = $ordered;
+        }
+
+        $firstRow = $this->data[0] ?? null;
+        if ($firstRow && !empty($firstRow['ticket_status']) && is_array($firstRow['ticket_status'])) {
+            $names = [];
+            foreach (array_keys($firstRow['ticket_status']) as $k) {
+                if (!in_array($this->keyNormalize((string) $k), $excluded, true)) {
+                    $names[] = (string) $k;
+                }
+            }
+            return $this->visibleOutbounds = $names;
+        }
+
+        return $this->visibleOutbounds = $mandatoryLabels;
     }
 
     private function excelColumn(int $index): string
