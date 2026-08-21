@@ -1084,10 +1084,10 @@ class SetupPdsService
                     ->join('company_users', 'company_users.user_id', '=', 'th.agent_id')
                     ->whereIn('th.ticket_id', $matchedTicketIds)
                     ->select('th.status', 'th.ticket_id', 'company_users.name as agent_username','company_users.code as agent_name','th.agent_id as agent_id','company_users.name as DeskCollectorName')
-                    ->orderByDesc('th.created_at')
-                    ->get();
+                    ->orderByDesc('th.created_at');
                     var_dump($ticketStatus->toSql(), $ticketStatus->getBindings());
-                    $ticketStatus = $ticketStatus->unique('ticket_id')
+                    $ticketStatus = $ticketStatus->get()
+                    ->unique('ticket_id')
                     ->values();
                 $firstAgentRow = $ticketStatus->first(function ($r) {
                     return !empty($r->agent_name) || !empty($r->agent_username) || !empty($r->DeskCollectorName);
