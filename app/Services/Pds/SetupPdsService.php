@@ -1107,7 +1107,7 @@ class SetupPdsService
                 $callAgentRow = DB::table('calls as ca')
                     ->join('company_users', 'company_users.user_id', '=', 'ca.agent_id')
                     ->whereIn('ca.ticket_id', $matchedTicketIds)
-                    ->select('company_users.name as agent_username', 'company_users.code as agent_name', 'company_users.name as DeskCollectorName')
+                    ->select('company_users.name as agent_name', 'company_users.code as agent_username', 'company_users.name as DeskCollectorName')
                     ->orderByDesc('ca.start_at')
                     ->first();
                 if ($callAgentRow) {
