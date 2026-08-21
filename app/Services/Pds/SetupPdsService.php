@@ -1040,15 +1040,13 @@ class SetupPdsService
             $agentExtensions = [];
             if ($agentName !== null && trim((string)$agentName) !== '') {
                 $agentExtensions = DB::table('cms_extension')
-                    ->where('agent_login', trim((string)$agentName))
-                    ->pluck('agent_id')
+                    ->join('company_users', 'company_users.user_id', '=', 'cms_extension.agent_id')
+                    ->where('cms_extension.agent_login', trim((string)$agentName))
+                    ->pluck('cms_extension.agent_id')
                     ->all();
             }
-
-            // === QUERY (fixed, 2 tahap, hindari row explosion / memory exhausted) ===
-
+            dd($agentExtensions);
             // 1) Cari ticket_id unik yang match kondisi calls (TANPA join, hindari cross-multiplication)
-            //    KOREKSI: tambahkan filter ca.agent_id per agent biar tidak aggregate semua agen
             $matchedTicketIds = DB::table('calls as ca')
                 ->where('ca.start_at', '>=', $sessionStart)
                 ->where('ca.start_at', '<=', $sessionEnd)
