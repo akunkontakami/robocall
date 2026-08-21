@@ -1088,7 +1088,7 @@ class SetupPdsService
                     ->get()
                     ->unique('ticket_id')
                     ->values();
-
+                    var_dump($ticketStatus->toSql(), $ticketStatus->getBindings());
                 $firstAgentRow = $ticketStatus->first(function ($r) {
                     return !empty($r->agent_name) || !empty($r->agent_username) || !empty($r->DeskCollectorName);
                 });
