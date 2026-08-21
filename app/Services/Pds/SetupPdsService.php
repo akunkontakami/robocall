@@ -1123,9 +1123,9 @@ class SetupPdsService
             // ========== OVERRIDE $agentName DARI DB (DeskColl) JIKA API DIALER TIDAK PUNYA ==========
             $agentFromDb = $dbAgentFromTicket ?? $dbAgentFromCalls;
             if ($agentFromDb) {
-                $agentDbResolved = $agentFromDb->agent_name        // company_users.code (DeskColl)
-                    ?? $agentFromDb->agent_username               // company_users.name
-                    ?? $agentFromDb->DeskCollectorName
+                $agentDbResolved = $agentFromDb->agent_username    // company_users.name (nama agent, contoh: Ari Firdaus)
+                    ?? $agentFromDb->DeskCollectorName             // company_users.name (alias lain)
+                    ?? $agentFromDb->agent_name                    // company_users.code (kode agent, contoh: D136) - fallback terakhir
                     ?? null;
                 if ($agentDbResolved && trim((string)$agentDbResolved) !== '') {
                     $agentName = $agentDbResolved;
