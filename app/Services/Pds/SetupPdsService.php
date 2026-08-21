@@ -1086,7 +1086,7 @@ class SetupPdsService
                     ->whereIn('th.ticket_id', $matchedTicketIds)
                     ->where('calls.category', '=', 'Incoming Call')
                     ->select('th.status', 'calls.category', 'th.ticket_id', 'company_users.name as agent_username','company_users.code as agent_name','th.agent_id as agent_id','company_users.name as DeskCollectorName')
-                    ->groupBy('th.ticket_id')
+                    // ->groupBy('th.ticket_id')
                     ->orderByDesc('th.created_at')
                     ->get()
                     ->unique('ticket_id')
