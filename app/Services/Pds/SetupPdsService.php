@@ -1045,7 +1045,6 @@ class SetupPdsService
                     ->pluck('cms_extension.agent_id')
                     ->all();
             }
-            dd($agentExtensions);
             // 1) Cari ticket_id unik yang match kondisi calls (TANPA join, hindari cross-multiplication)
             $matchedTicketIds = DB::table('calls as ca')
                 ->where('ca.start_at', '>=', $sessionStart)
@@ -1079,15 +1078,71 @@ class SetupPdsService
 
             // 2) Ambil status TERBARU per ticket_id, hanya untuk ticket yang matched di atas
             $ticketStatus = collect();
+            $dbAgentFromTicket = null;
             if ($matchedCallTotal > 0) {
                 $ticketStatus = DB::table('ticket_histories as th')
+                    ->join('company_users', 'company_users.user_id', '=', 'th.agent_id')
                     ->whereIn('th.ticket_id', $matchedTicketIds)
-                    ->select('th.status', 'th.ticket_id')
+                    ->select('th.status', 'th.ticket_id', 'company_users.name as agent_username','company_users.code as agent_name','th.agent_id as agent_id','company_users.name as DeskCollectorName')
                     ->orderByDesc('th.created_at')
                     ->get()
                     ->unique('ticket_id')
                     ->values();
+
+                $firstAgentRow = $ticketStatus->first(function ($r) {
+                    return !empty($r->agent_name) || !empty($r->agent_username) || !empty($r->DeskCollectorName);
+                });
+                if ($firstAgentRow) {
+                    $dbAgentFromTicket = (object) [
+                        'agent_name' => $firstAgentRow->agent_name ?? null,
+                        'agent_username' => $firstAgentRow->agent_username ?? null,
+                        'DeskCollectorName' => $firstAgentRow->DeskCollectorName ?? null,
+                    ];
+                }
             }
+
+            // 2b) Fallback: ambil agent dari tabel calls jika ticket_histories belum nemu agent data
+            $dbAgentFromCalls = null;
+            if ($matchedCallTotal > 0 && !$dbAgentFromTicket) {
+                $callAgentRow = DB::table('calls as ca')
+                    ->join('company_users', 'company_users.user_id', '=', 'ca.agent_id')
+                    ->whereIn('ca.ticket_id', $matchedTicketIds)
+                    ->select('company_users.name as agent_username', 'company_users.code as agent_name', 'company_users.name as DeskCollectorName')
+                    ->orderByDesc('ca.start_at')
+                    ->first();
+                if ($callAgentRow) {
+                    $dbAgentFromCalls = (object)[
+                        'agent_name' => $callAgentRow->agent_name ?? null,
+                        'agent_username' => $callAgentRow->agent_username ?? null,
+                        'DeskCollectorName' => $callAgentRow->DeskCollectorName ?? null,
+                    ];
+                }
+            }
+
+            if ($shouldDump) {
+                dump('=== MAP ROW #' . $dumpCount . ' - Agent info extracted from DB ===');
+                dump([
+                    'ticket_histories agent' => $dbAgentFromTicket,
+                    'calls agent fallback' => $dbAgentFromCalls,
+                ]);
+            }
+
+            // ========== OVERRIDE $agentName DARI DB (DeskColl) JIKA API DIALER TIDAK PUNYA ==========
+            $agentFromDb = $dbAgentFromTicket ?? $dbAgentFromCalls;
+            if ($agentFromDb) {
+                $agentDbResolved = $agentFromDb->agent_name        // company_users.code (DeskColl)
+                    ?? $agentFromDb->agent_username               // company_users.name
+                    ?? $agentFromDb->DeskCollectorName
+                    ?? null;
+                if ($agentDbResolved && trim((string)$agentDbResolved) !== '') {
+                    if ($shouldDump) {
+                        dump('=== MAP ROW #' . $dumpCount . ' - $agentName OVERRIDEN from DB. Before: ' . json_encode($agentName ?? '__NULL__') . ' | After: ' . $agentDbResolved . ' ===');
+                    }
+                    $agentName = $agentDbResolved;
+                }
+            }
+            // ======================================================================================
+
             $ticketStatus = $ticketStatus->groupBy('status')->map(function ($group) {
                 return $group->count();
             });
