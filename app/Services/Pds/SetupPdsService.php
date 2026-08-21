@@ -1082,12 +1082,26 @@ class SetupPdsService
             if ($matchedCallTotal > 0) {
                 $ticketStatus = DB::table('ticket_histories as th')
                     ->join('company_users', 'company_users.user_id', '=', 'th.agent_id')
+                    ->join('calls', 'calls.ticket_id', '=', 'th.ticket_id')
                     ->whereIn('th.ticket_id', $matchedTicketIds)
-                    ->select('th.status', 'th.ticket_id', 'company_users.name as agent_username','company_users.code as agent_name','th.agent_id as agent_id','company_users.name as DeskCollectorName')
+                    ->where('calls.category', '=', 'Incoming Call')
+                    ->select('th.status', 'calls.category', 'th.ticket_id', 'company_users.name as agent_username','company_users.code as agent_name','th.agent_id as agent_id','company_users.name as DeskCollectorName')
+                    ->groupBy('th.ticket_id')
                     ->orderByDesc('th.created_at')
                     ->get()
                     ->unique('ticket_id')
                     ->values();
+
+                $matchedTicketIdsArr = array_values(array_filter(array_map('strval', $matchedTicketIds->all())));
+                $statusTicketIdsArr = array_values(array_filter(array_map('strval', $ticketStatus->pluck('ticket_id')->all())));
+                $statusIdsLookup = array_fill_keys(array_map('strtolower', $statusTicketIdsArr), true);
+                $noStatusFromCategory = 0;
+                foreach ($matchedTicketIdsArr as $mtid) {
+                    if (!isset($statusIdsLookup[strtolower(trim($mtid))])) {
+                        $noStatusFromCategory++;
+                    }
+                }
+                $noStatusCount += $noStatusFromCategory;
                     
                 $firstAgentRow = $ticketStatus->first(function ($r) {
                     return !empty($r->agent_name) || !empty($r->agent_username) || !empty($r->DeskCollectorName);
